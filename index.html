@@ -1057,10 +1057,38 @@ function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustI
   }
   input.addEventListener('input', () => error.classList.add('off'));
 
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = input.value.trim();
-    if (!EMAIL_RE.test(email)) { showErr(COPY[lang].errEmail); return; }
+    applyLang('en');
+
+    // ══════════════════════════════════════════════
+    //  FORM SUBMISSION
+    //  ↓ Replace with your deployed Google Apps Script URL
+    // ══════════════════════════════════════════════
+    const ENDPOINT = 'https://script.google.com/macros/s/AKfycby_K_-IA-izVcluoDJxLQfHdU9JOEvkrYSCQEDBdUUxfvwiAN7FQ7XPkYaU_F9V0LYK/exec';
+
+    const formEl     = document.getElementById('email-form');
+    const inputEl    = document.getElementById('email-input');
+    const submitBtn  = document.getElementById('submit-btn');
+    const ctaSpan    = document.getElementById('t-cta');
+    const errorEl    = document.getElementById('form-error');
+    const successEl  = document.getElementById('success-state');
+    const trustEl    = document.getElementById('t-trust');
+
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove('off');
+      inputEl.classList.remove('shake');
+      // Trigger reflow to restart animation
+      void inputEl.offsetWidth;
+      inputEl.classList.add('shake');
+    }
+
+    function hideError() {
+      errorEl.classList.add('off');
+    }
+
+    inputEl.addEventListener('input', hideError);
 
     error.classList.add('off');
     btn.disabled = true;
