@@ -1036,7 +1036,7 @@ applyLang('en');
 //  ▶ Replace YOUR_GOOGLE_APPS_SCRIPT_URL with your URL
 //  ▶ Use text/plain — required for no-cors mode
 // ══════════════════════════════════════════════════════
-const ENDPOINT = 'YOUR_GOOGLE_APPS_SCRIPT_URL';
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycby_K_-IA-izVcluoDJxLQfHdU9JOEvkrYSCQEDBdUUxfvwiAN7FQ7XPkYaU_F9V0LYK/exec';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustId, successHId, successSubId) {
@@ -1057,53 +1057,22 @@ function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustI
   }
   input.addEventListener('input', () => error.classList.add('off'));
 
-    applyLang('en');
-
-    // ══════════════════════════════════════════════
-    //  FORM SUBMISSION
-    //  ↓ Replace with your deployed Google Apps Script URL
-    // ══════════════════════════════════════════════
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycby_K_-IA-izVcluoDJxLQfHdU9JOEvkrYSCQEDBdUUxfvwiAN7FQ7XPkYaU_F9V0LYK/exec';
-
-    const formEl     = document.getElementById('email-form');
-    const inputEl    = document.getElementById('email-input');
-    const submitBtn  = document.getElementById('submit-btn');
-    const ctaSpan    = document.getElementById('t-cta');
-    const errorEl    = document.getElementById('form-error');
-    const successEl  = document.getElementById('success-state');
-    const trustEl    = document.getElementById('t-trust');
-
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.classList.remove('off');
-      inputEl.classList.remove('shake');
-      // Trigger reflow to restart animation
-      void inputEl.offsetWidth;
-      inputEl.classList.add('shake');
-    }
-
-    function hideError() {
-      errorEl.classList.add('off');
-    }
-
-    inputEl.addEventListener('input', hideError);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = input.value.trim();
+    if (!EMAIL_RE.test(email)) { showErr(COPY[lang].errEmail); return; }
 
     error.classList.add('off');
     btn.disabled = true;
     ctaSpan.textContent = COPY[lang].loading;
 
     try {
-      if (ENDPOINT !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
-        // ✅ FIX: text/plain is a CORS-safe header — body reaches Apps Script
-        await fetch(ENDPOINT, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
-        });
-      }
+      await fetch(ENDPOINT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
+      });
       form.classList.add('off');
       if (trust) trust.classList.add('off');
       success.classList.remove('off');
