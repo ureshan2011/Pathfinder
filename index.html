@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pathfinder — The essential weekly newsletter for Sri Lankans navigating their journey to New Zealand. Visa guides, university insights, and real stories." />
+  <meta property="og:title" content="Pathfinder — Your New Zealand Journey" />
+  <meta property="og:description" content="Expert insights curated for Sri Lankans building a new life in Aotearoa. Free. Weekly." />
+  <title>Pathfinder — Your New Zealand Journey Starts Here</title>
+
+  <!--
+  ═══════════════════════════════════════════════════════════
+  EMAIL STORAGE — Google Sheets + Apps Script (Free, Unlimited)
+  ═══════════════════════════════════════════════════════════
+  Why: Free forever, unlimited rows, familiar spreadsheet UI,
+  easy export, no third-party account needed beyond Google.
+
+  SETUP (5 steps):
+  1. Create a new Google Spreadsheet → name first sheet "Subscribers"
+  2. Extensions → Apps Script → paste the code below → Save
+  3. Deploy → New Deployment → Web App
+       Execute as: Me | Who has access: Anyone → Deploy
+  4. Copy the Web App URL
+  5. Replace YOUR_GOOGLE_APPS_SCRIPT_URL below with that URL
+
+  ──────── Apps Script code (Code.gs) ────────
+  function doPost(e) {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName('Subscribers');
+      const data = JSON.parse(e.postData.contents);
+      if (!sheet.getLastRow()) {
+        sheet.appendRow(['Timestamp', 'Email', 'Language']);
+      }
+      sheet.appendRow([new Date(), data.email, data.lang]);
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  function doGet() {
+    return ContentService.createTextOutput('Pathfinder API running.');
+  }
+  ═══════════════════════════════════════════════════════════
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Plus+Jakarta+Sans:wght@400;600&family=Noto+Sans+Sinhala:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#000a1e',
+            'nz-green': '#add09d',
+            'nz-blue': '#aec7f6',
+          },
+          fontFamily: {
+            headline: ['Montserrat', 'sans-serif'],
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+            sinhala: ['Noto Sans Sinhala', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #000a1e;
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Canvas ── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ── Film grain ── */
+    .grain {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 250px 250px;
+    }
+
+    /* ── Glassmorphism ── */
+    .glass {
+      background: rgba(255, 255, 255, 0.045);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .anim {
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes pingRing {
+      0%   { transform: scale(1);   opacity: 0.7; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .ping-ring {
+      animation: pingRing 2.2s ease-out infinite;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60%  { transform: translateX(-5px); }
+      40%, 80%  { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.38s ease; }
+
+    @keyframes scaleIn {
+      from { transform: scale(0.7); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .scale-in { animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+    /* ── Gradient headline ── */
+    .grad-text {
+      background: linear-gradient(130deg, #add09d 0%, #aec7f6 55%, #c9edb7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Language pills ── */
+    .lang-pill {
+      padding: 5px 15px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      border: none;
+      background: transparent;
+    }
+    .lang-pill.active {
+      background: rgba(255,255,255,0.13);
+      color: #fff;
+    }
+    .lang-pill:hover:not(.active) {
+      color: rgba(255,255,255,0.75);
+    }
+
+    /* ── Email input ── */
+    .email-field {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.11);
+      color: #fff;
+      border-radius: 9999px;
+      outline: none;
+      transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+      width: 100%;
+      padding: 17px 28px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .email-field::placeholder { color: rgba(255,255,255,0.28); }
+    .email-field:focus {
+      border-color: rgba(173,208,157,0.5);
+      background: rgba(255,255,255,0.09);
+      box-shadow: 0 0 0 4px rgba(173,208,157,0.07);
+    }
+
+    /* ── CTA button ── */
+    .cta-btn {
+      background: #fff;
+      color: #000a1e;
+      border-radius: 9999px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      padding: 17px 34px;
+      white-space: nowrap;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), box-shadow 0.28s ease;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .cta-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #f0f7ff 0%, #e8f4e8 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .cta-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .cta-btn:hover::after { opacity: 1; }
+    .cta-btn:active { transform: translateY(-1px); }
+    .cta-btn span { position: relative; z-index: 1; }
+    .cta-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Success icon ── */
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(173,208,157,0.1);
+      border: 1px solid rgba(173,208,157,0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    /* ── Divider for stats ── */
+    .stat-divider { border-right: 1px solid rgba(255,255,255,0.07); }
+
+    /* ── Utility ── */
+    .off { display: none !important; }
+
+    /* ── Responsive form row ── */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    @media (max-width: 560px) {
+      .form-row {
+        flex-direction: column;
+      }
+      .cta-btn {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Aurora canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- Film grain texture -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Page shell -->
+  <div class="relative z-10 min-h-screen flex flex-col">
+
+    <!-- ════════════ NAVBAR ════════════ -->
+    <header class="flex items-center justify-between px-6 md:px-20 pt-8">
+
+      <!-- Brand mark -->
+      <div class="flex items-center gap-2.5">
+        <div class="relative w-6 h-6 flex-shrink-0">
+          <span class="ping-ring absolute inset-0 rounded-full bg-nz-green opacity-60"></span>
+          <svg class="relative z-10" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#add09d"/>
+          </svg>
+        </div>
+        <span class="font-headline font-black text-lg tracking-tight text-white uppercase select-none">Pathfinder</span>
+      </div>
+
+      <!-- Language selector -->
+      <div class="glass rounded-full p-1.5 flex items-center" role="group" aria-label="Select language">
+        <button class="lang-pill active" data-lang="en" aria-pressed="true">EN</button>
+        <button class="lang-pill" data-lang="si" aria-pressed="false">සිං</button>
+      </div>
+
+    </header>
+
+    <!-- ════════════ HERO ════════════ -->
+    <main class="flex-1 flex items-center justify-center px-6 md:px-20 py-14">
+      <div class="w-full max-w-xl mx-auto text-center">
+
+        <!-- Eyebrow badge -->
+        <div class="anim mb-9" style="animation-delay:0.08s">
+          <div class="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5">
+            <span class="w-2 h-2 rounded-full bg-nz-green flex-shrink-0"></span>
+            <span id="t-eyebrow" class="text-nz-green text-xs font-semibold tracking-widest uppercase"></span>
+          </div>
+        </div>
+
+        <!-- Headline -->
+        <h1 class="font-headline font-black tracking-tight mb-6" style="line-height: 1.04;">
+          <span class="anim block text-white" style="animation-delay:0.18s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
+            <span id="t-h1a"></span>
+          </span>
+          <span class="anim block grad-text" style="animation-delay:0.3s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
+            <span id="t-h1b"></span>
+          </span>
+          <span class="anim block text-white" style="animation-delay:0.42s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
+            <span id="t-h1c"></span>
+          </span>
+        </h1>
+
+        <!-- Subtext -->
+        <p id="t-sub"
+           class="anim text-white/50 leading-relaxed max-w-md mx-auto mb-10"
+           style="animation-delay:0.55s; font-size:clamp(0.9rem,2vw,1.05rem)">
+        </p>
+
+        <!-- ── Form block ── -->
+        <div class="anim" style="animation-delay:0.68s">
+
+          <form id="email-form" novalidate>
+            <div class="form-row max-w-md mx-auto">
+              <input
+                type="email"
+                id="email-input"
+                class="email-field flex-1 min-w-0"
+                autocomplete="email"
+                required
+                aria-label="Email address"
+              />
+              <button type="submit" class="cta-btn" id="submit-btn" aria-label="Subscribe">
+                <span id="t-cta"></span>
+              </button>
+            </div>
+            <!-- Inline error -->
+            <p id="form-error" class="off text-red-400 text-sm mt-3" aria-live="polite" role="alert"></p>
+          </form>
+
+          <!-- ── Success state ── -->
+          <div id="success-state" class="off text-center">
+            <div class="success-icon scale-in">
+              <span class="material-symbols-outlined" style="color:#add09d;font-size:30px">check_circle</span>
+            </div>
+            <h2 id="t-success-h" class="font-headline font-bold text-xl text-white mb-2"></h2>
+            <p id="t-success-sub" class="text-white/45 text-sm leading-relaxed"></p>
+          </div>
+
+          <!-- Trust line -->
+          <p id="t-trust" class="text-white/25 text-xs mt-5 tracking-wide"></p>
+
+        </div>
+        <!-- /form block -->
+
+      </div>
+    </main>
+
+    <!-- ════════════ STATS ════════════ -->
+    <section class="anim px-6 md:px-20 pb-10" style="animation-delay:0.88s">
+      <div class="max-w-sm mx-auto">
+        <div class="glass rounded-2xl grid grid-cols-3">
+          <div class="text-center py-5 px-3 stat-divider">
+            <div class="font-headline font-black text-xl text-white">2,400+</div>
+            <div id="t-stat1" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+          </div>
+          <div class="text-center py-5 px-3 stat-divider">
+            <div class="font-headline font-black text-xl" style="color:#add09d">98%</div>
+            <div id="t-stat2" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+          </div>
+          <div class="text-center py-5 px-3">
+            <div class="font-headline font-black text-xl text-white">Free</div>
+            <div id="t-stat3" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════ FOOTER ════════════ -->
+    <footer class="px-6 md:px-20 py-6 border-t border-white/[0.05]">
+      <div class="max-w-xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-white/20 text-xs">
+        <span>© 2026 Pathfinder NZ. <span id="t-rights"></span></span>
+        <nav class="flex gap-5" aria-label="Footer">
+          <a href="#" id="t-privacy" class="hover:text-white/45 transition-colors duration-200"></a>
+          <a href="#" id="t-terms"   class="hover:text-white/45 transition-colors duration-200"></a>
+          <a href="mailto:hello@pathfinder.nz" class="hover:text-white/45 transition-colors duration-200">Contact</a>
+        </nav>
+      </div>
+    </footer>
+
+  </div><!-- /page shell -->
+
+  <script>
+    // ══════════════════════════════════════════════
+    //  AURORA BACKGROUND
+    // ══════════════════════════════════════════════
+    (() => {
+      const canvas = document.getElementById('bg-canvas');
+      const ctx    = canvas.getContext('2d');
+      let W, H;
+
+      const resize = () => {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      };
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Each blob: rgb color, relative size, base speed, opacity
+      const DEFS = [
+        { rgb:[70,95,136],   size:0.60, spd:0.20, op:0.22 },  // surface-tint blue
+        { rgb:[72,102,60],   size:0.52, spd:0.16, op:0.18 },  // fern green
+        { rgb:[0,33,71],     size:0.75, spd:0.12, op:0.38 },  // deep navy
+        { rgb:[174,199,246], size:0.34, spd:0.30, op:0.12 },  // light blue
+        { rgb:[72,102,60],   size:0.42, spd:0.24, op:0.15 },  // green accent
+        { rgb:[90,60,130],   size:0.30, spd:0.36, op:0.09 },  // violet hint
+        { rgb:[70,95,136],   size:0.38, spd:0.28, op:0.13 },  // blue accent
+      ];
+
+      const blobs = DEFS.map((d, i) => ({
+        ...d,
+        x:  Math.random() * window.innerWidth,
+        y:  Math.random() * window.innerHeight,
+        vx: (Math.random() - 0.5) * d.spd,
+        vy: (Math.random() - 0.5) * d.spd,
+        phase: i * 1.3,
+      }));
+
+      const draw = () => {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = '#000a1e';
+        ctx.fillRect(0, 0, W, H);
+
+        const t = Date.now() * 0.0006;
+
+        blobs.forEach((b) => {
+          // Organic drift using sine wave offset
+          b.x += b.vx + Math.sin(t * 0.5 + b.phase) * 0.15;
+          b.y += b.vy + Math.cos(t * 0.4 + b.phase) * 0.15;
+
+          // Wrap around edges
+          const r = Math.min(W, H) * b.size;
+          if (b.x < -r) b.x = W + r;
+          if (b.x > W + r) b.x = -r;
+          if (b.y < -r) b.y = H + r;
+          if (b.y > H + r) b.y = -r;
+
+          const [cr, cg, cb] = b.rgb;
+          const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+          g.addColorStop(0,    `rgba(${cr},${cg},${cb},${b.op})`);
+          g.addColorStop(0.40, `rgba(${cr},${cg},${cb},${(b.op * 0.35).toFixed(3)})`);
+          g.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
+
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        requestAnimationFrame(draw);
+      };
+      draw();
+    })();
+
+    // ══════════════════════════════════════════════
+    //  TRANSLATIONS
+    // ══════════════════════════════════════════════
+    const COPY = {
+      en: {
+        eyebrow:    'Newsletter · Free · Weekly',
+        h1a:        'Your Path to',
+        h1b:        'New Zealand',
+        h1c:        'Starts Here.',
+        sub:        'Expert insights on visas, master\'s programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.',
+        emailPH:    'Enter your email address',
+        cta:        'Join Community',
+        trust:      'Join 2,400+ readers  ·  No spam, ever  ·  Unsubscribe anytime',
+        successH:   "You're in. Welcome aboard!",
+        successSub: 'Check your inbox for a confirmation. Your first issue arrives soon.',
+        stat1:      'Readers',
+        stat2:      'Success Rate',
+        stat3:      'Always',
+        rights:     'All rights reserved.',
+        privacy:    'Privacy',
+        terms:      'Terms',
+        errEmail:   'Please enter a valid email address.',
+        errServer:  'Something went wrong — please try again.',
+        loading:    'Joining…',
+      },
+      si: {
+        eyebrow:    'පුවත් පත්‍රිකාව · නොමිලේ · සතිපතා',
+        h1a:        'ඔබේ ගමනාරම්භය',
+        h1b:        'නව සීලන්තයට',
+        h1c:        'මෙතැනින් ආරම්භ වේ.',
+        sub:        'වීසා, ශාස්ත්‍රපති වැඩසටහන් සහ ස්ථානාන්තරණය පිළිබඳ විශේෂඥ මඟනැඹීම් — ශ්‍රී ලාංකිකයන් සඳහා සතිපතා.',
+        emailPH:    'ඔබේ විද්‍යුත් ලිපිනය ඇතුළු කරන්න',
+        cta:        'ප්‍රජාවට එකතු වන්න',
+        trust:      'පාඨකයන් 2,400+  ·  spam නැත  ·  ඕනෑ වේලාවක ඉවත් වන්න',
+        successH:   'ඔබ ඇතුළු විය! ආදරයෙන් ආයුබෝවන්.',
+        successSub: 'ඔබේ inbox පරීක්ෂා කරන්න. ඔබේ පළමු කලාපය ළඟදීම ලැබේ.',
+        stat1:      'දායකයින්',
+        stat2:      'සාර්ථකත්ව අනු.',
+        stat3:      'සැමවිටම',
+        rights:     'සියලු හිමිකම් ඇවිරිණි.',
+        privacy:    'රහස්‍යතාව',
+        terms:      'නීතිමය කොන්දේසි',
+        errEmail:   'වලංගු විද්‍යුත් ලිපිනයක් ඇතුළු කරන්න.',
+        errServer:  'යමක් වැරදී ගියා. නැවත උත්සාහ කරන්න.',
+        loading:    'සකසමින්…',
+      },
+    };
+
+    // Elements map: translation key → element id
+    const EL = {
+      eyebrow:    't-eyebrow',
+      h1a:        't-h1a',
+      h1b:        't-h1b',
+      h1c:        't-h1c',
+      sub:        't-sub',
+      cta:        't-cta',
+      trust:      't-trust',
+      successH:   't-success-h',
+      successSub: 't-success-sub',
+      stat1:      't-stat1',
+      stat2:      't-stat2',
+      stat3:      't-stat3',
+      rights:     't-rights',
+      privacy:    't-privacy',
+      terms:      't-terms',
+    };
+
+    // Sinhala font applied to these element ids
+    const SI_FONT = ['t-eyebrow','t-h1a','t-h1b','t-h1c','t-sub','t-cta','t-trust',
+                     't-success-h','t-success-sub','t-stat1','t-stat2','t-stat3'];
+
+    let lang = 'en';
+
+    function applyLang(l) {
+      lang = l;
+      const c = COPY[l];
+      const si = l === 'si';
+
+      Object.entries(EL).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (!el || !c[key]) return;
+        el.textContent = c[key];
+        if (SI_FONT.includes(id)) {
+          el.style.fontFamily = si ? "'Noto Sans Sinhala', sans-serif" : '';
+        }
+      });
+
+      const inp = document.getElementById('email-input');
+      inp.placeholder = c.emailPH;
+      if (si) inp.style.fontFamily = "'Noto Sans Sinhala', sans-serif";
+      else    inp.style.fontFamily = '';
+
+      document.documentElement.lang = si ? 'si' : 'en';
+    }
+
+    document.querySelectorAll('.lang-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const l = btn.dataset.lang;
+        if (l === lang) return;
+        document.querySelectorAll('.lang-pill').forEach(b => {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-pressed', String(b === btn));
+        });
+        applyLang(l);
+      });
+    });
+
+    applyLang('en');
+
+    // ══════════════════════════════════════════════
+    //  FORM SUBMISSION
+    //  ↓ Replace with your deployed Google Apps Script URL
+    // ══════════════════════════════════════════════
+    const ENDPOINT = 'YOUR_GOOGLE_APPS_SCRIPT_URL';
+
+    const formEl     = document.getElementById('email-form');
+    const inputEl    = document.getElementById('email-input');
+    const submitBtn  = document.getElementById('submit-btn');
+    const ctaSpan    = document.getElementById('t-cta');
+    const errorEl    = document.getElementById('form-error');
+    const successEl  = document.getElementById('success-state');
+    const trustEl    = document.getElementById('t-trust');
+
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.remove('off');
+      inputEl.classList.remove('shake');
+      // Trigger reflow to restart animation
+      void inputEl.offsetWidth;
+      inputEl.classList.add('shake');
+    }
+
+    function hideError() {
+      errorEl.classList.add('off');
+    }
+
+    inputEl.addEventListener('input', hideError);
+
+    formEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = inputEl.value.trim();
+      const c = COPY[lang];
+
+      if (!EMAIL_RE.test(email)) {
+        showError(c.errEmail);
+        return;
+      }
+
+      hideError();
+      submitBtn.disabled = true;
+      ctaSpan.textContent = c.loading;
+
+      try {
+        if (ENDPOINT !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
+          // no-cors: response is opaque — we assume success
+          await fetch(ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
+          });
+        }
+
+        // Transition to success view
+        formEl.classList.add('off');
+        trustEl.classList.add('off');
+        successEl.classList.remove('off');
+
+      } catch {
+        submitBtn.disabled = false;
+        ctaSpan.textContent = COPY[lang].cta;
+        showError(c.errServer);
+      }
+    });
+  </script>
+
+</body>
+</html>
