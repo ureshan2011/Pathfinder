@@ -122,13 +122,6 @@
     /* Avatar */
     .avatar { width:44px; height:44px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:18px; color:#fff; }
 
-    /* Phone mockup */
-    .phone-outer { background:#1c1829; border-radius:40px; padding:14px; box-shadow:0 32px 80px rgba(28,24,41,.22), inset 0 0 0 1px rgba(255,255,255,.05); }
-    .phone-screen { background:#fff; border-radius:28px; overflow:hidden; height:360px; position:relative; }
-    .phone-notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:80px; height:24px; background:#1c1829; border-radius:0 0 18px 18px; z-index:10; }
-    .phone-msg { border-radius:4px 14px 14px 14px; padding:8px 12px; font-size:11px; line-height:1.45; max-width:78%; }
-    .phone-msg-in  { background:#f0ece6; color:#1c1829; }
-    .phone-msg-out { background:#e8503a; color:#fff; border-radius:14px 4px 14px 14px; align-self:flex-end; }
 
     /* Video modal */
     #video-modal { position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.85); backdrop-filter:blur(20px); display:none; align-items:center; justify-content:center; padding:20px; }
@@ -148,6 +141,29 @@
     #back-top { position:fixed; bottom:28px; right:28px; z-index:200; width:44px; height:44px; border-radius:50%; background:#e8503a; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .3s; opacity:0; transform:translateY(10px); box-shadow:0 4px 16px rgba(232,80,58,.3); }
     #back-top.show { opacity:1; transform:translateY(0); }
     #back-top:hover { background:#c93e2b; transform:translateY(-2px); }
+
+    /* Scroll-animated device mockup */
+    #scroll-mockup { height:80rem; background:#f7f2eb; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:4rem 1.25rem; }
+    #mockup-title  { will-change:transform; text-align:center; margin-bottom:0; }
+    #mockup-card   { will-change:transform; transform-origin:50% 0%; }
+    #mockup-card .browser-content { scrollbar-width:thin; scrollbar-color:rgba(28,24,41,.15) transparent; }
+    @media(max-width:768px) {
+      #scroll-mockup { height:60rem; padding:3rem 1rem; }
+      #mockup-card   { height:26rem !important; }
+    }
+
+    /* Split testimonial */
+    .tst-el { transition:opacity .4s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+    .tst-el.tst-exit  { opacity:0; transform:translateY(-18px); }
+    .tst-el.tst-enter { opacity:0; transform:translateY(18px); }
+    #test-photo-wrap { transition:opacity .5s ease, filter .5s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+    .test-dot { width:8px; height:8px; border-radius:50%; background:rgba(28,24,41,.2); border:1px solid transparent; cursor:pointer; padding:0; transition:all .3s; flex-shrink:0; }
+    .test-dot-active { background:#1c1829; }
+    .test-dot:hover:not(.test-dot-active) { background:rgba(28,24,41,.4); transform:scale(1.15); }
+    @media(max-width:640px) {
+      #testimonial-inner { grid-template-columns:1fr !important; }
+      #test-photo-col { display:none; }
+    }
 
     .off { display:none !important; }
   </style>
@@ -258,70 +274,140 @@
     </div>
   </div>
 
-  <!-- ── Phone mockup ── -->
-  <div class="relative z-10 mt-14 anim" style="animation-delay:.58s;width:230px;">
-    <div class="phone-outer">
-      <div class="phone-screen">
-        <div class="phone-notch"></div>
+</section>
 
-        <!-- Status bar -->
-        <div class="flex items-center justify-between pt-7 px-4 pb-1" style="background:#f7f7f7;">
-          <span style="font-size:10px;font-weight:600;color:#1c1829;">9:41</span>
-          <div class="flex items-center gap-1">
-            <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="2" width="3" height="8" rx="1" fill="#1c1829" opacity=".3"/><rect x="4.5" y="1" width="3" height="9" rx="1" fill="#1c1829" opacity=".5"/><rect x="9" y="0" width="3" height="10" rx="1" fill="#1c1829"/><rect x="13.5" y="1" width="2" height="8" rx="1" fill="#1c1829" opacity=".2"/></svg>
-          </div>
-        </div>
+<!-- ══════════ SCROLL MOCKUP ══════════ -->
+<section id="scroll-mockup">
+  <div style="width:100%;max-width:72rem;margin:0 auto;">
 
-        <!-- Chat header -->
-        <div class="flex items-center gap-2 px-3 py-2" style="border-bottom:1px solid #f0ece6;">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#e8503a,#ff7a5c);">
-            <span class="font-headline font-black text-white" style="font-size:12px;">P</span>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p style="font-size:12px;font-weight:700;color:#1c1829;line-height:1.2;">Hi, Kavindra</p>
-            <p style="font-size:10px;color:#999;">Pathfinder NZ · now</p>
-          </div>
-          <div class="w-6 h-6 rounded-full flex items-center justify-center" style="background:#f0ece6;">
-            <span class="material-symbols-outlined" style="font-size:12px;color:#888;">person</span>
-          </div>
-        </div>
-
-        <!-- Messages -->
-        <div class="flex flex-col gap-2 p-3">
-          <div class="flex gap-2 items-end">
-            <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#e8503a,#ff7a5c);">
-              <span class="font-headline font-black text-white" style="font-size:9px;">P</span>
-            </div>
-            <div class="phone-msg phone-msg-in">
-              🎉 This week's issue is here! New visa policy changes for skilled migrants.
-            </div>
-          </div>
-          <div class="flex gap-2 items-end">
-            <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#e8503a,#ff7a5c);">
-              <span class="font-headline font-black text-white" style="font-size:9px;">P</span>
-            </div>
-            <div class="phone-msg phone-msg-in">
-              3 new scholarships at UoA 🎓 — deadline Jan 30
-            </div>
-          </div>
-          <div class="flex justify-end">
-            <div class="phone-msg phone-msg-out">
-              Amazing, opening now! 👀
-            </div>
-          </div>
-          <div class="flex gap-2 items-end">
-            <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#e8503a,#ff7a5c);">
-              <span class="font-headline font-black text-white" style="font-size:9px;">P</span>
-            </div>
-            <div class="phone-msg phone-msg-in">
-              Let me know if you need help with your application 🙌
-            </div>
-          </div>
-        </div>
+    <!-- Animated headline (translates up on scroll) -->
+    <div id="mockup-title">
+      <div class="section-tag" style="display:inline-flex;margin-bottom:16px;">
+        <span class="material-symbols-outlined" style="font-size:13px;">devices</span>
+        <span>See It in Action</span>
       </div>
+      <h2 class="font-headline font-black uppercase" style="font-size:clamp(2rem,5vw,3.8rem);color:#1c1829;line-height:.94;letter-spacing:-.01em;">
+        Your Weekly Newsletter,<br>
+        <span style="color:#e8503a;">Beautifully Delivered.</span>
+      </h2>
+      <p style="margin-top:12px;font-size:clamp(.9rem,1.8vw,1.05rem);color:rgba(28,24,41,.5);max-width:36rem;margin-left:auto;margin-right:auto;">
+        Every Tuesday, a crisp digest lands in your inbox — visas, scholarships, and life in Aotearoa, all in one scroll.
+      </p>
     </div>
-  </div>
 
+    <!-- Perspective wrapper -->
+    <div style="perspective:1000px;margin-top:-2rem;width:100%;">
+      <!-- Device card — transforms controlled by scroll JS -->
+      <div id="mockup-card"
+           style="max-width:58rem;margin:0 auto;height:38rem;width:100%;
+                  border:4px solid #6C6C6C;background:#222222;border-radius:30px;overflow:hidden;
+                  box-shadow:0 0 #0000004d,0 9px 20px #0000004a,0 37px 37px #00000042,0 84px 50px #00000026,0 149px 60px #0000000a,0 233px 65px #00000003;">
+
+        <!-- Inner screen -->
+        <div style="height:100%;width:100%;border-radius:22px;overflow:hidden;background:#f3f4f6;display:flex;flex-direction:column;">
+
+          <!-- macOS browser chrome -->
+          <div style="background:#2e2e2e;padding:10px 16px;flex-shrink:0;display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <div style="width:12px;height:12px;border-radius:50%;background:#ff5f57;"></div>
+              <div style="width:12px;height:12px;border-radius:50%;background:#febc2e;"></div>
+              <div style="width:12px;height:12px;border-radius:50%;background:#28c840;"></div>
+            </div>
+            <div style="flex:1;background:#3d3d3d;border-radius:6px;padding:5px 14px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.5);text-align:center;max-width:320px;margin:0 auto;">
+              🔒&nbsp; pathfinder.nz
+            </div>
+            <div style="width:72px;flex-shrink:0;"></div>
+          </div>
+
+          <!-- Site nav bar -->
+          <div style="background:#fff;padding:7px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(28,24,41,.06);">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <div style="width:20px;height:20px;background:#1c1829;border-radius:5px;display:flex;align-items:center;justify-content:center;">
+                <span style="color:#fff;font-weight:900;font-size:7px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.02em;">PF</span>
+              </div>
+              <span style="font-weight:900;font-size:11px;color:#1c1829;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">PATHFINDER NZ</span>
+            </div>
+            <div style="display:flex;gap:14px;">
+              <span style="font-size:10px;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;">Why Us</span>
+              <span style="font-size:10px;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;">Stories</span>
+              <span style="font-size:10px;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;">Reviews</span>
+            </div>
+            <div style="background:#e8503a;border-radius:5px;padding:4px 10px;font-size:9px;color:#fff;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">Subscribe Free</div>
+          </div>
+
+          <!-- Scrollable newsletter content -->
+          <div class="browser-content" style="flex:1;overflow-y:auto;background:#f7f2eb;padding:18px 20px;">
+
+            <!-- Issue badge + heading -->
+            <div style="text-align:center;margin-bottom:14px;">
+              <span style="display:inline-block;background:rgba(232,80,58,.1);color:#e8503a;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 10px;border-radius:999px;border:1px solid rgba(232,80,58,.2);font-family:'Plus Jakarta Sans',sans-serif;">ISSUE #52 · MAY 27, 2026</span>
+              <h3 style="font-size:17px;font-weight:900;margin-top:7px;font-family:'Barlow Condensed',sans-serif;color:#1c1829;letter-spacing:-.01em;text-transform:uppercase;line-height:1;">Your Weekly Update Has Arrived</h3>
+              <p style="font-size:10px;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;margin-top:3px;">Trusted by 2,400+ Sri Lankans building a life in Aotearoa</p>
+            </div>
+
+            <!-- Featured article -->
+            <div style="background:#1c1829;border-radius:14px;padding:14px 16px;margin-bottom:9px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
+                <span style="background:#e8503a;color:#fff;font-size:8px;font-weight:700;padding:2px 8px;border-radius:999px;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;">FEATURED</span>
+                <span style="font-size:9px;color:rgba(255,255,255,.35);font-family:'Plus Jakarta Sans',sans-serif;">5 min read</span>
+              </div>
+              <h4 style="font-size:13px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:6px;font-family:'Plus Jakarta Sans',sans-serif;">2026 Skilled Migrant Category: New Points Thresholds &amp; What They Mean For You</h4>
+              <p style="font-size:10px;color:rgba(255,255,255,.5);line-height:1.55;font-family:'Plus Jakarta Sans',sans-serif;">INZ confirmed major changes effective July 2026. Here's the complete breakdown of what changed, who qualifies under the new framework, and how to maximize your EOI score...</p>
+              <div style="margin-top:9px;display:flex;gap:5px;flex-wrap:wrap;">
+                <span style="background:rgba(232,80,58,.2);color:#ff8a75;font-size:8px;padding:2px 7px;border-radius:4px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;">Skilled Migrant</span>
+                <span style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.4);font-size:8px;padding:2px 7px;border-radius:4px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;">Visa Update</span>
+              </div>
+            </div>
+
+            <!-- Two-column cards -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;">
+              <div style="background:#fff;border-radius:12px;padding:11px;border:1px solid rgba(28,24,41,.06);">
+                <span style="background:rgba(217,207,245,.5);color:#7c5cbf;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:'Plus Jakarta Sans',sans-serif;">SCHOLARSHIP</span>
+                <p style="font-size:10px;font-weight:700;margin-top:5px;color:#1c1829;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;">UoA 2026 Merit Award — Applications Now Open</p>
+                <p style="font-size:9px;color:rgba(28,24,41,.4);margin-top:3px;font-family:'Plus Jakarta Sans',sans-serif;">Deadline: Aug 31, 2026</p>
+              </div>
+              <div style="background:#fff;border-radius:12px;padding:11px;border:1px solid rgba(28,24,41,.06);">
+                <span style="background:rgba(247,213,184,.5);color:#c47a3a;font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;font-family:'Plus Jakarta Sans',sans-serif;">HOUSING</span>
+                <p style="font-size:10px;font-weight:700;margin-top:5px;color:#1c1829;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;">Auckland Rental Market: Q2 2026 Report</p>
+                <p style="font-size:9px;color:rgba(28,24,41,.4);margin-top:3px;font-family:'Plus Jakarta Sans',sans-serif;">Avg rent: NZD $680 / week</p>
+              </div>
+            </div>
+
+            <!-- Third article row -->
+            <div style="background:#fff;border-radius:12px;padding:11px 14px;border:1px solid rgba(28,24,41,.06);display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+              <div style="width:44px;height:44px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#0a2535,#2a9d8f);display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:20px;">✈️</span>
+              </div>
+              <div>
+                <span style="background:rgba(232,80,58,.09);color:#e8503a;font-size:8px;font-weight:700;padding:1px 6px;border-radius:4px;font-family:'Plus Jakarta Sans',sans-serif;">RELOCATION</span>
+                <p style="font-size:10px;font-weight:700;margin-top:4px;color:#1c1829;font-family:'Plus Jakarta Sans',sans-serif;">First 30 Days in NZ: The Survival Checklist</p>
+                <p style="font-size:9px;color:rgba(28,24,41,.4);margin-top:2px;font-family:'Plus Jakarta Sans',sans-serif;">IRD number, bank account, SIM card and more →</p>
+              </div>
+            </div>
+
+            <!-- Stats bar -->
+            <div style="background:#1c1829;border-radius:12px;padding:11px 16px;display:flex;justify-content:space-around;align-items:center;">
+              <div style="text-align:center;">
+                <div style="font-size:17px;font-weight:900;color:#e8503a;font-family:'Barlow Condensed',sans-serif;">2,400+</div>
+                <div style="font-size:8px;color:rgba(255,255,255,.4);font-family:'Plus Jakarta Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;margin-top:1px;">Readers</div>
+              </div>
+              <div style="width:1px;height:28px;background:rgba(255,255,255,.1);"></div>
+              <div style="text-align:center;">
+                <div style="font-size:17px;font-weight:900;color:#7c5cbf;font-family:'Barlow Condensed',sans-serif;">52</div>
+                <div style="font-size:8px;color:rgba(255,255,255,.4);font-family:'Plus Jakarta Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;margin-top:1px;">Issues</div>
+              </div>
+              <div style="width:1px;height:28px;background:rgba(255,255,255,.1);"></div>
+              <div style="text-align:center;">
+                <div style="font-size:17px;font-weight:900;color:#28c840;font-family:'Barlow Condensed',sans-serif;">Free</div>
+                <div style="font-size:8px;color:rgba(255,255,255,.4);font-family:'Plus Jakarta Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;margin-top:1px;">Always</div>
+              </div>
+            </div>
+
+          </div><!-- /browser-content -->
+        </div><!-- /inner screen -->
+      </div><!-- /mockup-card -->
+    </div><!-- /perspective wrapper -->
+  </div><!-- /max-width -->
 </section>
 
 <!-- ══════════ MARQUEE ══════════ -->
@@ -516,7 +602,8 @@
 <!-- ══════════ QUOTES ══════════ -->
 <section id="community" class="px-5 md:px-16 py-24" style="background:#fff;">
   <div class="max-w-6xl mx-auto">
-    <div class="text-center mb-14">
+
+    <div class="text-center mb-20">
       <div class="section-tag" data-reveal="up">
         <span class="material-symbols-outlined" style="font-size:13px;">format_quote</span>
         <span id="t-quotes-tag">Community</span>
@@ -527,63 +614,75 @@
       <p id="t-quotes-sub" class="max-w-sm mx-auto mt-4" data-reveal="up" data-delay="1" style="color:rgba(28,24,41,.5);"></p>
     </div>
 
-    <div class="flex gap-5 overflow-x-auto pb-4 -mx-5 px-5 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none" style="scrollbar-width:none;">
+    <!-- Split Testimonial — adapted from Aceternity UI TestimonialsSplit -->
+    <div style="max-width:56rem;margin:0 auto;padding:0 0 88px;" data-reveal="up">
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="0">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(232,80,58,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">Moving to Auckland for my Master's was the best decision I've made. Pathfinder's visa breakdown saved me months of confusion — it's the first newsletter I open every week.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#0d4a6b,#2a9d8f);">K</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Kavindra Perera</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">MSc CS · University of Auckland</p>
+      <!-- Clickable container: click anywhere to advance -->
+      <div id="testimonial-inner"
+           style="display:grid;grid-template-columns:1fr auto;gap:3.5rem;align-items:center;position:relative;cursor:pointer;"
+           onclick="nextTestimonial()">
+
+        <!-- ── Left: text block ── -->
+        <div style="display:flex;flex-direction:column;gap:1.75rem;">
+
+          <!-- Company/city tag -->
+          <div id="tst-company-wrap" class="tst-el">
+            <span style="display:inline-flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;">
+              <span style="width:32px;height:1px;background:rgba(28,24,41,.25);display:inline-block;flex-shrink:0;"></span>
+              <span id="test-company">Auckland</span>
+            </span>
           </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
+
+          <!-- Quote -->
+          <div id="tst-quote-wrap" class="tst-el">
+            <blockquote id="test-quote" style="font-size:clamp(1.35rem,2.6vw,2rem);font-weight:300;line-height:1.38;color:#1c1829;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.015em;">
+              Pathfinder's visa breakdown saved me months of confusion. It's the first newsletter I open every week.
+            </blockquote>
+          </div>
+
+          <!-- Author -->
+          <div id="tst-author-wrap" class="tst-el" style="display:flex;align-items:center;gap:16px;">
+            <div style="width:40px;height:1px;background:rgba(28,24,41,.18);flex-shrink:0;"></div>
+            <div>
+              <p id="test-author-name" style="font-size:14px;font-weight:600;color:#1c1829;font-family:'Plus Jakarta Sans',sans-serif;">Kavindra Perera</p>
+              <p id="test-author-role" style="font-size:12px;color:rgba(28,24,41,.45);font-family:'Plus Jakarta Sans',sans-serif;margin-top:2px;">MSc CS · University of Auckland</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Right: portrait photo ── -->
+        <div id="test-photo-col" style="position:relative;flex-shrink:0;"
+             onmouseenter="document.getElementById('test-next-hint').style.opacity='1'"
+             onmouseleave="document.getElementById('test-next-hint').style.opacity='0'">
+          <div id="test-photo-wrap"
+               style="width:176px;height:232px;border-radius:18px;overflow:hidden;border:1.5px solid rgba(28,24,41,.08);">
+            <img id="test-photo"
+                 src="https://randomuser.me/api/portraits/men/32.jpg"
+                 alt=""
+                 style="width:100%;height:100%;object-fit:cover;display:block;">
+          </div>
+          <!-- Hover hint -->
+          <div id="test-next-hint"
+               style="position:absolute;bottom:-36px;left:50%;transform:translateX(-50%);opacity:0;transition:opacity .2s;
+                      display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(28,24,41,.4);
+                      font-family:'Plus Jakarta Sans',sans-serif;white-space:nowrap;pointer-events:none;">
+            <span>Next</span>
+            <!-- ArrowUpRight (lucide) -->
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 17 10-10"/><path d="M7 7h10v10"/>
+            </svg>
           </div>
         </div>
-      </div>
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="1">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(124,92,191,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">I got 60% scholarship funding for my MBA through a program I'd never have found on my own. The University Insider section alone is worth its weight in gold.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#2d1580,#7c3aed);">D</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Dilini Wijesinghe</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">MBA · Victoria University</p>
-          </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-          </div>
-        </div>
-      </div>
+      </div><!-- /testimonial-inner -->
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="2">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(196,122,58,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">From visa checklists to finding flatmates in Christchurch — every issue had exactly what I needed. This is an absolute must-read for any Sri Lankan heading to New Zealand.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#7a3a00,#d97706);">R</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Ruwan Abeykoon</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">BE Engineering · Canterbury</p>
-          </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-          </div>
-        </div>
+      <!-- Progress dots -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:3.5rem;">
+        <button class="test-dot test-dot-active" onclick="goToTestimonial(event,0)" aria-label="Testimonial 1"></button>
+        <button class="test-dot"                 onclick="goToTestimonial(event,1)" aria-label="Testimonial 2"></button>
+        <button class="test-dot"                 onclick="goToTestimonial(event,2)" aria-label="Testimonial 3"></button>
       </div>
 
     </div>
@@ -881,6 +980,129 @@ function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustI
 
 setupForm('email-form',  'email-input',  'submit-btn',  't-cta',     'form-error',  'success-state',  't-trust');
 setupForm('email-form-2','email-input-2','submit-btn-2','t-cta2-btn','form-error-2','success-state-2','t-trust-2');
+
+// ── Scroll-driven ContainerScroll animation ──────────────────────────────────
+// Replicates framer-motion ContainerScroll: rotateX 20→0, scale 1.05→1,
+// header translateY 0→-100px, all driven by scrollYProgress of the section.
+(() => {
+  const section = document.getElementById('scroll-mockup');
+  const card    = document.getElementById('mockup-card');
+  const title   = document.getElementById('mockup-title');
+  if (!section || !card) return;
+
+  // Set initial tilted state immediately so there's no flash of flat card
+  card.style.transform = 'rotateX(20deg) scale(1.05)';
+
+  function tick() {
+    const rect = section.getBoundingClientRect();
+    const wh   = window.innerHeight;
+    const eh   = section.offsetHeight;
+
+    // progress: 0 when section bottom enters viewport, 1 when section top leaves
+    // matches framer-motion useScroll({ target }) semantics
+    const progress = Math.max(0, Math.min(1, 1 - rect.bottom / (wh + eh)));
+
+    const rotateX  = 20   * (1 - progress);        // 20deg → 0deg
+    const scale    = 1.05 - 0.05 * progress;        // 1.05  → 1.0
+    const transY   = -100 * progress;               // 0px   → -100px
+
+    card.style.transform  = `rotateX(${rotateX.toFixed(3)}deg) scale(${scale.toFixed(4)})`;
+    if (title) title.style.transform = `translateY(${transY.toFixed(2)}px)`;
+  }
+
+  window.addEventListener('scroll', tick, { passive: true });
+  window.addEventListener('resize', tick, { passive: true });
+  tick(); // apply on load
+})();
+
+// ── Split Testimonial (adapted from Aceternity TestimonialsSplit) ─────────────
+// AnimatePresence mode="wait" → exit finishes before enter begins
+// rotateX/scale/blur on image; translateY on text els
+const TESTIMONIALS_DATA = [
+  {
+    quote: "Pathfinder's visa breakdown saved me months of confusion. It's the first newsletter I open every week.",
+    name:  "Kavindra Perera",
+    role:  "MSc CS · University of Auckland",
+    city:  "Auckland",
+    img:   "https://randomuser.me/api/portraits/men/32.jpg",
+  },
+  {
+    quote: "I found 60% scholarship funding through a program I'd never have discovered without Pathfinder. The University Insider section alone changed everything.",
+    name:  "Dilini Wijesinghe",
+    role:  "MBA · Victoria University",
+    city:  "Wellington",
+    img:   "https://randomuser.me/api/portraits/women/44.jpg",
+  },
+  {
+    quote: "From visa checklists to finding flatmates in Christchurch — every issue had exactly what I needed for my move to Aotearoa.",
+    name:  "Ruwan Abeykoon",
+    role:  "BE Engineering · Canterbury",
+    city:  "Christchurch",
+    img:   "https://randomuser.me/api/portraits/men/57.jpg",
+  },
+];
+
+let testActive = 0;
+let testBusy   = false;
+
+function transitionTestimonial(newIdx) {
+  if (newIdx === testActive || testBusy) return;
+  testBusy = true;
+
+  const textEls  = document.querySelectorAll('.tst-el');
+  const photoWrap = document.getElementById('test-photo-wrap');
+
+  // ── Exit phase ──
+  textEls.forEach(el => el.classList.add('tst-exit'));
+  if (photoWrap) {
+    photoWrap.style.opacity   = '0';
+    photoWrap.style.filter    = 'blur(18px)';
+    photoWrap.style.transform = 'scale(1.04)';
+  }
+
+  setTimeout(() => {
+    testActive = newIdx;
+    const t = TESTIMONIALS_DATA[testActive];
+
+    // Update content
+    document.getElementById('test-quote').textContent       = t.quote;
+    document.getElementById('test-company').textContent     = t.city;
+    document.getElementById('test-author-name').textContent = t.name;
+    document.getElementById('test-author-role').textContent = t.role;
+    const img = document.getElementById('test-photo');
+    if (img) img.src = t.img;
+
+    // Update dot states
+    document.querySelectorAll('.test-dot').forEach((dot, i) => {
+      dot.classList.toggle('test-dot-active', i === testActive);
+    });
+
+    // ── Enter phase: set starting position ──
+    textEls.forEach(el => { el.classList.remove('tst-exit'); el.classList.add('tst-enter'); });
+    if (photoWrap) photoWrap.style.transform = 'scale(0.96)';
+
+    // Double rAF ensures the browser paints the enter state before transitioning out
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      textEls.forEach(el => el.classList.remove('tst-enter'));
+      if (photoWrap) {
+        photoWrap.style.opacity   = '1';
+        photoWrap.style.filter    = 'blur(0px)';
+        photoWrap.style.transform = 'scale(1)';
+      }
+      // Unlock after enter transition (~500ms)
+      setTimeout(() => { testBusy = false; }, 520);
+    }));
+  }, 400);
+}
+
+function nextTestimonial() {
+  transitionTestimonial((testActive + 1) % TESTIMONIALS_DATA.length);
+}
+
+function goToTestimonial(e, idx) {
+  e.stopPropagation();
+  transitionTestimonial(idx);
+}
 </script>
 
 </body>
