@@ -152,6 +152,19 @@
       #mockup-card   { height:26rem !important; }
     }
 
+    /* Split testimonial */
+    .tst-el { transition:opacity .4s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+    .tst-el.tst-exit  { opacity:0; transform:translateY(-18px); }
+    .tst-el.tst-enter { opacity:0; transform:translateY(18px); }
+    #test-photo-wrap { transition:opacity .5s ease, filter .5s ease, transform .5s cubic-bezier(.22,1,.36,1); }
+    .test-dot { width:8px; height:8px; border-radius:50%; background:rgba(28,24,41,.2); border:1px solid transparent; cursor:pointer; padding:0; transition:all .3s; flex-shrink:0; }
+    .test-dot-active { background:#1c1829; }
+    .test-dot:hover:not(.test-dot-active) { background:rgba(28,24,41,.4); transform:scale(1.15); }
+    @media(max-width:640px) {
+      #testimonial-inner { grid-template-columns:1fr !important; }
+      #test-photo-col { display:none; }
+    }
+
     .off { display:none !important; }
   </style>
 </head>
@@ -589,7 +602,8 @@
 <!-- ══════════ QUOTES ══════════ -->
 <section id="community" class="px-5 md:px-16 py-24" style="background:#fff;">
   <div class="max-w-6xl mx-auto">
-    <div class="text-center mb-14">
+
+    <div class="text-center mb-20">
       <div class="section-tag" data-reveal="up">
         <span class="material-symbols-outlined" style="font-size:13px;">format_quote</span>
         <span id="t-quotes-tag">Community</span>
@@ -600,63 +614,75 @@
       <p id="t-quotes-sub" class="max-w-sm mx-auto mt-4" data-reveal="up" data-delay="1" style="color:rgba(28,24,41,.5);"></p>
     </div>
 
-    <div class="flex gap-5 overflow-x-auto pb-4 -mx-5 px-5 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none" style="scrollbar-width:none;">
+    <!-- Split Testimonial — adapted from Aceternity UI TestimonialsSplit -->
+    <div style="max-width:56rem;margin:0 auto;padding:0 0 88px;" data-reveal="up">
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="0">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(232,80,58,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">Moving to Auckland for my Master's was the best decision I've made. Pathfinder's visa breakdown saved me months of confusion — it's the first newsletter I open every week.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#0d4a6b,#2a9d8f);">K</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Kavindra Perera</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">MSc CS · University of Auckland</p>
+      <!-- Clickable container: click anywhere to advance -->
+      <div id="testimonial-inner"
+           style="display:grid;grid-template-columns:1fr auto;gap:3.5rem;align-items:center;position:relative;cursor:pointer;"
+           onclick="nextTestimonial()">
+
+        <!-- ── Left: text block ── -->
+        <div style="display:flex;flex-direction:column;gap:1.75rem;">
+
+          <!-- Company/city tag -->
+          <div id="tst-company-wrap" class="tst-el">
+            <span style="display:inline-flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(28,24,41,.4);font-family:'Plus Jakarta Sans',sans-serif;">
+              <span style="width:32px;height:1px;background:rgba(28,24,41,.25);display:inline-block;flex-shrink:0;"></span>
+              <span id="test-company">Auckland</span>
+            </span>
           </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
+
+          <!-- Quote -->
+          <div id="tst-quote-wrap" class="tst-el">
+            <blockquote id="test-quote" style="font-size:clamp(1.35rem,2.6vw,2rem);font-weight:300;line-height:1.38;color:#1c1829;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.015em;">
+              Pathfinder's visa breakdown saved me months of confusion. It's the first newsletter I open every week.
+            </blockquote>
+          </div>
+
+          <!-- Author -->
+          <div id="tst-author-wrap" class="tst-el" style="display:flex;align-items:center;gap:16px;">
+            <div style="width:40px;height:1px;background:rgba(28,24,41,.18);flex-shrink:0;"></div>
+            <div>
+              <p id="test-author-name" style="font-size:14px;font-weight:600;color:#1c1829;font-family:'Plus Jakarta Sans',sans-serif;">Kavindra Perera</p>
+              <p id="test-author-role" style="font-size:12px;color:rgba(28,24,41,.45);font-family:'Plus Jakarta Sans',sans-serif;margin-top:2px;">MSc CS · University of Auckland</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ── Right: portrait photo ── -->
+        <div id="test-photo-col" style="position:relative;flex-shrink:0;"
+             onmouseenter="document.getElementById('test-next-hint').style.opacity='1'"
+             onmouseleave="document.getElementById('test-next-hint').style.opacity='0'">
+          <div id="test-photo-wrap"
+               style="width:176px;height:232px;border-radius:18px;overflow:hidden;border:1.5px solid rgba(28,24,41,.08);">
+            <img id="test-photo"
+                 src="https://randomuser.me/api/portraits/men/32.jpg"
+                 alt=""
+                 style="width:100%;height:100%;object-fit:cover;display:block;">
+          </div>
+          <!-- Hover hint -->
+          <div id="test-next-hint"
+               style="position:absolute;bottom:-36px;left:50%;transform:translateX(-50%);opacity:0;transition:opacity .2s;
+                      display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(28,24,41,.4);
+                      font-family:'Plus Jakarta Sans',sans-serif;white-space:nowrap;pointer-events:none;">
+            <span>Next</span>
+            <!-- ArrowUpRight (lucide) -->
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 17 10-10"/><path d="M7 7h10v10"/>
+            </svg>
           </div>
         </div>
-      </div>
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="1">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(124,92,191,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">I got 60% scholarship funding for my MBA through a program I'd never have found on my own. The University Insider section alone is worth its weight in gold.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#2d1580,#7c3aed);">D</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Dilini Wijesinghe</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">MBA · Victoria University</p>
-          </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-          </div>
-        </div>
-      </div>
+      </div><!-- /testimonial-inner -->
 
-      <div class="quote-card w-[82vw] md:w-auto snap-start" data-reveal="up" data-delay="2">
-        <div class="font-headline font-black mb-4 leading-none" style="font-size:3rem;color:rgba(196,122,58,.25);">&ldquo;</div>
-        <p class="leading-relaxed text-sm mb-6" style="color:rgba(28,24,41,.75);">From visa checklists to finding flatmates in Christchurch — every issue had exactly what I needed. This is an absolute must-read for any Sri Lankan heading to New Zealand.</p>
-        <div class="flex items-center gap-3">
-          <div class="avatar" style="background:linear-gradient(135deg,#7a3a00,#d97706);">R</div>
-          <div class="flex-1 min-w-0">
-            <p class="font-headline font-black text-base" style="color:#1c1829;">Ruwan Abeykoon</p>
-            <p class="text-xs mt-0.5 truncate" style="color:rgba(28,24,41,.4);">BE Engineering · Canterbury</p>
-          </div>
-          <div class="flex gap-0.5 flex-shrink-0">
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-            <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b;">star</span>
-          </div>
-        </div>
+      <!-- Progress dots -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:3.5rem;">
+        <button class="test-dot test-dot-active" onclick="goToTestimonial(event,0)" aria-label="Testimonial 1"></button>
+        <button class="test-dot"                 onclick="goToTestimonial(event,1)" aria-label="Testimonial 2"></button>
+        <button class="test-dot"                 onclick="goToTestimonial(event,2)" aria-label="Testimonial 3"></button>
       </div>
 
     </div>
@@ -988,6 +1014,95 @@ setupForm('email-form-2','email-input-2','submit-btn-2','t-cta2-btn','form-error
   window.addEventListener('resize', tick, { passive: true });
   tick(); // apply on load
 })();
+
+// ── Split Testimonial (adapted from Aceternity TestimonialsSplit) ─────────────
+// AnimatePresence mode="wait" → exit finishes before enter begins
+// rotateX/scale/blur on image; translateY on text els
+const TESTIMONIALS_DATA = [
+  {
+    quote: "Pathfinder's visa breakdown saved me months of confusion. It's the first newsletter I open every week.",
+    name:  "Kavindra Perera",
+    role:  "MSc CS · University of Auckland",
+    city:  "Auckland",
+    img:   "https://randomuser.me/api/portraits/men/32.jpg",
+  },
+  {
+    quote: "I found 60% scholarship funding through a program I'd never have discovered without Pathfinder. The University Insider section alone changed everything.",
+    name:  "Dilini Wijesinghe",
+    role:  "MBA · Victoria University",
+    city:  "Wellington",
+    img:   "https://randomuser.me/api/portraits/women/44.jpg",
+  },
+  {
+    quote: "From visa checklists to finding flatmates in Christchurch — every issue had exactly what I needed for my move to Aotearoa.",
+    name:  "Ruwan Abeykoon",
+    role:  "BE Engineering · Canterbury",
+    city:  "Christchurch",
+    img:   "https://randomuser.me/api/portraits/men/57.jpg",
+  },
+];
+
+let testActive = 0;
+let testBusy   = false;
+
+function transitionTestimonial(newIdx) {
+  if (newIdx === testActive || testBusy) return;
+  testBusy = true;
+
+  const textEls  = document.querySelectorAll('.tst-el');
+  const photoWrap = document.getElementById('test-photo-wrap');
+
+  // ── Exit phase ──
+  textEls.forEach(el => el.classList.add('tst-exit'));
+  if (photoWrap) {
+    photoWrap.style.opacity   = '0';
+    photoWrap.style.filter    = 'blur(18px)';
+    photoWrap.style.transform = 'scale(1.04)';
+  }
+
+  setTimeout(() => {
+    testActive = newIdx;
+    const t = TESTIMONIALS_DATA[testActive];
+
+    // Update content
+    document.getElementById('test-quote').textContent       = t.quote;
+    document.getElementById('test-company').textContent     = t.city;
+    document.getElementById('test-author-name').textContent = t.name;
+    document.getElementById('test-author-role').textContent = t.role;
+    const img = document.getElementById('test-photo');
+    if (img) img.src = t.img;
+
+    // Update dot states
+    document.querySelectorAll('.test-dot').forEach((dot, i) => {
+      dot.classList.toggle('test-dot-active', i === testActive);
+    });
+
+    // ── Enter phase: set starting position ──
+    textEls.forEach(el => { el.classList.remove('tst-exit'); el.classList.add('tst-enter'); });
+    if (photoWrap) photoWrap.style.transform = 'scale(0.96)';
+
+    // Double rAF ensures the browser paints the enter state before transitioning out
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      textEls.forEach(el => el.classList.remove('tst-enter'));
+      if (photoWrap) {
+        photoWrap.style.opacity   = '1';
+        photoWrap.style.filter    = 'blur(0px)';
+        photoWrap.style.transform = 'scale(1)';
+      }
+      // Unlock after enter transition (~500ms)
+      setTimeout(() => { testBusy = false; }, 520);
+    }));
+  }, 400);
+}
+
+function nextTestimonial() {
+  transitionTestimonial((testActive + 1) % TESTIMONIALS_DATA.length);
+}
+
+function goToTestimonial(e, idx) {
+  e.stopPropagation();
+  transitionTestimonial(idx);
+}
 </script>
 
 </body>
