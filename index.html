@@ -3,65 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Pathfinder — The essential weekly newsletter for Sri Lankans navigating their journey to New Zealand." />
-  <title>Pathfinder — Your New Zealand Journey Starts Here</title>
+  <meta name="description" content="Pathfinder — The essential weekly newsletter for Sri Lankans navigating their journey to New Zealand. Visa guides, scholarships, real stories." />
+  <meta property="og:title" content="Pathfinder NZ" />
+  <meta property="og:description" content="Expert insights for Sri Lankans building a new life in Aotearoa. Free. Weekly." />
+  <title>Pathfinder NZ — Your Journey to Aotearoa</title>
 
   <!--
-  ══════════════════════════════════════════════════════════
-  EMAIL STORAGE — Google Sheets + Apps Script (Free, Unlimited)
-  ══════════════════════════════════════════════════════════
-  IMPORTANT FIX: Apps Script must use e.postData.contents
-  with Content-Type text/plain (no-cors compatible).
-
-  SETUP:
-  1. Create a Google Spreadsheet. Name first sheet "Subscribers".
-  2. Extensions → Apps Script → replace all code with below → Save.
-  3. Deploy → New Deployment → Web App
-       Execute as: Me  |  Who has access: Anyone  → Deploy.
-  4. Copy the deployment URL.
-  5. Replace YOUR_GOOGLE_APPS_SCRIPT_URL near the bottom of this file.
-
-  ── Code.gs ──────────────────────────────────────────────
-  function doPost(e) {
-    try {
-      const sheet = SpreadsheetApp.getActiveSpreadsheet()
-                      .getSheetByName('Subscribers');
-      if (!sheet.getLastRow())
-        sheet.appendRow(['Timestamp', 'Email', 'Language']);
-      const d = JSON.parse(e.postData.contents);
-      sheet.appendRow([new Date(), d.email, d.lang]);
-      return ContentService
-        .createTextOutput(JSON.stringify({ success: true }))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch(err) {
-      return ContentService
-        .createTextOutput(JSON.stringify({ success: false }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-  function doGet() {
-    return ContentService.createTextOutput('Pathfinder API running.');
-  }
-  ──────────────────────────────────────────────────────────
-  WHY text/plain? fetch() mode:"no-cors" only allows CORS-safe
-  headers. "application/json" gets stripped → Apps Script never
-  receives the body. "text/plain" is safe; the JSON body still
-  arrives in e.postData.contents and parses normally.
-  ══════════════════════════════════════════════════════════
+  EMAIL BACKEND — Google Sheets + Apps Script
+  The Apps Script URL is set in ENDPOINT below (~line 1050).
+  Content-Type must be text/plain for no-cors mode.
+  See previous comments for full setup instructions.
   -->
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,900;1,700&family=Plus+Jakarta+Sans:wght@400;600&family=Noto+Sans+Sinhala:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,700;0,900;1,700&family=Plus+Jakarta+Sans:wght@400;500;600&family=Noto+Sans+Sinhala:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            primary: '#000a1e',
-            'nz-green': '#add09d',
-            'nz-blue': '#aec7f6',
+            bg: '#050b14',
+            teal: '#00d4aa',
+            'teal-dim': '#00a884',
+            violet: '#7c3aed',
+            'blue-accent': '#3b82f6',
+            gold: '#f59e0b',
           },
           fontFamily: {
             headline: ['Montserrat','sans-serif'],
@@ -76,72 +44,70 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html{scroll-behavior:smooth}
+    body{min-height:100vh;background:#050b14;color:#fff;font-family:'Plus Jakarta Sans',sans-serif;overflow-x:hidden}
 
-    body {
-      min-height:100vh;
-      background:#000a1e;
-      color:#fff;
-      font-family:'Plus Jakarta Sans',sans-serif;
-      overflow-x:hidden;
-    }
-
-    /* ── Fixed layers ── */
+    /* ── Canvas layers ── */
     #bg-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
-
-    .grain{
-      position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.038;
+    .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.025;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-size:250px;
-    }
+      background-size:250px}
 
-    #cursor-glow{
-      position:fixed;width:480px;height:480px;border-radius:50%;
-      background:radial-gradient(circle,rgba(173,208,157,.05) 0%,transparent 68%);
+    /* ── Cursor glow ── */
+    #cursor-glow{position:fixed;width:600px;height:600px;border-radius:50%;
+      background:radial-gradient(circle,rgba(0,212,170,.06) 0%,transparent 65%);
       pointer-events:none;z-index:2;transform:translate(-50%,-50%);
-      transition:left .12s ease,top .12s ease;
-    }
+      transition:left .15s ease,top .15s ease}
 
-    /* ── Scroll progress ── */
-    #progress-bar{
-      position:fixed;top:0;left:0;height:2px;z-index:1000;
-      background:linear-gradient(90deg,#add09d,#aec7f6);
-      transform-origin:left;transform:scaleX(0);
-      transition:transform .08s linear;
-    }
+    /* ── Progress bar ── */
+    #progress-bar{position:fixed;top:0;left:0;height:2px;z-index:1000;width:100%;
+      background:linear-gradient(90deg,#00d4aa,#7c3aed,#3b82f6);
+      transform-origin:left;transform:scaleX(0);transition:transform .08s linear}
 
-    /* ── Glass ── */
-    .glass{
-      background:rgba(255,255,255,.045);
-      backdrop-filter:blur(24px) saturate(160%);
-      -webkit-backdrop-filter:blur(24px) saturate(160%);
-      border:1px solid rgba(255,255,255,.08);
-    }
-    .glass-heavy{
-      background:rgba(255,255,255,.07);
-      backdrop-filter:blur(32px) saturate(180%);
-      -webkit-backdrop-filter:blur(32px) saturate(180%);
-      border:1px solid rgba(255,255,255,.12);
-    }
+    /* ── Glassmorphism ── */
+    .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(20px) saturate(150%);
+      -webkit-backdrop-filter:blur(20px) saturate(150%);border:1px solid rgba(255,255,255,.08)}
+    .glass-md{background:rgba(255,255,255,.06);backdrop-filter:blur(28px) saturate(160%);
+      -webkit-backdrop-filter:blur(28px) saturate(160%);border:1px solid rgba(255,255,255,.1)}
+    .glass-dark{background:rgba(5,11,20,.7);backdrop-filter:blur(32px);
+      -webkit-backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.08)}
+
+    /* ── Gradient borders ── */
+    .gb-teal{position:relative}
+    .gb-teal::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;
+      background:linear-gradient(135deg,rgba(0,212,170,.6),rgba(0,212,170,.1));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+    .gb-violet{position:relative}
+    .gb-violet::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;
+      background:linear-gradient(135deg,rgba(124,58,237,.6),rgba(124,58,237,.1));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+    .gb-blue{position:relative}
+    .gb-blue::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;
+      background:linear-gradient(135deg,rgba(59,130,246,.6),rgba(59,130,246,.1));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+    .gb-gold{position:relative}
+    .gb-gold::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;
+      background:linear-gradient(135deg,rgba(245,158,11,.6),rgba(245,158,11,.1));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 
     /* ── Scroll reveal ── */
-    [data-reveal]{
-      opacity:0;
-      transition:opacity .85s cubic-bezier(.22,1,.36,1),
-                 transform .85s cubic-bezier(.22,1,.36,1);
-    }
-    [data-reveal="up"]   {transform:translateY(52px)}
-    [data-reveal="left"] {transform:translateX(-52px)}
-    [data-reveal="right"]{transform:translateX(52px)}
-    [data-reveal="scale"]{transform:scale(.88)}
-    [data-reveal="blur"] {transform:translateY(24px);filter:blur(8px)}
+    [data-reveal]{opacity:0;transition:opacity .85s cubic-bezier(.22,1,.36,1),transform .85s cubic-bezier(.22,1,.36,1),filter .85s ease}
+    [data-reveal="up"]   {transform:translateY(56px)}
+    [data-reveal="left"] {transform:translateX(-56px)}
+    [data-reveal="right"]{transform:translateX(56px)}
+    [data-reveal="scale"]{transform:scale(.88);filter:blur(4px)}
     [data-reveal].visible{opacity:1;transform:none;filter:none}
 
-    /* ── Animations ── */
+    /* ── Keyframe animations ── */
     @keyframes fadeUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
     .anim{opacity:0;animation:fadeUp .9s cubic-bezier(.22,1,.36,1) forwards}
 
-    @keyframes pingRing{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
-    .ping-ring{animation:pingRing 2.4s ease-out infinite}
+    @keyframes spin-slow{to{transform:rotate(360deg)}}
+    @keyframes pulse-ring{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.8);opacity:0}}
+    .ping{animation:pulse-ring 2.4s ease-out infinite}
 
     @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
     .shake{animation:shake .38s ease}
@@ -150,380 +116,394 @@
     .scale-in{animation:scaleIn .5s cubic-bezier(.34,1.56,.64,1) forwards}
 
     @keyframes marqueeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-    .marquee-track{animation:marqueeScroll 32s linear infinite}
+    .marquee-track{animation:marqueeScroll 35s linear infinite;display:flex;gap:0}
     .marquee-track:hover{animation-play-state:paused}
 
     @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .float{animation:float 4s ease-in-out infinite}
+    .float-delay{animation:float 4s ease-in-out infinite;animation-delay:1.5s}
+
+    @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
 
     /* ── Gradient text ── */
-    .grad{
-      background:linear-gradient(130deg,#add09d 0%,#aec7f6 55%,#c9edb7 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    }
+    .grad-teal{background:linear-gradient(135deg,#00d4aa,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .grad-full{background:linear-gradient(135deg,#00d4aa 0%,#7c3aed 50%,#3b82f6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .grad-warm{background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+    /* ── Nav ── */
+    .nav-scrolled{background:rgba(5,11,20,.85)!important;backdrop-filter:blur(24px)!important;border-bottom:1px solid rgba(255,255,255,.06)!important;padding-top:12px!important;padding-bottom:12px!important}
 
     /* ── Language pills ── */
-    .lang-pill{
-      padding:5px 15px;border-radius:9999px;font-size:12px;font-weight:600;
-      letter-spacing:.04em;color:rgba(255,255,255,.45);cursor:pointer;
-      transition:all .25s ease;border:none;background:transparent;
-    }
-    .lang-pill.active{background:rgba(255,255,255,.13);color:#fff}
-    .lang-pill:hover:not(.active){color:rgba(255,255,255,.75)}
+    .lang-pill{padding:5px 14px;border-radius:9999px;font-size:12px;font-weight:600;letter-spacing:.04em;color:rgba(255,255,255,.4);cursor:pointer;transition:all .25s ease;border:none;background:transparent}
+    .lang-pill.active{background:rgba(0,212,170,.15);color:#00d4aa;border:1px solid rgba(0,212,170,.3)}
+    .lang-pill:hover:not(.active){color:rgba(255,255,255,.7)}
 
     /* ── Email input ── */
-    .email-field{
-      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);
-      color:#fff;border-radius:9999px;outline:none;width:100%;
-      padding:17px 28px;font-size:16px;font-family:inherit;
-      transition:border-color .3s,background .3s,box-shadow .3s;
-    }
-    .email-field::placeholder{color:rgba(255,255,255,.28)}
-    .email-field:focus{
-      border-color:rgba(173,208,157,.5);background:rgba(255,255,255,.09);
-      box-shadow:0 0 0 4px rgba(173,208,157,.08);
-    }
+    .email-field{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:9999px;outline:none;width:100%;padding:16px 26px;font-size:16px;font-family:inherit;transition:border-color .3s,background .3s,box-shadow .3s}
+    .email-field::placeholder{color:rgba(255,255,255,.25)}
+    .email-field:focus{border-color:rgba(0,212,170,.5);background:rgba(255,255,255,.08);box-shadow:0 0 0 4px rgba(0,212,170,.08),0 0 30px rgba(0,212,170,.1)}
 
-    /* ── CTA button ── */
-    .cta-btn{
-      background:#fff;color:#000a1e;border-radius:9999px;
-      font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;
-      letter-spacing:.03em;padding:17px 34px;white-space:nowrap;cursor:pointer;
-      border:none;transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s ease;
-      position:relative;overflow:hidden;flex-shrink:0;
-    }
-    .cta-btn::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(135deg,#f0f7ff 0%,#e8f4e8 100%);
-      opacity:0;transition:opacity .3s;
-    }
-    .cta-btn:hover{transform:translateY(-3px);box-shadow:0 22px 64px rgba(0,0,0,.55)}
-    .cta-btn:hover::after{opacity:1}
-    .cta-btn:active{transform:translateY(-1px)}
-    .cta-btn span{position:relative;z-index:1}
-    .cta-btn:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
-    .cta-btn-outline{
-      background:transparent;color:#fff;border:1px solid rgba(255,255,255,.25);
-      border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;
-      font-size:13px;letter-spacing:.03em;padding:16px 32px;cursor:pointer;
-      transition:all .3s ease;white-space:nowrap;
-    }
-    .cta-btn-outline:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.45)}
+    /* ── Buttons ── */
+    .btn-primary{background:linear-gradient(135deg,#00d4aa,#00a884);color:#050b14;border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;padding:16px 32px;white-space:nowrap;cursor:pointer;border:none;transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s ease,filter .3s;position:relative;overflow:hidden;flex-shrink:0}
+    .btn-primary:hover{transform:translateY(-3px);box-shadow:0 20px 50px rgba(0,212,170,.35);filter:brightness(1.1)}
+    .btn-primary:active{transform:translateY(-1px)}
+    .btn-primary span{position:relative;z-index:1}
+    .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none;filter:none}
+    .btn-ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;padding:15px 30px;cursor:pointer;transition:all .3s ease;white-space:nowrap}
+    .btn-ghost:hover{border-color:rgba(0,212,170,.5);color:#00d4aa;background:rgba(0,212,170,.06)}
 
     /* ── Form row ── */
     .form-row{display:flex;gap:10px;align-items:center}
-    @media(max-width:560px){
-      .form-row{flex-direction:column}
-      .cta-btn,.cta-btn-outline{width:100%;text-align:center}
-    }
+    @media(max-width:560px){.form-row{flex-direction:column}.btn-primary,.btn-ghost{width:100%;text-align:center}}
 
-    /* ── Success ── */
-    .success-icon{
-      width:72px;height:72px;border-radius:50%;
-      background:rgba(173,208,157,.1);border:1px solid rgba(173,208,157,.22);
-      display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
-    }
+    /* ── Feature cards ── */
+    .feature-card{border-radius:20px;background:rgba(255,255,255,.04);padding:32px;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease}
+    .feature-card:hover{transform:translateY(-6px)}
 
-    /* ── Marquee strip ── */
-    .marquee-item{
-      display:flex;align-items:center;gap:12px;
-      color:rgba(255,255,255,.25);font-size:13px;font-weight:600;
-      letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
-    }
-    .marquee-dot{width:4px;height:4px;border-radius:50%;background:rgba(173,208,157,.4);flex-shrink:0}
+    /* ── Icon circles ── */
+    .icon-circle{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 
     /* ── Video cards ── */
-    .video-card{
-      border-radius:20px;overflow:hidden;cursor:pointer;
-      transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease;
-      position:relative;flex-shrink:0;
-    }
-    .video-card:hover{transform:translateY(-8px) scale(1.01);box-shadow:0 32px 80px rgba(0,0,0,.6)}
-    .video-card:hover .play-btn-inner{transform:scale(1.12)}
-    .video-card:hover .thumb-overlay{opacity:.5}
+    .video-card{border-radius:20px;overflow:hidden;cursor:pointer;transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease;position:relative;flex-shrink:0}
+    .video-card:hover{transform:translateY(-8px) scale(1.01);box-shadow:0 32px 80px rgba(0,0,0,.7)}
+    .video-card:hover .play-inner{transform:scale(1.12)}
+    .video-card:hover .vthumb-overlay{opacity:.4}
+    .vthumb-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 25%,rgba(5,11,20,.95) 100%);transition:opacity .4s;opacity:.75}
+    .play-inner{transition:transform .3s cubic-bezier(.22,1,.36,1)}
+    .thumb-1{background:linear-gradient(160deg,#0a2535 0%,#0d3d50 35%,#0e6b6b 65%,#00a884 100%)}
+    .thumb-2{background:linear-gradient(160deg,#150d3a 0%,#2d1580 40%,#4a2db8 70%,#7c3aed 100%)}
+    .thumb-3{background:linear-gradient(160deg,#1a0a0a 0%,#3d1a00 35%,#8b3a0a 65%,#d97706 100%)}
 
-    .thumb-overlay{
-      position:absolute;inset:0;
-      background:linear-gradient(to bottom,transparent 30%,rgba(0,10,30,.9) 100%);
-      transition:opacity .4s;opacity:.7;
-    }
-    .play-btn-inner{
-      transition:transform .3s cubic-bezier(.22,1,.36,1);
-    }
+    /* ── Quote cards ── */
+    .quote-card{border-radius:20px;background:rgba(255,255,255,.04);padding:28px 32px;border-left:3px solid transparent;transition:transform .4s ease,box-shadow .4s ease;flex-shrink:0}
+    .quote-card:hover{transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+    .qc-teal{border-left-color:#00d4aa}
+    .qc-violet{border-left-color:#7c3aed}
+    .qc-gold{border-left-color:#f59e0b}
 
-    /* Video thumbnail gradient scenes */
-    .thumb-alps   {background:linear-gradient(160deg,#0d1b2a 0%,#1b3a4b 35%,#2d6a8f 65%,#3a8fa0 100%)}
-    .thumb-fiord  {background:linear-gradient(160deg,#0a2440 0%,#1a4060 40%,#0d5c5c 70%,#1a8c6e 100%)}
-    .thumb-city   {background:linear-gradient(160deg,#0d0d1a 0%,#1a1a3e 35%,#2d1b69 65%,#4a2888 100%)}
+    /* ── Avatar ── */
+    .avatar{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:900;font-size:15px;color:#fff}
 
-    /* ── Quotes carousel ── */
-    .quote-slide{
-      position:absolute;inset:0;
-      opacity:0;transition:opacity .7s ease,transform .7s cubic-bezier(.22,1,.36,1);
-      transform:translateY(16px);pointer-events:none;
-    }
-    .quote-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
-    .quote-dot{
-      width:8px;height:8px;border-radius:9999px;
-      background:rgba(255,255,255,.2);border:none;cursor:pointer;
-      transition:all .3s ease;padding:0;
-    }
-    .quote-dot.active{width:24px;background:#add09d}
+    /* ── Marquee ── */
+    .m-item{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.22);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;padding:0 20px}
+    .m-dot{width:3px;height:3px;border-radius:50%;background:#00d4aa;flex-shrink:0;opacity:.6}
 
-    /* ── Avatar initials ── */
-    .avatar{
-      width:48px;height:48px;border-radius:50%;flex-shrink:0;
-      display:flex;align-items:center;justify-content:center;
-      font-family:'Montserrat',sans-serif;font-weight:900;font-size:17px;color:#fff;
-    }
+    /* ── Stats ── */
+    .stat-number{font-variant-numeric:tabular-nums}
 
-    /* ── Section divider ── */
-    .section-line{
-      width:40px;height:2px;
-      background:linear-gradient(90deg,#add09d,transparent);
-      margin-bottom:20px;
-    }
+    /* ── Section label ── */
+    .section-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:9999px;padding:6px 16px;color:#00d4aa;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:20px}
+    .section-tag-violet{background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.2);color:#a78bfa}
+    .section-tag-gold{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fbbf24}
+
+    /* ── Number decoration ── */
+    .deco-num{font-family:'Montserrat',sans-serif;font-weight:900;font-size:clamp(6rem,15vw,12rem);color:rgba(255,255,255,.025);line-height:1;pointer-events:none;user-select:none;position:absolute}
 
     /* ── Video modal ── */
-    #video-modal{
-      position:fixed;inset:0;z-index:500;
-      background:rgba(0,0,0,.88);
-      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-      display:none;align-items:center;justify-content:center;padding:20px;
-    }
+    #video-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:20px}
     #video-modal.open{display:flex}
 
-    .off{display:none!important}
+    /* ── Success ── */
+    .success-wrap{text-align:center;padding:16px 0}
+    .success-icon-circle{width:68px;height:68px;border-radius:50%;background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.25);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
 
-    /* ── Number counter ── */
-    .counter{font-variant-numeric:tabular-nums}
+    /* ── Floating pills ── */
+    .hero-pill{display:inline-flex;align-items:center;gap:8px;glass;border-radius:9999px;padding:8px 16px;font-size:12px;font-weight:600;white-space:nowrap;pointer-events:none}
+
+    /* ── Back to top ── */
+    #back-top{position:fixed;bottom:32px;right:32px;z-index:200;width:44px;height:44px;border-radius:50%;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;opacity:0;transform:translateY(10px)}
+    #back-top.show{opacity:1;transform:translateY(0)}
+    #back-top:hover{background:rgba(0,212,170,.25);transform:translateY(-2px)}
+
+    .off{display:none!important}
   </style>
 </head>
 <body>
 
-<!-- Fixed: scroll progress -->
-<div id="progress-bar" style="width:100%"></div>
+<!-- Progress bar -->
+<div id="progress-bar"></div>
 
-<!-- Fixed: cursor glow -->
+<!-- Cursor glow -->
 <div id="cursor-glow"></div>
 
-<!-- Fixed: aurora canvas -->
+<!-- Canvas -->
 <canvas id="bg-canvas"></canvas>
 
-<!-- Fixed: film grain -->
+<!-- Grain -->
 <div class="grain" aria-hidden="true"></div>
 
-<!-- ═══════════════════════ PAGE ═══════════════════════ -->
+<!-- Back to top -->
+<button id="back-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <span class="material-symbols-outlined" style="font-size:18px;color:#00d4aa">arrow_upward</span>
+</button>
+
 <div class="relative z-10 flex flex-col">
 
-  <!-- ────────────── NAV ────────────── -->
-  <header class="fixed top-0 left-0 right-0 z-[100] px-6 md:px-20 pt-6">
-    <div class="max-w-6xl mx-auto flex items-center justify-between glass rounded-2xl px-6 py-3">
-      <!-- Brand -->
-      <div class="flex items-center gap-2.5">
-        <div class="relative w-5 h-5 flex-shrink-0">
-          <span class="ping-ring absolute inset-0 rounded-full bg-nz-green opacity-60"></span>
-          <svg class="relative z-10" width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#add09d"/>
+  <!-- ══════════ NAV ══════════ -->
+  <header id="main-nav" class="fixed top-0 inset-x-0 z-[100] transition-all duration-300 px-5 md:px-16 pt-5 pb-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-2.5">
+        <div class="relative w-7 h-7 flex-shrink-0">
+          <span class="ping absolute inset-0 rounded-full" style="background:rgba(0,212,170,.5)"></span>
+          <svg class="relative z-10" width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#00d4aa"/>
           </svg>
         </div>
         <span class="font-headline font-black text-base tracking-tight text-white uppercase">Pathfinder</span>
-      </div>
-      <!-- Links (desktop) -->
-      <nav class="hidden md:flex items-center gap-8 text-xs font-semibold text-white/40 tracking-widest uppercase">
-        <a href="#stories" class="hover:text-white/70 transition-colors" id="nav-stories">Stories</a>
-        <a href="#community" class="hover:text-white/70 transition-colors" id="nav-community">Community</a>
-        <a href="#subscribe" class="hover:text-white/70 transition-colors" id="nav-subscribe">Subscribe</a>
+        <span class="hidden sm:block text-[10px] font-semibold tracking-widest uppercase px-2 py-0.5 rounded" style="background:rgba(0,212,170,.12);color:#00d4aa;border:1px solid rgba(0,212,170,.2)">NZ</span>
+      </a>
+      <!-- Nav links -->
+      <nav class="hidden md:flex items-center gap-8 text-xs font-semibold tracking-widest uppercase" style="color:rgba(255,255,255,.35)">
+        <a href="#features" class="hover:text-white transition-colors" id="nav-features">Why Us</a>
+        <a href="#stories" class="hover:text-white transition-colors" id="nav-stories">Stories</a>
+        <a href="#community" class="hover:text-white transition-colors" id="nav-community">Reviews</a>
       </nav>
-      <!-- Lang + CTA -->
+      <!-- Right side -->
       <div class="flex items-center gap-3">
-        <div class="glass rounded-full p-1 flex items-center" role="group" aria-label="Select language">
+        <div class="glass rounded-full p-1 flex items-center gap-0.5" role="group">
           <button class="lang-pill active" data-lang="en" aria-pressed="true">EN</button>
           <button class="lang-pill" data-lang="si" aria-pressed="false">සිං</button>
         </div>
-        <a href="#subscribe" class="hidden sm:block cta-btn py-2.5 px-5 text-xs"><span id="nav-cta">Subscribe Free</span></a>
+        <a href="#subscribe" class="hidden sm:block btn-primary py-2.5 px-5 text-xs"><span id="nav-cta">Subscribe Free</span></a>
       </div>
     </div>
   </header>
 
-  <!-- ────────────── HERO ────────────── -->
-  <section id="hero" class="min-h-screen flex items-center justify-center px-6 md:px-20 pt-36 pb-20">
-    <div class="max-w-2xl w-full mx-auto text-center">
+  <!-- ══════════ HERO ══════════ -->
+  <section id="hero" class="min-h-screen flex items-center justify-center px-5 md:px-16 pt-32 pb-20 relative overflow-hidden">
 
-      <!-- Badge -->
-      <div class="anim mb-8" style="animation-delay:.08s">
-        <div class="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5">
-          <span class="w-2 h-2 rounded-full bg-nz-green flex-shrink-0"></span>
-          <span id="t-eyebrow" class="text-nz-green text-[11px] font-semibold tracking-[.15em] uppercase"></span>
+    <!-- Decorative rotating ring -->
+    <div class="absolute pointer-events-none" style="width:600px;height:600px;border-radius:50%;border:1px solid rgba(0,212,170,.06);top:50%;left:50%;transform:translate(-50%,-50%);animation:spin-slow 60s linear infinite"></div>
+    <div class="absolute pointer-events-none" style="width:800px;height:800px;border-radius:50%;border:1px solid rgba(124,58,237,.05);top:50%;left:50%;transform:translate(-50%,-50%);animation:spin-slow 90s linear infinite reverse"></div>
+
+    <div class="max-w-2xl w-full mx-auto text-center relative z-10">
+
+      <!-- Eyebrow -->
+      <div class="anim mb-8" style="animation-delay:.06s">
+        <div class="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5 mb-4">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:#00d4aa"></span>
+          <span id="t-eyebrow" class="text-[11px] font-semibold tracking-[.15em] uppercase" style="color:#00d4aa"></span>
         </div>
       </div>
 
       <!-- Headline -->
       <h1 class="font-headline font-black tracking-tight mb-6" style="line-height:1.04">
-        <span class="anim block text-white" style="animation-delay:.18s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+        <span class="anim block text-white" style="animation-delay:.15s;font-size:clamp(2.5rem,7vw,5rem)">
           <span id="t-h1a"></span>
         </span>
-        <span class="anim block grad" style="animation-delay:.30s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+        <span class="anim block grad-teal" style="animation-delay:.28s;font-size:clamp(2.5rem,7vw,5rem)">
           <span id="t-h1b"></span>
         </span>
-        <span class="anim block text-white" style="animation-delay:.42s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+        <span class="anim block text-white" style="animation-delay:.40s;font-size:clamp(2.5rem,7vw,5rem)">
           <span id="t-h1c"></span>
         </span>
       </h1>
 
       <!-- Sub -->
-      <p id="t-sub" class="anim text-white/50 leading-relaxed max-w-md mx-auto mb-10"
-         style="animation-delay:.55s;font-size:clamp(.9rem,2vw,1.05rem)"></p>
+      <p id="t-sub" class="anim text-white/50 leading-relaxed max-w-lg mx-auto mb-10" style="animation-delay:.54s;font-size:clamp(.9rem,2vw,1.08rem)"></p>
 
       <!-- Form -->
       <div class="anim" style="animation-delay:.68s">
         <form id="email-form" novalidate>
-          <div class="form-row max-w-md mx-auto">
+          <div class="form-row max-w-md mx-auto mb-3">
             <input type="email" id="email-input" class="email-field flex-1 min-w-0"
                    autocomplete="email" required aria-label="Email address" />
-            <button type="submit" class="cta-btn" id="submit-btn"><span id="t-cta"></span></button>
+            <button type="submit" class="btn-primary" id="submit-btn"><span id="t-cta"></span></button>
           </div>
-          <p id="form-error" class="off text-red-400 text-sm mt-3" aria-live="polite" role="alert"></p>
+          <p id="form-error" class="off text-red-400 text-sm mt-2 text-center" aria-live="polite" role="alert"></p>
         </form>
-        <div id="success-state" class="off text-center">
-          <div class="success-icon scale-in">
-            <span class="material-symbols-outlined" style="color:#add09d;font-size:30px">check_circle</span>
+        <div id="success-state" class="off success-wrap">
+          <div class="success-icon-circle scale-in">
+            <span class="material-symbols-outlined" style="color:#00d4aa;font-size:28px">check_circle</span>
           </div>
-          <h2 id="t-success-h" class="font-headline font-bold text-xl text-white mb-2"></h2>
-          <p id="t-success-sub" class="text-white/45 text-sm leading-relaxed"></p>
+          <h3 id="t-success-h" class="font-headline font-bold text-lg text-white mb-1"></h3>
+          <p id="t-success-sub" class="text-sm" style="color:rgba(255,255,255,.45)"></p>
         </div>
-        <p id="t-trust" class="text-white/25 text-xs mt-5 tracking-wide"></p>
+        <p id="t-trust" class="text-xs mt-4 tracking-wide" style="color:rgba(255,255,255,.2)"></p>
       </div>
 
-      <!-- Stats -->
-      <div class="anim mt-14" style="animation-delay:.88s">
-        <div class="glass rounded-2xl grid grid-cols-3 max-w-sm mx-auto">
-          <div class="text-center py-5 px-3 border-r border-white/[.06]">
-            <div class="font-headline font-black text-xl text-white counter" data-target="2400" id="stat-readers">2,400+</div>
-            <div id="t-stat1" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
-          </div>
-          <div class="text-center py-5 px-3 border-r border-white/[.06]">
-            <div class="font-headline font-black text-xl" style="color:#add09d">98%</div>
-            <div id="t-stat2" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
-          </div>
-          <div class="text-center py-5 px-3">
-            <div class="font-headline font-black text-xl text-white">Free</div>
-            <div id="t-stat3" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
-          </div>
+      <!-- Floating social proof pills -->
+      <div class="anim mt-12 flex flex-wrap justify-center gap-3" style="animation-delay:.85s">
+        <div class="float glass rounded-full px-4 py-2 flex items-center gap-2 text-xs font-semibold">
+          <span class="material-symbols-outlined text-teal" style="font-size:15px">verified</span>
+          <span style="color:rgba(255,255,255,.6)" id="t-pill1">2,400+ Subscribers</span>
+        </div>
+        <div class="float-delay glass rounded-full px-4 py-2 flex items-center gap-2 text-xs font-semibold">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#f59e0b">star</span>
+          <span style="color:rgba(255,255,255,.6)" id="t-pill2">4.9 / 5 Rating</span>
+        </div>
+        <div class="float glass rounded-full px-4 py-2 flex items-center gap-2 text-xs font-semibold" style="animation-delay:.8s">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#7c3aed">bolt</span>
+          <span style="color:rgba(255,255,255,.6)" id="t-pill3">Free Forever</span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ────────────── MARQUEE ────────────── -->
-  <div class="relative overflow-hidden border-y border-white/[.05] py-5 bg-white/[.015]">
-    <div class="flex gap-16 marquee-track">
-      <!-- Two identical sets for seamless loop -->
-      <template id="marquee-items">
-        <div class="marquee-item"><span class="marquee-dot"></span>University of Auckland</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Victoria University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Canterbury University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>University of Otago</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>AUT University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Massey University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Lincoln University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Waikato University</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Skilled Migrant</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Green List Visa</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Student Visa</div>
-        <div class="marquee-item"><span class="marquee-dot"></span>Work to Residence</div>
+  <!-- ══════════ MARQUEE ══════════ -->
+  <div class="relative overflow-hidden py-5" style="border-top:1px solid rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.015)">
+    <div class="marquee-track">
+      <template id="marquee-tpl">
+        <div class="m-item"><span class="m-dot"></span>University of Auckland</div>
+        <div class="m-item"><span class="m-dot"></span>Victoria University</div>
+        <div class="m-item"><span class="m-dot"></span>Canterbury University</div>
+        <div class="m-item"><span class="m-dot"></span>University of Otago</div>
+        <div class="m-item"><span class="m-dot"></span>AUT University</div>
+        <div class="m-item"><span class="m-dot"></span>Massey University</div>
+        <div class="m-item"><span class="m-dot"></span>Skilled Migrant Visa</div>
+        <div class="m-item"><span class="m-dot"></span>Green List Pathway</div>
+        <div class="m-item"><span class="m-dot"></span>Student Visa NZ</div>
+        <div class="m-item"><span class="m-dot"></span>Work to Residence</div>
+        <div class="m-item"><span class="m-dot"></span>Lincoln University</div>
+        <div class="m-item"><span class="m-dot"></span>Waikato University</div>
       </template>
     </div>
   </div>
 
-  <!-- ────────────── VIDEO STORIES ────────────── -->
-  <section id="stories" class="px-6 md:px-20 py-28">
+  <!-- ══════════ FEATURES ══════════ -->
+  <section id="features" class="px-5 md:px-16 py-28 relative overflow-hidden">
+    <div class="deco-num" style="right:-2%;top:-5%;opacity:.02">01</div>
     <div class="max-w-6xl mx-auto">
 
-      <!-- Heading -->
-      <div class="mb-16">
-        <div class="section-line" data-reveal="up"></div>
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <h2 class="font-headline font-black text-white leading-tight mb-3" data-reveal="up"
-                style="font-size:clamp(2rem,4.5vw,3.2rem)">
-              <span id="t-stories-h"></span>
-            </h2>
-            <p id="t-stories-sub" class="text-white/45 max-w-sm" data-reveal="up" data-delay="1"></p>
-          </div>
-          <p class="text-white/25 text-xs tracking-widest uppercase" data-reveal="up" data-delay="2" id="t-stories-note"></p>
+      <div class="text-center mb-16">
+        <div class="section-tag" data-reveal="up">
+          <span class="material-symbols-outlined" style="font-size:13px">auto_awesome</span>
+          <span id="t-feat-tag">What You Get</span>
         </div>
+        <h2 class="font-headline font-black text-white leading-tight" data-reveal="up"
+            style="font-size:clamp(1.8rem,4.5vw,3.2rem)">
+          <span id="t-feat-h"></span>
+        </h2>
+        <p id="t-feat-sub" class="text-white/40 max-w-md mx-auto mt-3" data-reveal="up" data-delay="1"></p>
       </div>
 
-      <!-- Cards — horizontal scroll on mobile -->
-      <div class="flex gap-6 overflow-x-auto pb-4 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none"
-           style="scrollbar-width:none;-ms-overflow-style:none">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
         <!-- Card 1 -->
-        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="0"
-             data-video-src="" onclick="openModal(this)">
-          <div class="thumb-alps aspect-video relative">
-            <!-- SVG mountain silhouette decoration -->
-            <svg class="absolute bottom-0 left-0 w-full opacity-30" viewBox="0 0 400 80" fill="none">
-              <path d="M0 80 L80 30 L140 55 L220 10 L300 45 L370 20 L400 40 L400 80Z" fill="white"/>
-            </svg>
-            <div class="thumb-overlay"></div>
+        <div class="feature-card gb-teal" data-reveal="up" data-delay="0">
+          <div class="icon-circle mb-6" style="background:rgba(0,212,170,.12)">
+            <span class="material-symbols-outlined" style="color:#00d4aa;font-size:24px">article</span>
+          </div>
+          <h3 class="font-headline font-bold text-white text-lg mb-3" id="t-feat1-h">Weekly Visa Digest</h3>
+          <p class="text-white/45 text-sm leading-relaxed" id="t-feat1-b">Curated updates direct from Immigration NZ — policy changes, deadline alerts, and step-by-step guides you can actually act on.</p>
+          <div class="flex items-center gap-2 mt-6 text-xs font-semibold" style="color:#00d4aa">
+            <span id="t-feat1-tag">Visa · Immigration</span>
+            <span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="feature-card gb-violet" data-reveal="up" data-delay="1">
+          <div class="icon-circle mb-6" style="background:rgba(124,58,237,.12)">
+            <span class="material-symbols-outlined" style="color:#a78bfa;font-size:24px">school</span>
+          </div>
+          <h3 class="font-headline font-bold text-white text-lg mb-3" id="t-feat2-h">University Insider</h3>
+          <p class="text-white/45 text-sm leading-relaxed" id="t-feat2-b">Scholarship opportunities, intake deadlines, programme comparisons, and rankings — broken down specifically for Sri Lankan applicants.</p>
+          <div class="flex items-center gap-2 mt-6 text-xs font-semibold" style="color:#a78bfa">
+            <span id="t-feat2-tag">Study · Scholarships</span>
+            <span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="feature-card gb-gold" data-reveal="up" data-delay="2">
+          <div class="icon-circle mb-6" style="background:rgba(245,158,11,.12)">
+            <span class="material-symbols-outlined" style="color:#fbbf24;font-size:24px">home</span>
+          </div>
+          <h3 class="font-headline font-bold text-white text-lg mb-3" id="t-feat3-h">Life in Aotearoa</h3>
+          <p class="text-white/45 text-sm leading-relaxed" id="t-feat3-b">Housing markets, job sectors, cost of living, and community guides — everything you need to thrive after you land.</p>
+          <div class="flex items-center gap-2 mt-6 text-xs font-semibold" style="color:#fbbf24">
+            <span id="t-feat3-tag">Housing · Jobs · Life</span>
+            <span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ VIDEO STORIES ══════════ -->
+  <section id="stories" class="px-5 md:px-16 py-28 relative overflow-hidden" style="background:rgba(255,255,255,.015)">
+    <div class="deco-num" style="left:-2%;top:-5%;opacity:.02">02</div>
+    <div class="max-w-6xl mx-auto">
+
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+        <div>
+          <div class="section-tag section-tag-violet" data-reveal="up">
+            <span class="material-symbols-outlined" style="font-size:13px">play_circle</span>
+            <span id="t-stories-tag">Real Stories</span>
+          </div>
+          <h2 class="font-headline font-black text-white leading-tight" data-reveal="up"
+              style="font-size:clamp(1.8rem,4.5vw,3rem)">
+            <span id="t-stories-h"></span>
+          </h2>
+          <p id="t-stories-sub" class="text-white/40 max-w-sm mt-3" data-reveal="up" data-delay="1"></p>
+        </div>
+        <p class="text-white/20 text-xs tracking-widest uppercase" data-reveal="up" data-delay="2" id="t-stories-note"></p>
+      </div>
+
+      <div class="flex gap-5 overflow-x-auto pb-4 -mx-5 px-5 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none" style="scrollbar-width:none">
+
+        <!-- Card 1 -->
+        <div class="video-card w-[82vw] md:w-auto snap-start gb-teal" data-reveal="up" data-delay="0" data-video-src="" onclick="openModal(this)">
+          <div class="thumb-1 aspect-video relative">
+            <svg class="absolute bottom-0 left-0 w-full opacity-25" viewBox="0 0 400 80" fill="none"><path d="M0 80 L80 30 L140 55 L220 10 L300 45 L370 20 L400 40 L400 80Z" fill="white"/></svg>
+            <div class="vthumb-overlay"></div>
+            <div class="absolute top-4 left-4">
+              <span class="font-headline font-black text-4xl" style="color:rgba(0,212,170,.2)">01</span>
+            </div>
             <div class="absolute inset-0 flex items-center justify-center">
-              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
-                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              <div class="play-inner glass rounded-full w-14 h-14 flex items-center justify-center" style="border-color:rgba(0,212,170,.3)">
+                <span class="material-symbols-outlined text-white" style="font-size:26px;padding-left:3px">play_arrow</span>
               </div>
             </div>
             <div class="absolute bottom-0 inset-x-0 p-5">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Auckland</span>
-              </div>
-              <p class="font-headline font-bold text-white text-base">Kavindra Perera</p>
-              <p class="text-white/50 text-xs mt-0.5">MSc Computer Science · 2023</p>
+              <div class="mb-2"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase" style="background:rgba(0,212,170,.15);color:#00d4aa;border:1px solid rgba(0,212,170,.25)">Auckland</span></div>
+              <p class="font-headline font-bold text-white">Kavindra Perera</p>
+              <p class="text-white/45 text-xs mt-0.5">MSc Computer Science · 2023</p>
             </div>
           </div>
         </div>
 
         <!-- Card 2 -->
-        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="1"
-             data-video-src="" onclick="openModal(this)">
-          <div class="thumb-fiord aspect-video relative">
-            <svg class="absolute bottom-0 left-0 w-full opacity-25" viewBox="0 0 400 80" fill="none">
-              <path d="M0 60 L60 40 L120 55 L180 25 L240 50 L320 15 L400 35 L400 80 L0 80Z" fill="white"/>
-            </svg>
-            <div class="thumb-overlay"></div>
+        <div class="video-card w-[82vw] md:w-auto snap-start gb-violet" data-reveal="up" data-delay="1" data-video-src="" onclick="openModal(this)">
+          <div class="thumb-2 aspect-video relative">
+            <svg class="absolute bottom-0 left-0 w-full opacity-20" viewBox="0 0 400 80" fill="none"><path d="M0 60 L60 40 L120 55 L180 25 L240 50 L320 15 L400 35 L400 80 L0 80Z" fill="white"/></svg>
+            <div class="vthumb-overlay"></div>
+            <div class="absolute top-4 left-4">
+              <span class="font-headline font-black text-4xl" style="color:rgba(124,58,237,.3)">02</span>
+            </div>
             <div class="absolute inset-0 flex items-center justify-center">
-              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
-                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              <div class="play-inner glass rounded-full w-14 h-14 flex items-center justify-center" style="border-color:rgba(124,58,237,.3)">
+                <span class="material-symbols-outlined text-white" style="font-size:26px;padding-left:3px">play_arrow</span>
               </div>
             </div>
             <div class="absolute bottom-0 inset-x-0 p-5">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Wellington</span>
-              </div>
-              <p class="font-headline font-bold text-white text-base">Dilini Wijesinghe</p>
-              <p class="text-white/50 text-xs mt-0.5">MBA · Victoria University · 2024</p>
+              <div class="mb-2"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase" style="background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.25)">Wellington</span></div>
+              <p class="font-headline font-bold text-white">Dilini Wijesinghe</p>
+              <p class="text-white/45 text-xs mt-0.5">MBA · Victoria University · 2024</p>
             </div>
           </div>
         </div>
 
         <!-- Card 3 -->
-        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="2"
-             data-video-src="" onclick="openModal(this)">
-          <div class="thumb-city aspect-video relative">
-            <svg class="absolute bottom-0 left-0 w-full opacity-20" viewBox="0 0 400 80" fill="none">
-              <path d="M0 80 L0 45 L30 45 L30 30 L50 30 L50 20 L70 20 L70 30 L90 30 L90 40 L120 40 L120 25 L140 25 L140 15 L160 15 L160 25 L180 25 L180 40 L220 40 L220 50 L400 50 L400 80Z" fill="white"/>
-            </svg>
-            <div class="thumb-overlay"></div>
+        <div class="video-card w-[82vw] md:w-auto snap-start gb-gold" data-reveal="up" data-delay="2" data-video-src="" onclick="openModal(this)">
+          <div class="thumb-3 aspect-video relative">
+            <svg class="absolute bottom-0 left-0 w-full opacity-20" viewBox="0 0 400 80" fill="none"><path d="M0 80 L0 45 L30 45 L30 30 L55 30 L55 18 L75 18 L75 30 L100 30 L100 40 L130 40 L130 22 L155 22 L155 12 L175 12 L175 22 L195 22 L195 40 L400 40 L400 80Z" fill="white"/></svg>
+            <div class="vthumb-overlay"></div>
+            <div class="absolute top-4 left-4">
+              <span class="font-headline font-black text-4xl" style="color:rgba(245,158,11,.3)">03</span>
+            </div>
             <div class="absolute inset-0 flex items-center justify-center">
-              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
-                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              <div class="play-inner glass rounded-full w-14 h-14 flex items-center justify-center" style="border-color:rgba(245,158,11,.3)">
+                <span class="material-symbols-outlined text-white" style="font-size:26px;padding-left:3px">play_arrow</span>
               </div>
             </div>
             <div class="absolute bottom-0 inset-x-0 p-5">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Christchurch</span>
-              </div>
-              <p class="font-headline font-bold text-white text-base">Ruwan Abeykoon</p>
-              <p class="text-white/50 text-xs mt-0.5">BE Engineering · Canterbury · 2024</p>
+              <div class="mb-2"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase" style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25)">Christchurch</span></div>
+              <p class="font-headline font-bold text-white">Ruwan Abeykoon</p>
+              <p class="text-white/45 text-xs mt-0.5">BE Engineering · Canterbury · 2024</p>
             </div>
           </div>
         </div>
@@ -532,187 +512,200 @@
     </div>
   </section>
 
-  <!-- ────────────── VIDEO MODAL ────────────── -->
-  <div id="video-modal" role="dialog" aria-modal="true" aria-label="Video testimonial">
-    <div class="absolute inset-0" id="modal-backdrop" onclick="closeModal()"></div>
+  <!-- ══════════ VIDEO MODAL ══════════ -->
+  <div id="video-modal" role="dialog" aria-modal="true">
+    <div class="absolute inset-0" onclick="closeModal()"></div>
     <div class="relative w-full max-w-3xl z-10">
-      <button onclick="closeModal()"
-              class="absolute -top-12 right-0 flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-semibold">
-        <span class="material-symbols-outlined text-base">close</span> Close
+      <button onclick="closeModal()" class="absolute -top-11 right-0 flex items-center gap-1.5 text-white/40 hover:text-white transition-colors text-sm font-semibold">
+        <span class="material-symbols-outlined" style="font-size:16px">close</span> Close
       </button>
-      <div class="rounded-2xl overflow-hidden aspect-video bg-black/60 glass flex items-center justify-center">
+      <div class="rounded-2xl overflow-hidden aspect-video flex items-center justify-center" style="background:rgba(5,11,20,.9);border:1px solid rgba(255,255,255,.08)">
         <video id="modal-video" controls class="w-full h-full object-cover hidden"></video>
-        <!-- Placeholder when no src is set -->
-        <div id="modal-placeholder" class="text-center px-8">
-          <span class="material-symbols-outlined text-white/20" style="font-size:56px">video_file</span>
-          <p class="text-white/30 text-sm mt-4 font-semibold">Add your video URL to <code class="text-nz-green">data-video-src</code> on the card</p>
+        <div id="modal-ph" class="text-center px-8">
+          <span class="material-symbols-outlined" style="color:rgba(255,255,255,.12);font-size:52px">video_file</span>
+          <p class="text-white/25 text-sm mt-4 font-semibold">Set <code class="text-teal">data-video-src</code> on the card to add your video</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ────────────── QUOTES ────────────── -->
-  <section id="community" class="px-6 md:px-20 py-28 bg-white/[.018]">
-    <div class="max-w-4xl mx-auto">
-
-      <!-- Heading -->
-      <div class="text-center mb-16">
-        <div class="section-line mx-auto" data-reveal="up"></div>
-        <h2 class="font-headline font-black text-white leading-tight mb-3" data-reveal="up"
-            style="font-size:clamp(1.8rem,4vw,3rem)">
-          <span id="t-quotes-h"></span>
-        </h2>
-        <p id="t-quotes-sub" class="text-white/40 max-w-sm mx-auto" data-reveal="up" data-delay="1"></p>
-      </div>
-
-      <!-- Quote carousel -->
-      <div class="relative" data-reveal="scale" style="min-height:320px" id="quote-container">
-
-        <!-- Quote 1 -->
-        <div class="quote-slide active px-2 md:px-8">
-          <div class="glass-heavy rounded-3xl p-8 md:p-12">
-            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
-            <p class="font-headline font-bold text-white leading-snug mb-8"
-               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
-              Moving to Auckland for my Master's was the best decision of my life.
-              Pathfinder's visa breakdown saved me months of confusion — it's the first
-              newsletter I open every week.
-            </p>
-            <div class="flex items-center gap-4">
-              <div class="avatar" style="background:linear-gradient(135deg,#1a4a6b,#2d8a9e)">K</div>
-              <div>
-                <p class="font-headline font-bold text-white">Kavindra Perera</p>
-                <p class="text-white/40 text-sm">MSc Computer Science · University of Auckland</p>
-              </div>
-              <div class="ml-auto flex gap-0.5">
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-              </div>
-            </div>
-          </div>
+  <!-- ══════════ STATS ══════════ -->
+  <section class="px-5 md:px-16 py-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="glass-md rounded-3xl p-8 md:p-12 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-0 md:divide-x" style="divide-color:rgba(255,255,255,.06)" data-reveal="scale">
+        <div class="text-center md:px-8">
+          <div class="font-headline font-black stat-number grad-teal" style="font-size:clamp(2.2rem,4vw,3.5rem)" data-counter="2400" id="sc-1">2,400+</div>
+          <div class="text-white/30 text-xs mt-2 tracking-widest uppercase" id="t-sc1">Subscribers</div>
         </div>
-
-        <!-- Quote 2 -->
-        <div class="quote-slide px-2 md:px-8">
-          <div class="glass-heavy rounded-3xl p-8 md:p-12">
-            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
-            <p class="font-headline font-bold text-white leading-snug mb-8"
-               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
-              I never thought studying in New Zealand was within reach. The scholarship
-              insights from Pathfinder changed everything. I got 60% funding for my MBA
-              through a program I'd never have found on my own.
-            </p>
-            <div class="flex items-center gap-4">
-              <div class="avatar" style="background:linear-gradient(135deg,#1a5c3a,#2d8c5e)">D</div>
-              <div>
-                <p class="font-headline font-bold text-white">Dilini Wijesinghe</p>
-                <p class="text-white/40 text-sm">MBA · Victoria University of Wellington</p>
-              </div>
-              <div class="ml-auto flex gap-0.5">
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-              </div>
-            </div>
-          </div>
+        <div class="text-center md:px-8">
+          <div class="font-headline font-black stat-number" style="font-size:clamp(2.2rem,4vw,3.5rem);color:#a78bfa" data-counter="98" id="sc-2">98%</div>
+          <div class="text-white/30 text-xs mt-2 tracking-widest uppercase" id="t-sc2">Success Rate</div>
         </div>
-
-        <!-- Quote 3 -->
-        <div class="quote-slide px-2 md:px-8">
-          <div class="glass-heavy rounded-3xl p-8 md:p-12">
-            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
-            <p class="font-headline font-bold text-white leading-snug mb-8"
-               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
-              From visa checklists to finding flatmates in Christchurch — every issue
-              had exactly what I needed at each stage of my journey. This is an
-              absolute must-read for any Sri Lankan heading to New Zealand.
-            </p>
-            <div class="flex items-center gap-4">
-              <div class="avatar" style="background:linear-gradient(135deg,#3a1a6b,#6b2d8c)">R</div>
-              <div>
-                <p class="font-headline font-bold text-white">Ruwan Abeykoon</p>
-                <p class="text-white/40 text-sm">BE Engineering · University of Canterbury</p>
-              </div>
-              <div class="ml-auto flex gap-0.5">
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
-              </div>
-            </div>
-          </div>
+        <div class="text-center md:px-8">
+          <div class="font-headline font-black stat-number grad-warm" style="font-size:clamp(2.2rem,4vw,3.5rem)" data-counter="52" id="sc-3">52</div>
+          <div class="text-white/30 text-xs mt-2 tracking-widest uppercase" id="t-sc3">Issues Published</div>
         </div>
-      </div>
-
-      <!-- Dots -->
-      <div class="flex items-center justify-center gap-2 mt-8">
-        <button class="quote-dot active" data-index="0" aria-label="Quote 1"></button>
-        <button class="quote-dot" data-index="1" aria-label="Quote 2"></button>
-        <button class="quote-dot" data-index="2" aria-label="Quote 3"></button>
+        <div class="text-center md:px-8">
+          <div class="font-headline font-black stat-number text-white" style="font-size:clamp(2.2rem,4vw,3.5rem)">Free</div>
+          <div class="text-white/30 text-xs mt-2 tracking-widest uppercase" id="t-sc4">Always & Forever</div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ────────────── SUBSCRIBE CTA ────────────── -->
-  <section id="subscribe" class="px-6 md:px-20 py-28">
-    <div class="max-w-4xl mx-auto">
-      <div class="glass-heavy rounded-3xl p-8 md:p-16 text-center relative overflow-hidden">
+  <!-- ══════════ QUOTES ══════════ -->
+  <section id="community" class="px-5 md:px-16 py-28 relative overflow-hidden">
+    <div class="deco-num" style="right:-3%;top:-5%;opacity:.02">03</div>
+    <div class="max-w-6xl mx-auto">
 
-        <!-- Decorative gradient orbs inside card -->
-        <div class="absolute top-0 left-1/4 w-64 h-64 rounded-full opacity-20 pointer-events-none"
-             style="background:radial-gradient(circle,#add09d,transparent);filter:blur(60px)"></div>
-        <div class="absolute bottom-0 right-1/4 w-64 h-64 rounded-full opacity-15 pointer-events-none"
-             style="background:radial-gradient(circle,#aec7f6,transparent);filter:blur(60px)"></div>
+      <div class="text-center mb-16">
+        <div class="section-tag section-tag-gold" data-reveal="up">
+          <span class="material-symbols-outlined" style="font-size:13px">format_quote</span>
+          <span id="t-quotes-tag">Community</span>
+        </div>
+        <h2 class="font-headline font-black text-white leading-tight" data-reveal="up"
+            style="font-size:clamp(1.8rem,4.5vw,3rem)">
+          <span id="t-quotes-h"></span>
+        </h2>
+        <p id="t-quotes-sub" class="text-white/40 max-w-sm mx-auto mt-3" data-reveal="up" data-delay="1"></p>
+      </div>
+
+      <!-- Three horizontal quote cards -->
+      <div class="flex gap-5 overflow-x-auto pb-4 -mx-5 px-5 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none" style="scrollbar-width:none">
+
+        <div class="quote-card qc-teal w-[82vw] md:w-auto snap-start gb-teal" data-reveal="up" data-delay="0">
+          <div class="text-4xl font-headline font-black mb-4 leading-none" style="color:rgba(0,212,170,.35)">&ldquo;</div>
+          <p class="text-white/75 leading-relaxed text-sm mb-6">Moving to Auckland for my Master's was the best decision I've made. Pathfinder's visa breakdown saved me months of confusion — it's the first newsletter I open every week.</p>
+          <div class="flex items-center gap-3">
+            <div class="avatar" style="background:linear-gradient(135deg,#0d4a6b,#00a884)">K</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-headline font-bold text-white text-sm">Kavindra Perera</p>
+              <p class="text-white/35 text-xs mt-0.5 truncate">MSc CS · University of Auckland</p>
+            </div>
+            <div class="flex gap-0.5 flex-shrink-0">
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quote-card qc-violet w-[82vw] md:w-auto snap-start gb-violet" data-reveal="up" data-delay="1">
+          <div class="text-4xl font-headline font-black mb-4 leading-none" style="color:rgba(124,58,237,.35)">&ldquo;</div>
+          <p class="text-white/75 leading-relaxed text-sm mb-6">I got 60% scholarship funding for my MBA through a program I'd never have found on my own. The University Insider section alone is worth its weight in gold.</p>
+          <div class="flex items-center gap-3">
+            <div class="avatar" style="background:linear-gradient(135deg,#2d1580,#7c3aed)">D</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-headline font-bold text-white text-sm">Dilini Wijesinghe</p>
+              <p class="text-white/35 text-xs mt-0.5 truncate">MBA · Victoria University</p>
+            </div>
+            <div class="flex gap-0.5 flex-shrink-0">
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quote-card qc-gold w-[82vw] md:w-auto snap-start gb-gold" data-reveal="up" data-delay="2">
+          <div class="text-4xl font-headline font-black mb-4 leading-none" style="color:rgba(245,158,11,.35)">&ldquo;</div>
+          <p class="text-white/75 leading-relaxed text-sm mb-6">From visa checklists to finding flatmates in Christchurch — every issue had exactly what I needed. This is an absolute must-read for any Sri Lankan heading to New Zealand.</p>
+          <div class="flex items-center gap-3">
+            <div class="avatar" style="background:linear-gradient(135deg,#7a3a00,#d97706)">R</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-headline font-bold text-white text-sm">Ruwan Abeykoon</p>
+              <p class="text-white/35 text-xs mt-0.5 truncate">BE Engineering · Canterbury</p>
+            </div>
+            <div class="flex gap-0.5 flex-shrink-0">
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+              <span class="material-symbols-outlined" style="font-size:13px;color:#f59e0b">star</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SUBSCRIBE CTA ══════════ -->
+  <section id="subscribe" class="px-5 md:px-16 py-28" style="background:rgba(255,255,255,.015)">
+    <div class="max-w-3xl mx-auto">
+      <div class="rounded-3xl p-8 md:p-16 text-center relative overflow-hidden" style="background:linear-gradient(135deg,rgba(0,212,170,.08) 0%,rgba(124,58,237,.08) 50%,rgba(59,130,246,.08) 100%);border:1px solid rgba(255,255,255,.08)">
+
+        <!-- Decorative orbs inside card -->
+        <div class="absolute -top-20 -left-20 w-60 h-60 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(0,212,170,.18),transparent);filter:blur(50px)"></div>
+        <div class="absolute -bottom-20 -right-20 w-60 h-60 rounded-full pointer-events-none" style="background:radial-gradient(circle,rgba(124,58,237,.18),transparent);filter:blur(50px)"></div>
 
         <div class="relative z-10">
-          <div class="section-line mx-auto mb-6" data-reveal="up"></div>
+          <div class="section-tag mx-auto mb-6" style="width:fit-content" data-reveal="up">
+            <span class="material-symbols-outlined" style="font-size:13px">mail</span>
+            <span id="t-cta2-tag">Join the Community</span>
+          </div>
           <h2 class="font-headline font-black text-white leading-tight mb-4" data-reveal="up"
               style="font-size:clamp(1.8rem,4.5vw,3.2rem)">
             <span id="t-cta2-h"></span>
           </h2>
-          <p id="t-cta2-sub" class="text-white/45 max-w-md mx-auto mb-10 leading-relaxed" data-reveal="up" data-delay="1"></p>
+          <p id="t-cta2-sub" class="text-white/40 max-w-md mx-auto mb-10 leading-relaxed" data-reveal="up" data-delay="1"></p>
 
-          <div class="anim" data-reveal="up" data-delay="2">
+          <div data-reveal="up" data-delay="2">
             <form id="email-form-2" novalidate>
               <div class="form-row max-w-md mx-auto">
                 <input type="email" id="email-input-2" class="email-field flex-1 min-w-0"
                        autocomplete="email" required aria-label="Email address" />
-                <button type="submit" class="cta-btn" id="submit-btn-2"><span id="t-cta2-btn"></span></button>
+                <button type="submit" class="btn-primary" id="submit-btn-2"><span id="t-cta2-btn"></span></button>
               </div>
               <p id="form-error-2" class="off text-red-400 text-sm mt-3" aria-live="polite"></p>
             </form>
-            <div id="success-state-2" class="off text-center mt-4">
-              <span class="material-symbols-outlined scale-in" style="color:#add09d;font-size:40px">check_circle</span>
+            <div id="success-state-2" class="off success-wrap mt-4">
+              <span class="material-symbols-outlined scale-in" style="color:#00d4aa;font-size:36px">check_circle</span>
               <p id="t-success-h-2" class="font-headline font-bold text-lg text-white mt-3 mb-1"></p>
-              <p id="t-success-sub-2" class="text-white/45 text-sm"></p>
+              <p id="t-success-sub-2" class="text-white/40 text-sm"></p>
             </div>
-            <p id="t-trust-2" class="text-white/20 text-xs mt-5 tracking-wide"></p>
+            <p id="t-trust-2" class="text-white/18 text-xs mt-5 tracking-wide" style="color:rgba(255,255,255,.18)"></p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ────────────── FOOTER ────────────── -->
-  <footer class="px-6 md:px-20 py-8 border-t border-white/[.04]">
-    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 text-white/20 text-xs">
-      <div class="flex items-center gap-2">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#add09d" opacity=".5"/>
-        </svg>
-        <span>© 2026 Pathfinder NZ. <span id="t-rights"></span></span>
+  <!-- ══════════ FOOTER ══════════ -->
+  <footer class="px-5 md:px-16 py-10" style="border-top:1px solid rgba(255,255,255,.04)">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+        <div class="flex items-center gap-2.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#00d4aa" opacity=".6"/>
+          </svg>
+          <span class="font-headline font-black text-sm tracking-tight text-white uppercase">Pathfinder NZ</span>
+        </div>
+        <p class="text-white/30 text-sm text-center max-w-sm" id="t-footer-desc">Empowering Sri Lankans to navigate their journey to New Zealand with confidence.</p>
+        <div class="flex gap-3">
+          <a href="#" class="glass rounded-full w-9 h-9 flex items-center justify-center hover:border-teal/40 transition-colors">
+            <span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,.4)">language</span>
+          </a>
+          <a href="#" class="glass rounded-full w-9 h-9 flex items-center justify-center hover:border-teal/40 transition-colors">
+            <span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,.4)">chat</span>
+          </a>
+          <a href="mailto:hello@pathfinder.nz" class="glass rounded-full w-9 h-9 flex items-center justify-center hover:border-teal/40 transition-colors">
+            <span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,.4)">mail</span>
+          </a>
+        </div>
       </div>
-      <nav class="flex gap-6" aria-label="Footer links">
-        <a href="#" id="t-privacy" class="hover:text-white/45 transition-colors"></a>
-        <a href="#" id="t-terms"   class="hover:text-white/45 transition-colors"></a>
-        <a href="mailto:hello@pathfinder.nz" class="hover:text-white/45 transition-colors">Contact</a>
-      </nav>
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6" style="border-top:1px solid rgba(255,255,255,.04)">
+        <p class="text-white/20 text-xs">© 2026 Pathfinder NZ. <span id="t-rights"></span></p>
+        <nav class="flex gap-5 text-white/20 text-xs">
+          <a href="#" id="t-privacy" class="hover:text-white/45 transition-colors"></a>
+          <a href="#" id="t-terms" class="hover:text-white/45 transition-colors"></a>
+          <a href="mailto:hello@pathfinder.nz" class="hover:text-white/45 transition-colors">Contact</a>
+        </nav>
+      </div>
     </div>
   </footer>
 
@@ -720,92 +713,152 @@
 
 <script>
 // ══════════════════════════════════════════════════════
-//  AURORA CANVAS
+//  CANVAS — Particle Network + Gradient Orbs
 // ══════════════════════════════════════════════════════
 (() => {
   const canvas = document.getElementById('bg-canvas');
   const ctx    = canvas.getContext('2d');
-  let W, H;
+  let W, H, mouseX = -9999, mouseY = -9999;
+
   const resize = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; };
   resize();
   addEventListener('resize', resize);
 
-  const BLOBS = [
-    {rgb:[70,95,136], size:.62, spd:.22, op:.22},
-    {rgb:[72,102,60],  size:.50, spd:.16, op:.18},
-    {rgb:[0,33,71],    size:.78, spd:.11, op:.38},
-    {rgb:[174,199,246],size:.32, spd:.32, op:.11},
-    {rgb:[72,102,60],  size:.42, spd:.26, op:.15},
-    {rgb:[90,60,130],  size:.28, spd:.38, op:.08},
-    {rgb:[70,95,136],  size:.36, spd:.30, op:.13},
-  ].map((b,i) => ({
-    ...b,
-    x:Math.random()*innerWidth,
-    y:Math.random()*innerHeight,
-    vx:(Math.random()-.5)*b.spd,
-    vy:(Math.random()-.5)*b.spd,
-    phase:i*1.3,
+  document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; }, {passive:true});
+
+  // ── Gradient orbs (depth layer)
+  const ORBS = [
+    {x:.18, y:.25, r:.55, rgb:[0,212,170],   op:.14},
+    {x:.82, y:.35, r:.50, rgb:[124,58,237],  op:.12},
+    {x:.50, y:.75, r:.45, rgb:[59,130,246],  op:.10},
+    {x:.10, y:.80, r:.30, rgb:[245,158,11],  op:.07},
+    {x:.90, y:.85, r:.35, rgb:[0,212,170],   op:.08},
+    {x:.45, y:.10, r:.40, rgb:[124,58,237],  op:.09},
+  ].map((o,i) => ({...o, vx:(Math.random()-.5)*.18, vy:(Math.random()-.5)*.18, phase:i*1.1}));
+
+  // ── Particles
+  const COUNT = innerWidth < 768 ? 45 : 90;
+  const COLORS = [[0,212,170],[124,58,237],[59,130,246],[174,199,246],[200,255,230]];
+  const particles = Array.from({length:COUNT}, () => ({
+    x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+    vx:(Math.random()-.5)*.5, vy:(Math.random()-.5)*.5,
+    r: Math.random()*1.8+.4,
+    c: COLORS[Math.floor(Math.random()*COLORS.length)],
+    a: Math.random()*.5+.2,
   }));
 
   const draw = () => {
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle='#000a1e';
+    ctx.fillStyle='#050b14';
     ctx.fillRect(0,0,W,H);
-    const t = Date.now()*.0006;
-    BLOBS.forEach(b => {
-      b.x += b.vx + Math.sin(t*.5+b.phase)*.16;
-      b.y += b.vy + Math.cos(t*.4+b.phase)*.16;
-      const r = Math.min(W,H)*b.size;
-      if(b.x<-r) b.x=W+r; if(b.x>W+r) b.x=-r;
-      if(b.y<-r) b.y=H+r; if(b.y>H+r) b.y=-r;
-      const [cr,cg,cb]=b.rgb;
-      const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,r);
-      g.addColorStop(0,   `rgba(${cr},${cg},${cb},${b.op})`);
-      g.addColorStop(.42, `rgba(${cr},${cg},${cb},${+(b.op*.3).toFixed(3)})`);
-      g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,r,0,Math.PI*2); ctx.fill();
+
+    const t = Date.now()*.0005;
+
+    // Draw orbs
+    ORBS.forEach(o => {
+      o.x = Math.max(.05, Math.min(.95, o.x + (o.vx/W) + Math.sin(t*.4+o.phase)*.0006));
+      o.y = Math.max(.05, Math.min(.95, o.y + (o.vy/H) + Math.cos(t*.35+o.phase)*.0006));
+      const cx = o.x*W, cy = o.y*H, r = Math.min(W,H)*o.r;
+      const [cr,cg,cb] = o.rgb;
+      const g = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+      g.addColorStop(0,  `rgba(${cr},${cg},${cb},${o.op})`);
+      g.addColorStop(.5, `rgba(${cr},${cg},${cb},${+(o.op*.3).toFixed(3)})`);
+      g.addColorStop(1,  `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
     });
+
+    // Draw connections
+    for (let i=0; i<particles.length; i++) {
+      for (let j=i+1; j<particles.length; j++) {
+        const p1=particles[i], p2=particles[j];
+        const dx=p1.x-p2.x, dy=p1.y-p2.y;
+        const d = Math.sqrt(dx*dx+dy*dy);
+        if (d < 130) {
+          const alpha = (1-d/130)*.12;
+          ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y);
+          ctx.strokeStyle=`rgba(0,212,170,${alpha})`; ctx.lineWidth=.6; ctx.stroke();
+        }
+      }
+    }
+
+    // Draw + update particles
+    particles.forEach(p => {
+      // Mouse repulsion
+      const mdx=p.x-mouseX, mdy=p.y-mouseY;
+      const md=Math.sqrt(mdx*mdx+mdy*mdy);
+      if (md<100) { p.x+=mdx*.025; p.y+=mdy*.025; }
+
+      p.x+=p.vx; p.y+=p.vy;
+      if (p.x<0) p.x=W; if (p.x>W) p.x=0;
+      if (p.y<0) p.y=H; if (p.y>H) p.y=0;
+
+      const [cr,cg,cb]=p.c;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},${p.a})`; ctx.fill();
+
+      // Glow on large particles
+      if (p.r>1.4) {
+        const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*6);
+        g.addColorStop(0,`rgba(${cr},${cg},${cb},${p.a*.3})`);
+        g.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*6,0,Math.PI*2); ctx.fill();
+      }
+    });
+
     requestAnimationFrame(draw);
   };
   draw();
 })();
 
 // ══════════════════════════════════════════════════════
-//  MARQUEE — duplicate items for seamless loop
+//  MARQUEE
 // ══════════════════════════════════════════════════════
 (() => {
   const track = document.querySelector('.marquee-track');
-  const tpl = document.getElementById('marquee-items');
-  const clone1 = tpl.content.cloneNode(true);
-  const clone2 = tpl.content.cloneNode(true);
-  track.appendChild(clone1);
-  track.appendChild(clone2);
+  const tpl   = document.getElementById('marquee-tpl');
+  track.appendChild(tpl.content.cloneNode(true));
+  track.appendChild(tpl.content.cloneNode(true));
 })();
 
 // ══════════════════════════════════════════════════════
-//  SCROLL REVEAL (Intersection Observer)
+//  SCROLL REVEAL
 // ══════════════════════════════════════════════════════
+new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el=e.target, delay=(parseInt(el.dataset.delay||0))*130;
+    setTimeout(()=>el.classList.add('visible'), delay);
+    e.target._obs?.unobserve(e.target);
+  });
+}, {threshold:.1, rootMargin:'0px 0px -40px 0px'})
+.observe.bind(new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    setTimeout(()=>e.target.classList.add('visible'), (parseInt(e.target.dataset.delay||0))*130);
+  });
+}, {threshold:.1, rootMargin:'0px 0px -40px 0px'}));
+
+// Simpler reveal setup
 (() => {
   const obs = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const el = entry.target;
-      const delay = (parseInt(el.dataset.delay || 0)) * 130;
-      setTimeout(() => el.classList.add('visible'), delay);
-      obs.unobserve(el);
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      setTimeout(()=>e.target.classList.add('visible'), (parseInt(e.target.dataset.delay||0))*130);
+      obs.unobserve(e.target);
     });
-  }, { threshold:.12, rootMargin:'0px 0px -40px 0px' });
-
+  }, {threshold:.1, rootMargin:'0px 0px -40px 0px'});
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
 })();
 
 // ══════════════════════════════════════════════════════
-//  SCROLL PROGRESS BAR + CURSOR GLOW
+//  PROGRESS BAR + CURSOR GLOW + BACK TO TOP
 // ══════════════════════════════════════════════════════
 const progressBar = document.getElementById('progress-bar');
+const backTop     = document.getElementById('back-top');
 window.addEventListener('scroll', () => {
   const pct = scrollY / (document.documentElement.scrollHeight - innerHeight);
   progressBar.style.transform = `scaleX(${pct})`;
+  backTop.classList.toggle('show', scrollY > 400);
 }, {passive:true});
 
 const cursorGlow = document.getElementById('cursor-glow');
@@ -815,204 +868,166 @@ document.addEventListener('mousemove', e => {
 }, {passive:true});
 
 // ══════════════════════════════════════════════════════
+//  NAV SHRINK ON SCROLL
+// ══════════════════════════════════════════════════════
+window.addEventListener('scroll', () => {
+  document.getElementById('main-nav').classList.toggle('nav-scrolled', scrollY > 60);
+}, {passive:true});
+
+// ══════════════════════════════════════════════════════
 //  MAGNETIC BUTTONS
 // ══════════════════════════════════════════════════════
-document.querySelectorAll('.cta-btn').forEach(btn => {
+document.querySelectorAll('.btn-primary').forEach(btn => {
   btn.addEventListener('mousemove', e => {
-    const r = btn.getBoundingClientRect();
-    const x = (e.clientX - r.left - r.width/2)  * .28;
-    const y = (e.clientY - r.top  - r.height/2) * .28;
-    btn.style.transform = `translate(${x}px,${y - 3}px)`;
+    const r=btn.getBoundingClientRect();
+    const x=(e.clientX-r.left-r.width/2)*.28, y=(e.clientY-r.top-r.height/2)*.28;
+    btn.style.transform=`translate(${x}px,${y-3}px)`;
   });
-  btn.addEventListener('mouseleave', () => { btn.style.transform = ''; });
+  btn.addEventListener('mouseleave', ()=>{ btn.style.transform=''; });
 });
 
 // ══════════════════════════════════════════════════════
-//  QUOTE CAROUSEL
+//  COUNTER ANIMATION
 // ══════════════════════════════════════════════════════
 (() => {
-  const slides = document.querySelectorAll('.quote-slide');
-  const dots   = document.querySelectorAll('.quote-dot');
-  let current  = 0;
-  let timer;
-
-  function show(n) {
-    slides[current].classList.remove('active');
-    dots[current].classList.remove('active');
-    current = n;
-    slides[current].classList.add('active');
-    dots[current].classList.add('active');
-  }
-
-  function next() { show((current + 1) % slides.length); }
-
-  function startTimer() {
-    clearInterval(timer);
-    timer = setInterval(next, 6000);
-  }
-
-  dots.forEach(dot => {
-    dot.addEventListener('click', () => {
-      show(parseInt(dot.dataset.index));
-      startTimer();
+  const counters = document.querySelectorAll('[data-counter]');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseInt(el.dataset.counter);
+      const suffix = target >= 2000 ? '+' : (el.id==='sc-2' ? '%' : '');
+      const start = Date.now();
+      const duration = 1600;
+      const tick = () => {
+        const p = Math.min((Date.now()-start)/duration, 1);
+        const eased = 1-Math.pow(1-p,3);
+        el.textContent = Math.floor(eased*target).toLocaleString() + (p===1 ? suffix : '');
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      tick();
+      obs.unobserve(el);
     });
-  });
-
-  // Dynamic height — match tallest slide
-  function setHeight() {
-    slides.forEach(s => { s.style.position='relative'; s.style.opacity='1'; });
-    const h = Math.max(...[...slides].map(s => s.offsetHeight));
-    slides.forEach(s => { s.style.position=''; s.style.opacity=''; });
-    document.getElementById('quote-container').style.minHeight = h + 'px';
-  }
-  setHeight();
-  window.addEventListener('resize', setHeight);
-
-  startTimer();
+  }, {threshold:.5});
+  counters.forEach(c => obs.observe(c));
 })();
 
 // ══════════════════════════════════════════════════════
 //  VIDEO MODAL
 // ══════════════════════════════════════════════════════
 function openModal(card) {
-  const src = card.dataset.videoSrc;
-  const modal = document.getElementById('video-modal');
-  const video = document.getElementById('modal-video');
-  const ph    = document.getElementById('modal-placeholder');
-  if (src) {
-    video.src = src;
-    video.classList.remove('hidden');
-    ph.classList.add('hidden');
-  } else {
-    video.classList.add('hidden');
-    ph.classList.remove('hidden');
-  }
+  const src=card.dataset.videoSrc;
+  const modal=document.getElementById('video-modal');
+  const video=document.getElementById('modal-video');
+  const ph=document.getElementById('modal-ph');
+  if (src) { video.src=src; video.classList.remove('hidden'); ph.classList.add('hidden'); }
+  else     { video.classList.add('hidden'); ph.classList.remove('hidden'); }
   modal.classList.add('open');
-  document.body.style.overflow = 'hidden';
+  document.body.style.overflow='hidden';
 }
-
 function closeModal() {
-  const modal = document.getElementById('video-modal');
-  const video = document.getElementById('modal-video');
-  modal.classList.remove('open');
-  video.pause();
-  video.src = '';
-  document.body.style.overflow = '';
+  const video=document.getElementById('modal-video');
+  document.getElementById('video-modal').classList.remove('open');
+  video.pause(); video.src='';
+  document.body.style.overflow='';
 }
-
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
 // ══════════════════════════════════════════════════════
 //  TRANSLATIONS
 // ══════════════════════════════════════════════════════
 const COPY = {
   en: {
-    eyebrow:       'Newsletter · Free · Weekly',
-    h1a:           'Your Path to',
-    h1b:           'New Zealand',
-    h1c:           'Starts Here.',
-    sub:           'Expert insights on visas, master\'s programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.',
-    emailPH:       'Enter your email address',
-    cta:           'Join Community',
-    trust:         'Join 2,400+ readers  ·  No spam, ever  ·  Unsubscribe anytime',
-    successH:      "You're in! Welcome aboard.",
-    successSub:    'Check your inbox for a confirmation. Your first issue is on its way.',
-    stat1:         'Readers',
-    stat2:         'Success Rate',
-    stat3:         'Always',
-    storiesH:      'Their Journey,\nYour Inspiration.',
-    storiesSub:    'Real stories from Sri Lankans who took the leap and built their new life in New Zealand.',
-    storiesNote:   'Click any card to watch',
-    quotesH:       'From the Community',
-    quotesSub:     'Thousands of Sri Lankans trust Pathfinder every week.',
-    cta2H:         'Ready to Begin\nYour Journey?',
-    cta2Sub:       'Get expert visa guides, scholarship alerts, and real settlement stories delivered to your inbox every week. Free, always.',
-    cta2Btn:       'Get Free Access',
-    trust2:        'No credit card · No spam · Cancel anytime',
-    successH2:     'Welcome to Pathfinder!',
-    successSub2:   'Check your inbox — your first issue is coming soon.',
-    rights:        'All rights reserved.',
-    privacy:       'Privacy',
-    terms:         'Terms',
-    navStories:    'Stories',
-    navCommunity:  'Community',
-    navSubscribe:  'Subscribe',
-    navCta:        'Subscribe Free',
-    errEmail:      'Please enter a valid email address.',
-    errServer:     'Something went wrong. Please try again.',
-    loading:       'Joining…',
+    eyebrow:'Newsletter · Free · Weekly',
+    h1a:'Your Path to', h1b:'New Zealand', h1c:'Starts Here.',
+    sub:'Expert insights on visas, master\'s programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.',
+    emailPH:'Enter your email address', cta:'Join Community',
+    trust:'Join 2,400+ readers  ·  No spam  ·  Unsubscribe anytime',
+    successH:"You're in! Welcome aboard.", successSub:'Check your inbox — your first issue is on its way.',
+    pill1:'2,400+ Subscribers', pill2:'4.9 / 5 Rating', pill3:'Free Forever',
+    navFeatures:'Why Us', navStories:'Stories', navCommunity:'Reviews', navCta:'Subscribe Free',
+    featTag:'What You Get',
+    featH:'Everything You Need\nto Make the Move.',
+    featSub:'Three pillars that make Pathfinder essential reading.',
+    feat1H:'Weekly Visa Digest', feat1B:'Curated updates direct from Immigration NZ — policy changes, deadline alerts, and step-by-step guides you can actually act on.', feat1Tag:'Visa · Immigration',
+    feat2H:'University Insider', feat2B:'Scholarship opportunities, intake deadlines, programme comparisons — broken down specifically for Sri Lankan applicants.', feat2Tag:'Study · Scholarships',
+    feat3H:'Life in Aotearoa', feat3B:'Housing markets, job sectors, cost of living, and community guides — everything you need to thrive after you land.', feat3Tag:'Housing · Jobs · Life',
+    storiesTag:'Real Stories', storiesH:'Their Journey,\nYour Inspiration.', storiesSub:'Real stories from Sri Lankans who took the leap and built their new life in New Zealand.', storiesNote:'Click any card to watch',
+    sc1:'Subscribers', sc2:'Success Rate', sc3:'Issues Published', sc4:'Always & Forever',
+    quotesTag:'Community', quotesH:'From the Community', quotesSub:'Thousands of Sri Lankans trust Pathfinder every week.',
+    cta2Tag:'Join the Community', cta2H:'Ready to Begin\nYour Journey?',
+    cta2Sub:'Get expert visa guides, scholarship alerts, and real settlement stories delivered to your inbox every week. Free, always.',
+    cta2Btn:'Get Free Access', trust2:'No credit card · No spam · Cancel anytime',
+    successH2:'Welcome to Pathfinder!', successSub2:'Your first issue is coming soon.',
+    footerDesc:'Empowering Sri Lankans to navigate their journey to New Zealand with confidence.',
+    rights:'All rights reserved.', privacy:'Privacy', terms:'Terms',
+    errEmail:'Please enter a valid email address.', errServer:'Something went wrong. Please try again.', loading:'Joining…',
   },
   si: {
-    eyebrow:       'පුවත් පත්‍රිකාව · නොමිලේ · සතිපතා',
-    h1a:           'ඔබේ ගමනාරම්භය',
-    h1b:           'නව සීලන්තයට',
-    h1c:           'මෙතැනින් ආරම්භ වේ.',
-    sub:           'වීසා, ශාස්ත්‍රපති වැඩසටහන් සහ ස්ථානාන්තරණය — ශ්‍රී ලාංකිකයන් සඳහා සතිපතා.',
-    emailPH:       'ඔබේ විද්‍යුත් ලිපිනය',
-    cta:           'ප්‍රජාවට එකතු වන්න',
-    trust:         'පාඨකයන් 2,400+ · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
-    successH:      'ඔබ ඇතුළු විය! ආදරයෙන් ආයුබෝවන්.',
-    successSub:    'ඔබේ inbox පරීක්ෂා කරන්න. ඔබේ පළමු කලාපය ළඟදීම ලැබේ.',
-    stat1:         'දායකයින්',
-    stat2:         'සාර්ථකත්ව අනු.',
-    stat3:         'සැමවිටම',
-    storiesH:      'ඔවුන්ගේ ගමන,\nඔබේ ආශ්වාදය.',
-    storiesSub:    'නව සීලන්තයේ නව ජීවිතයක් ගොඩනැගූ ශ්‍රී ලාංකිකයන්ගේ සැබෑ කථා.',
-    storiesNote:   'කාඩ්පත ස්පර්ශ කරන්න',
-    quotesH:       'ශ්‍රී ලාංකික ජනකාය',
-    quotesSub:     'දහස් ගනනක් ශ්‍රී ලාංකිකයන් සෑම සතියකම Pathfinder විශ්වාස කරති.',
-    cta2H:         'ඔබේ ගමන\nආරම්භ කිරීමට සූදානම්ද?',
-    cta2Sub:       'සෑම සතියකම විශේෂඥ වීසා මාර්ගෝපදේශ, ශිෂ්‍යත්ව ඇඟවීම් සහ ජනකාය කථා ලබාගන්න.',
-    cta2Btn:       'නොමිලේ ලියාපදිංචි වන්න',
-    trust2:        'ගෙවීමක් නැත · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
-    successH2:     'Pathfinder ට ආදරයෙන් ආයුබෝවන්!',
-    successSub2:   'ඔබේ inbox බලන්න — ඔබේ පළමු කලාපය ළඟදීම.',
-    rights:        'සියලු හිමිකම් ඇවිරිණි.',
-    privacy:       'රහස්‍යතාව',
-    terms:         'නීතිමය කොන්දේසි',
-    navStories:    'කථා',
-    navCommunity:  'ජනකාය',
-    navSubscribe:  'ලියාපදිංචිය',
-    navCta:        'නොමිලේ ලියාපදිංචි',
-    errEmail:      'වලංගු ඊමේල් ලිපිනයක් ඇතුළු කරන්න.',
-    errServer:     'දෝෂයක් සිදු විය. නැවත උත්සාහ කරන්න.',
-    loading:       'සකසමින්…',
+    eyebrow:'පුවත් පත්‍රිකාව · නොමිලේ · සතිපතා',
+    h1a:'ඔබේ ගමනාරම්භය', h1b:'නව සීලන්තයට', h1c:'මෙතැනින් ආරම්භ වේ.',
+    sub:'වීසා, ශාස්ත්‍රපති වැඩසටහන් සහ ස්ථානාන්තරණය — ශ්‍රී ලාංකිකයන් සඳහා සතිපතා.',
+    emailPH:'ඔබේ විද්‍යුත් ලිපිනය', cta:'ප්‍රජාවට එකතු වන්න',
+    trust:'පාඨකයන් 2,400+ · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
+    successH:'ඔබ ඇතුළු විය! ආදරයෙන් ආයුබෝවන්.', successSub:'ඔබේ inbox පරීක්ෂා කරන්න.',
+    pill1:'දායකයින් 2,400+', pill2:'ශ්‍රේණිගත කිරීම 4.9 / 5', pill3:'සැමවිටම නොමිලේ',
+    navFeatures:'ඇයි අපි?', navStories:'කථා', navCommunity:'අදහස්', navCta:'නොමිලේ ලියාපදිංචි',
+    featTag:'ඔබට ලැබෙන දේ',
+    featH:'ඔබේ ගමනට\nඅවශ්‍ය සියල්ල.',
+    featSub:'Pathfinder කියවීම අත්‍යාවශ්‍ය කරන ස්ථම්භ තුනක්.',
+    feat1H:'සතිපතා වීසා සාරාංශය', feat1B:'Immigration NZ වෙතින් කෙලින්ම ලැබෙන යාවත්කාලීන - ප්‍රතිපත්ති වෙනස්කම්, නියමිත දිනය ඇඟවීම් සහ ක්‍රියාත්මක කළ හැකි මාර්ගෝපදේශ.', feat1Tag:'වීසා · සංක්‍රමණය',
+    feat2H:'විශ්ව විද්‍යාල ළිපිනය', feat2B:'ශිෂ්‍යත්ව, ඇතුළත් වීමේ දිනයන්, වැඩසටහන් සැසඳීම් - ශ්‍රී ලාංකික අයදුම්කරුවන් සඳහා විශේෂයෙන්.', feat2Tag:'ඉගෙනීම · ශිෂ්‍යත්ව',
+    feat3H:'ඕකලන්ඩ් ජීවිතය', feat3B:'නිවාස වෙළෙඳපොළ, රැකියා, ජීවන වියදම් සහ ප්‍රජා මාර්ගෝපදේශ - ගොඩ බෑ පසු ශ්‍රේෂ්ඨ ජීවිතයකට.', feat3Tag:'නිවාස · රැකියා · ජීවිතය',
+    storiesTag:'සැබෑ කථා', storiesH:'ඔවුන්ගේ ගමන,\nඔබේ ආශ්වාදය.', storiesSub:'නව සීලන්තයේ නව ජීවිතයක් ගොඩනැගූ ශ්‍රී ලාංකිකයන්ගේ සැබෑ කථා.', storiesNote:'කාඩ්පත ස්පර්ශ කරන්න',
+    sc1:'දායකයින්', sc2:'සාර්ථකත්ව අනු.', sc3:'කලාප', sc4:'සැමවිටම',
+    quotesTag:'ජනකාය', quotesH:'ශ්‍රී ලාංකික ජනකාය', quotesSub:'දහස් ගනනක් ශ්‍රී ලාංකිකයන් Pathfinder විශ්වාස කරති.',
+    cta2Tag:'ප්‍රජාවට එකතු වන්න', cta2H:'ඔබේ ගමන\nආරම්භ කිරීමට සූදානම්?',
+    cta2Sub:'සෑම සතියකම විශේෂඥ වීසා මාර්ගෝපදේශ, ශිෂ්‍යත්ව ඇඟවීම් සහ ජනකාය කථා ලබාගන්න.',
+    cta2Btn:'නොමිලේ ලියාපදිංචි', trust2:'ගෙවීමක් නැත · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
+    successH2:'Pathfinder ට ආදරයෙන් ආයුබෝවන්!', successSub2:'ඔබේ පළමු කලාපය ළඟදීම.',
+    footerDesc:'ශ්‍රී ලාංකිකයන්ට නව සීලන්තය කරා ඔවුන්ගේ ගමන ආත්ම විශ්වාසයෙන් කිරීමට.',
+    rights:'සියලු හිමිකම් ඇවිරිණි.', privacy:'රහස්‍යතාව', terms:'නීතිමය කොන්දේසි',
+    errEmail:'වලංගු ඊමේල් ලිපිනයක් ඇතුළු කරන්න.', errServer:'දෝෂයක් සිදු විය. නැවත උත්සාහ කරන්න.', loading:'සකසමින්…',
   },
 };
 
-const TEXT_IDS = {
+const T_MAP = {
   eyebrow:'t-eyebrow', h1a:'t-h1a', h1b:'t-h1b', h1c:'t-h1c', sub:'t-sub',
   cta:'t-cta', trust:'t-trust', successH:'t-success-h', successSub:'t-success-sub',
-  stat1:'t-stat1', stat2:'t-stat2', stat3:'t-stat3',
-  storiesH:'t-stories-h', storiesSub:'t-stories-sub', storiesNote:'t-stories-note',
-  quotesH:'t-quotes-h', quotesSub:'t-quotes-sub',
-  cta2H:'t-cta2-h', cta2Sub:'t-cta2-sub', cta2Btn:'t-cta2-btn', trust2:'t-trust-2',
+  pill1:'t-pill1', pill2:'t-pill2', pill3:'t-pill3',
+  navFeatures:'nav-features', navStories:'nav-stories', navCommunity:'nav-community', navCta:'nav-cta',
+  featTag:'t-feat-tag', featH:'t-feat-h', featSub:'t-feat-sub',
+  feat1H:'t-feat1-h', feat1B:'t-feat1-b', feat1Tag:'t-feat1-tag',
+  feat2H:'t-feat2-h', feat2B:'t-feat2-b', feat2Tag:'t-feat2-tag',
+  feat3H:'t-feat3-h', feat3B:'t-feat3-b', feat3Tag:'t-feat3-tag',
+  storiesTag:'t-stories-tag', storiesH:'t-stories-h', storiesSub:'t-stories-sub', storiesNote:'t-stories-note',
+  sc1:'t-sc1', sc2:'t-sc2', sc3:'t-sc3', sc4:'t-sc4',
+  quotesTag:'t-quotes-tag', quotesH:'t-quotes-h', quotesSub:'t-quotes-sub',
+  cta2Tag:'t-cta2-tag', cta2H:'t-cta2-h', cta2Sub:'t-cta2-sub', cta2Btn:'t-cta2-btn', trust2:'t-trust-2',
   successH2:'t-success-h-2', successSub2:'t-success-sub-2',
-  rights:'t-rights', privacy:'t-privacy', terms:'t-terms',
-  navStories:'nav-stories', navCommunity:'nav-community', navSubscribe:'nav-subscribe', navCta:'nav-cta',
+  footerDesc:'t-footer-desc', rights:'t-rights', privacy:'t-privacy', terms:'t-terms',
 };
 const SI_IDS = new Set(['t-eyebrow','t-h1a','t-h1b','t-h1c','t-sub','t-cta','t-trust','t-success-h','t-success-sub',
-  't-stat1','t-stat2','t-stat3','t-stories-h','t-stories-sub','t-quotes-h','t-quotes-sub',
-  't-cta2-h','t-cta2-sub','t-cta2-btn','t-trust-2','t-success-h-2','t-success-sub-2']);
+  't-pill1','t-pill2','t-pill3','t-feat-tag','t-feat-h','t-feat-sub',
+  't-feat1-h','t-feat1-b','t-feat1-tag','t-feat2-h','t-feat2-b','t-feat2-tag','t-feat3-h','t-feat3-b','t-feat3-tag',
+  't-stories-tag','t-stories-h','t-stories-sub','t-stories-note',
+  't-sc1','t-sc2','t-sc3','t-sc4','t-quotes-tag','t-quotes-h','t-quotes-sub',
+  't-cta2-tag','t-cta2-h','t-cta2-sub','t-cta2-btn','t-trust-2','t-success-h-2','t-success-sub-2','t-footer-desc']);
 
 let lang = 'en';
 
 function applyLang(l) {
   lang = l;
-  const c = COPY[l];
-  const si = l === 'si';
-  const siFont = si ? "'Noto Sans Sinhala',sans-serif" : '';
-
-  Object.entries(TEXT_IDS).forEach(([key,id]) => {
+  const c = COPY[l], si = l==='si', sf = si ? "'Noto Sans Sinhala',sans-serif" : '';
+  Object.entries(T_MAP).forEach(([k,id]) => {
     const el = document.getElementById(id);
-    if (!el || !c[key]) return;
-    el.textContent = c[key];
-    if (SI_IDS.has(id)) el.style.fontFamily = siFont;
+    if (!el || !c[k]) return;
+    el.textContent = c[k];
+    if (SI_IDS.has(id)) el.style.fontFamily = sf;
   });
-
   ['email-input','email-input-2'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) { el.placeholder = c.emailPH; el.style.fontFamily = siFont; }
+    if (el) { el.placeholder = c.emailPH; el.style.fontFamily = sf; }
   });
   document.documentElement.lang = si ? 'si' : 'en';
 }
@@ -1020,7 +1035,7 @@ function applyLang(l) {
 document.querySelectorAll('.lang-pill').forEach(btn => {
   btn.addEventListener('click', () => {
     const l = btn.dataset.lang;
-    if (l === lang) return;
+    if (l===lang) return;
     document.querySelectorAll('.lang-pill').forEach(b => {
       b.classList.toggle('active', b===btn);
       b.setAttribute('aria-pressed', String(b===btn));
@@ -1028,18 +1043,16 @@ document.querySelectorAll('.lang-pill').forEach(btn => {
     applyLang(l);
   });
 });
-
 applyLang('en');
 
 // ══════════════════════════════════════════════════════
 //  FORM SUBMISSION
-//  ▶ Replace YOUR_GOOGLE_APPS_SCRIPT_URL with your URL
-//  ▶ Use text/plain — required for no-cors mode
+//  ▶ Replace with your deployed Apps Script URL below
 // ══════════════════════════════════════════════════════
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycby_K_-IA-izVcluoDJxLQfHdU9JOEvkrYSCQEDBdUUxfvwiAN7FQ7XPkYaU_F9V0LYK/exec';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustId, successHId, successSubId) {
+function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustId) {
   const form    = document.getElementById(formId);
   const input   = document.getElementById(inputId);
   const btn     = document.getElementById(btnId);
@@ -1049,11 +1062,8 @@ function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustI
   const trust   = document.getElementById(trustId);
 
   function showErr(msg) {
-    error.textContent = msg;
-    error.classList.remove('off');
-    input.classList.remove('shake');
-    void input.offsetWidth;
-    input.classList.add('shake');
+    error.textContent = msg; error.classList.remove('off');
+    input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
   }
   input.addEventListener('input', () => error.classList.add('off'));
 
@@ -1061,31 +1071,28 @@ function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustI
     e.preventDefault();
     const email = input.value.trim();
     if (!EMAIL_RE.test(email)) { showErr(COPY[lang].errEmail); return; }
-
     error.classList.add('off');
     btn.disabled = true;
     ctaSpan.textContent = COPY[lang].loading;
-
     try {
       await fetch(ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({email, lang, ts: new Date().toISOString()}),
       });
       form.classList.add('off');
       if (trust) trust.classList.add('off');
       success.classList.remove('off');
     } catch {
       btn.disabled = false;
-      ctaSpan.textContent = COPY[lang][ctaSpanId === 't-cta' ? 'cta' : 'cta2Btn'];
+      ctaSpan.textContent = COPY[lang].cta;
       showErr(COPY[lang].errServer);
     }
   });
 }
 
-setupForm('email-form',   'email-input',   'submit-btn',   't-cta',     'form-error',   'success-state',   't-trust',   't-success-h',   't-success-sub');
-setupForm('email-form-2', 'email-input-2', 'submit-btn-2', 't-cta2-btn','form-error-2', 'success-state-2', 't-trust-2', 't-success-h-2', 't-success-sub-2');
+setupForm('email-form',  'email-input',  'submit-btn',  't-cta',     'form-error',  'success-state',  't-trust');
+setupForm('email-form-2','email-input-2','submit-btn-2','t-cta2-btn','form-error-2','success-state-2','t-trust-2');
 </script>
 
 </body>
