@@ -3,36 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Pathfinder — The essential weekly newsletter for Sri Lankans navigating their journey to New Zealand. Visa guides, university insights, and real stories." />
-  <meta property="og:title" content="Pathfinder — Your New Zealand Journey" />
-  <meta property="og:description" content="Expert insights curated for Sri Lankans building a new life in Aotearoa. Free. Weekly." />
+  <meta name="description" content="Pathfinder — The essential weekly newsletter for Sri Lankans navigating their journey to New Zealand." />
   <title>Pathfinder — Your New Zealand Journey Starts Here</title>
 
   <!--
-  ═══════════════════════════════════════════════════════════
+  ══════════════════════════════════════════════════════════
   EMAIL STORAGE — Google Sheets + Apps Script (Free, Unlimited)
-  ═══════════════════════════════════════════════════════════
-  Why: Free forever, unlimited rows, familiar spreadsheet UI,
-  easy export, no third-party account needed beyond Google.
+  ══════════════════════════════════════════════════════════
+  IMPORTANT FIX: Apps Script must use e.postData.contents
+  with Content-Type text/plain (no-cors compatible).
 
-  SETUP (5 steps):
-  1. Create a new Google Spreadsheet → name first sheet "Subscribers"
-  2. Extensions → Apps Script → paste the code below → Save
+  SETUP:
+  1. Create a Google Spreadsheet. Name first sheet "Subscribers".
+  2. Extensions → Apps Script → replace all code with below → Save.
   3. Deploy → New Deployment → Web App
-       Execute as: Me | Who has access: Anyone → Deploy
-  4. Copy the Web App URL
-  5. Replace YOUR_GOOGLE_APPS_SCRIPT_URL below with that URL
+       Execute as: Me  |  Who has access: Anyone  → Deploy.
+  4. Copy the deployment URL.
+  5. Replace YOUR_GOOGLE_APPS_SCRIPT_URL near the bottom of this file.
 
-  ──────── Apps Script code (Code.gs) ────────
+  ── Code.gs ──────────────────────────────────────────────
   function doPost(e) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('Subscribers');
-      const data = JSON.parse(e.postData.contents);
-      if (!sheet.getLastRow()) {
+      const sheet = SpreadsheetApp.getActiveSpreadsheet()
+                      .getSheetByName('Subscribers');
+      if (!sheet.getLastRow())
         sheet.appendRow(['Timestamp', 'Email', 'Language']);
-      }
-      sheet.appendRow([new Date(), data.email, data.lang]);
+      const d = JSON.parse(e.postData.contents);
+      sheet.appendRow([new Date(), d.email, d.lang]);
       return ContentService
         .createTextOutput(JSON.stringify({ success: true }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -45,13 +42,17 @@
   function doGet() {
     return ContentService.createTextOutput('Pathfinder API running.');
   }
-  ═══════════════════════════════════════════════════════════
+  ──────────────────────────────────────────────────────────
+  WHY text/plain? fetch() mode:"no-cors" only allows CORS-safe
+  headers. "application/json" gets stripped → Apps Script never
+  receives the body. "text/plain" is safe; the JSON body still
+  arrives in e.postData.contents and parses normally.
+  ══════════════════════════════════════════════════════════
   -->
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Plus+Jakarta+Sans:wght@400;600&family=Noto+Sans+Sinhala:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
-
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,900;1,700&family=Plus+Jakarta+Sans:wght@400;600&family=Noto+Sans+Sinhala:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script>
     tailwind.config = {
@@ -63,591 +64,1032 @@
             'nz-blue': '#aec7f6',
           },
           fontFamily: {
-            headline: ['Montserrat', 'sans-serif'],
-            body: ['Plus Jakarta Sans', 'sans-serif'],
-            sinhala: ['Noto Sans Sinhala', 'sans-serif'],
-          },
+            headline: ['Montserrat','sans-serif'],
+            body: ['Plus Jakarta Sans','sans-serif'],
+            sinhala: ['Noto Sans Sinhala','sans-serif'],
+          }
         }
       }
     };
   </script>
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
 
     body {
-      min-height: 100vh;
-      background: #000a1e;
-      color: #fff;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      overflow-x: hidden;
+      min-height:100vh;
+      background:#000a1e;
+      color:#fff;
+      font-family:'Plus Jakarta Sans',sans-serif;
+      overflow-x:hidden;
     }
 
-    /* ── Canvas ── */
-    #bg-canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 0;
+    /* ── Fixed layers ── */
+    #bg-canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+
+    .grain{
+      position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.038;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:250px;
     }
 
-    /* ── Film grain ── */
-    .grain {
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      opacity: 0.04;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-size: 250px 250px;
+    #cursor-glow{
+      position:fixed;width:480px;height:480px;border-radius:50%;
+      background:radial-gradient(circle,rgba(173,208,157,.05) 0%,transparent 68%);
+      pointer-events:none;z-index:2;transform:translate(-50%,-50%);
+      transition:left .12s ease,top .12s ease;
     }
 
-    /* ── Glassmorphism ── */
-    .glass {
-      background: rgba(255, 255, 255, 0.045);
-      backdrop-filter: blur(24px) saturate(160%);
-      -webkit-backdrop-filter: blur(24px) saturate(160%);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    /* ── Scroll progress ── */
+    #progress-bar{
+      position:fixed;top:0;left:0;height:2px;z-index:1000;
+      background:linear-gradient(90deg,#add09d,#aec7f6);
+      transform-origin:left;transform:scaleX(0);
+      transition:transform .08s linear;
     }
+
+    /* ── Glass ── */
+    .glass{
+      background:rgba(255,255,255,.045);
+      backdrop-filter:blur(24px) saturate(160%);
+      -webkit-backdrop-filter:blur(24px) saturate(160%);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .glass-heavy{
+      background:rgba(255,255,255,.07);
+      backdrop-filter:blur(32px) saturate(180%);
+      -webkit-backdrop-filter:blur(32px) saturate(180%);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    /* ── Scroll reveal ── */
+    [data-reveal]{
+      opacity:0;
+      transition:opacity .85s cubic-bezier(.22,1,.36,1),
+                 transform .85s cubic-bezier(.22,1,.36,1);
+    }
+    [data-reveal="up"]   {transform:translateY(52px)}
+    [data-reveal="left"] {transform:translateX(-52px)}
+    [data-reveal="right"]{transform:translateX(52px)}
+    [data-reveal="scale"]{transform:scale(.88)}
+    [data-reveal="blur"] {transform:translateY(24px);filter:blur(8px)}
+    [data-reveal].visible{opacity:1;transform:none;filter:none}
 
     /* ── Animations ── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(30px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .anim {
-      opacity: 0;
-      animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+    .anim{opacity:0;animation:fadeUp .9s cubic-bezier(.22,1,.36,1) forwards}
 
-    @keyframes pingRing {
-      0%   { transform: scale(1);   opacity: 0.7; }
-      100% { transform: scale(2.5); opacity: 0; }
-    }
-    .ping-ring {
-      animation: pingRing 2.2s ease-out infinite;
-    }
+    @keyframes pingRing{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+    .ping-ring{animation:pingRing 2.4s ease-out infinite}
 
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60%  { transform: translateX(-5px); }
-      40%, 80%  { transform: translateX(5px); }
-    }
-    .shake { animation: shake 0.38s ease; }
+    @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+    .shake{animation:shake .38s ease}
 
-    @keyframes scaleIn {
-      from { transform: scale(0.7); opacity: 0; }
-      to   { transform: scale(1);   opacity: 1; }
-    }
-    .scale-in { animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    @keyframes scaleIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+    .scale-in{animation:scaleIn .5s cubic-bezier(.34,1.56,.64,1) forwards}
 
-    /* ── Gradient headline ── */
-    .grad-text {
-      background: linear-gradient(130deg, #add09d 0%, #aec7f6 55%, #c9edb7 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    @keyframes marqueeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .marquee-track{animation:marqueeScroll 32s linear infinite}
+    .marquee-track:hover{animation-play-state:paused}
+
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+    /* ── Gradient text ── */
+    .grad{
+      background:linear-gradient(130deg,#add09d 0%,#aec7f6 55%,#c9edb7 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
     }
 
     /* ── Language pills ── */
-    .lang-pill {
-      padding: 5px 15px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: rgba(255,255,255,0.45);
-      cursor: pointer;
-      transition: all 0.25s ease;
-      border: none;
-      background: transparent;
+    .lang-pill{
+      padding:5px 15px;border-radius:9999px;font-size:12px;font-weight:600;
+      letter-spacing:.04em;color:rgba(255,255,255,.45);cursor:pointer;
+      transition:all .25s ease;border:none;background:transparent;
     }
-    .lang-pill.active {
-      background: rgba(255,255,255,0.13);
-      color: #fff;
-    }
-    .lang-pill:hover:not(.active) {
-      color: rgba(255,255,255,0.75);
-    }
+    .lang-pill.active{background:rgba(255,255,255,.13);color:#fff}
+    .lang-pill:hover:not(.active){color:rgba(255,255,255,.75)}
 
     /* ── Email input ── */
-    .email-field {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.11);
-      color: #fff;
-      border-radius: 9999px;
-      outline: none;
-      transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
-      width: 100%;
-      padding: 17px 28px;
-      font-size: 16px;
-      font-family: inherit;
+    .email-field{
+      background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);
+      color:#fff;border-radius:9999px;outline:none;width:100%;
+      padding:17px 28px;font-size:16px;font-family:inherit;
+      transition:border-color .3s,background .3s,box-shadow .3s;
     }
-    .email-field::placeholder { color: rgba(255,255,255,0.28); }
-    .email-field:focus {
-      border-color: rgba(173,208,157,0.5);
-      background: rgba(255,255,255,0.09);
-      box-shadow: 0 0 0 4px rgba(173,208,157,0.07);
+    .email-field::placeholder{color:rgba(255,255,255,.28)}
+    .email-field:focus{
+      border-color:rgba(173,208,157,.5);background:rgba(255,255,255,.09);
+      box-shadow:0 0 0 4px rgba(173,208,157,.08);
     }
 
     /* ── CTA button ── */
-    .cta-btn {
-      background: #fff;
-      color: #000a1e;
-      border-radius: 9999px;
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.03em;
-      padding: 17px 34px;
-      white-space: nowrap;
-      cursor: pointer;
-      border: none;
-      transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), box-shadow 0.28s ease;
-      position: relative;
-      overflow: hidden;
-      flex-shrink: 0;
+    .cta-btn{
+      background:#fff;color:#000a1e;border-radius:9999px;
+      font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;
+      letter-spacing:.03em;padding:17px 34px;white-space:nowrap;cursor:pointer;
+      border:none;transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s ease;
+      position:relative;overflow:hidden;flex-shrink:0;
     }
-    .cta-btn::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, #f0f7ff 0%, #e8f4e8 100%);
-      opacity: 0;
-      transition: opacity 0.3s;
+    .cta-btn::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(135deg,#f0f7ff 0%,#e8f4e8 100%);
+      opacity:0;transition:opacity .3s;
     }
-    .cta-btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    .cta-btn:hover{transform:translateY(-3px);box-shadow:0 22px 64px rgba(0,0,0,.55)}
+    .cta-btn:hover::after{opacity:1}
+    .cta-btn:active{transform:translateY(-1px)}
+    .cta-btn span{position:relative;z-index:1}
+    .cta-btn:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
+    .cta-btn-outline{
+      background:transparent;color:#fff;border:1px solid rgba(255,255,255,.25);
+      border-radius:9999px;font-family:'Montserrat',sans-serif;font-weight:700;
+      font-size:13px;letter-spacing:.03em;padding:16px 32px;cursor:pointer;
+      transition:all .3s ease;white-space:nowrap;
     }
-    .cta-btn:hover::after { opacity: 1; }
-    .cta-btn:active { transform: translateY(-1px); }
-    .cta-btn span { position: relative; z-index: 1; }
-    .cta-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
+    .cta-btn-outline:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.45)}
 
-    /* ── Success icon ── */
-    .success-icon {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: rgba(173,208,157,0.1);
-      border: 1px solid rgba(173,208,157,0.22);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
+    /* ── Form row ── */
+    .form-row{display:flex;gap:10px;align-items:center}
+    @media(max-width:560px){
+      .form-row{flex-direction:column}
+      .cta-btn,.cta-btn-outline{width:100%;text-align:center}
     }
 
-    /* ── Divider for stats ── */
-    .stat-divider { border-right: 1px solid rgba(255,255,255,0.07); }
-
-    /* ── Utility ── */
-    .off { display: none !important; }
-
-    /* ── Responsive form row ── */
-    .form-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+    /* ── Success ── */
+    .success-icon{
+      width:72px;height:72px;border-radius:50%;
+      background:rgba(173,208,157,.1);border:1px solid rgba(173,208,157,.22);
+      display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
     }
-    @media (max-width: 560px) {
-      .form-row {
-        flex-direction: column;
-      }
-      .cta-btn {
-        width: 100%;
-        text-align: center;
-      }
+
+    /* ── Marquee strip ── */
+    .marquee-item{
+      display:flex;align-items:center;gap:12px;
+      color:rgba(255,255,255,.25);font-size:13px;font-weight:600;
+      letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
     }
+    .marquee-dot{width:4px;height:4px;border-radius:50%;background:rgba(173,208,157,.4);flex-shrink:0}
+
+    /* ── Video cards ── */
+    .video-card{
+      border-radius:20px;overflow:hidden;cursor:pointer;
+      transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease;
+      position:relative;flex-shrink:0;
+    }
+    .video-card:hover{transform:translateY(-8px) scale(1.01);box-shadow:0 32px 80px rgba(0,0,0,.6)}
+    .video-card:hover .play-btn-inner{transform:scale(1.12)}
+    .video-card:hover .thumb-overlay{opacity:.5}
+
+    .thumb-overlay{
+      position:absolute;inset:0;
+      background:linear-gradient(to bottom,transparent 30%,rgba(0,10,30,.9) 100%);
+      transition:opacity .4s;opacity:.7;
+    }
+    .play-btn-inner{
+      transition:transform .3s cubic-bezier(.22,1,.36,1);
+    }
+
+    /* Video thumbnail gradient scenes */
+    .thumb-alps   {background:linear-gradient(160deg,#0d1b2a 0%,#1b3a4b 35%,#2d6a8f 65%,#3a8fa0 100%)}
+    .thumb-fiord  {background:linear-gradient(160deg,#0a2440 0%,#1a4060 40%,#0d5c5c 70%,#1a8c6e 100%)}
+    .thumb-city   {background:linear-gradient(160deg,#0d0d1a 0%,#1a1a3e 35%,#2d1b69 65%,#4a2888 100%)}
+
+    /* ── Quotes carousel ── */
+    .quote-slide{
+      position:absolute;inset:0;
+      opacity:0;transition:opacity .7s ease,transform .7s cubic-bezier(.22,1,.36,1);
+      transform:translateY(16px);pointer-events:none;
+    }
+    .quote-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+    .quote-dot{
+      width:8px;height:8px;border-radius:9999px;
+      background:rgba(255,255,255,.2);border:none;cursor:pointer;
+      transition:all .3s ease;padding:0;
+    }
+    .quote-dot.active{width:24px;background:#add09d}
+
+    /* ── Avatar initials ── */
+    .avatar{
+      width:48px;height:48px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Montserrat',sans-serif;font-weight:900;font-size:17px;color:#fff;
+    }
+
+    /* ── Section divider ── */
+    .section-line{
+      width:40px;height:2px;
+      background:linear-gradient(90deg,#add09d,transparent);
+      margin-bottom:20px;
+    }
+
+    /* ── Video modal ── */
+    #video-modal{
+      position:fixed;inset:0;z-index:500;
+      background:rgba(0,0,0,.88);
+      backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      display:none;align-items:center;justify-content:center;padding:20px;
+    }
+    #video-modal.open{display:flex}
+
+    .off{display:none!important}
+
+    /* ── Number counter ── */
+    .counter{font-variant-numeric:tabular-nums}
   </style>
 </head>
 <body>
 
-  <!-- Aurora canvas -->
-  <canvas id="bg-canvas"></canvas>
+<!-- Fixed: scroll progress -->
+<div id="progress-bar" style="width:100%"></div>
 
-  <!-- Film grain texture -->
-  <div class="grain" aria-hidden="true"></div>
+<!-- Fixed: cursor glow -->
+<div id="cursor-glow"></div>
 
-  <!-- Page shell -->
-  <div class="relative z-10 min-h-screen flex flex-col">
+<!-- Fixed: aurora canvas -->
+<canvas id="bg-canvas"></canvas>
 
-    <!-- ════════════ NAVBAR ════════════ -->
-    <header class="flex items-center justify-between px-6 md:px-20 pt-8">
+<!-- Fixed: film grain -->
+<div class="grain" aria-hidden="true"></div>
 
-      <!-- Brand mark -->
+<!-- ═══════════════════════ PAGE ═══════════════════════ -->
+<div class="relative z-10 flex flex-col">
+
+  <!-- ────────────── NAV ────────────── -->
+  <header class="fixed top-0 left-0 right-0 z-[100] px-6 md:px-20 pt-6">
+    <div class="max-w-6xl mx-auto flex items-center justify-between glass rounded-2xl px-6 py-3">
+      <!-- Brand -->
       <div class="flex items-center gap-2.5">
-        <div class="relative w-6 h-6 flex-shrink-0">
+        <div class="relative w-5 h-5 flex-shrink-0">
           <span class="ping-ring absolute inset-0 rounded-full bg-nz-green opacity-60"></span>
-          <svg class="relative z-10" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg class="relative z-10" width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#add09d"/>
           </svg>
         </div>
-        <span class="font-headline font-black text-lg tracking-tight text-white uppercase select-none">Pathfinder</span>
+        <span class="font-headline font-black text-base tracking-tight text-white uppercase">Pathfinder</span>
       </div>
-
-      <!-- Language selector -->
-      <div class="glass rounded-full p-1.5 flex items-center" role="group" aria-label="Select language">
-        <button class="lang-pill active" data-lang="en" aria-pressed="true">EN</button>
-        <button class="lang-pill" data-lang="si" aria-pressed="false">සිං</button>
-      </div>
-
-    </header>
-
-    <!-- ════════════ HERO ════════════ -->
-    <main class="flex-1 flex items-center justify-center px-6 md:px-20 py-14">
-      <div class="w-full max-w-xl mx-auto text-center">
-
-        <!-- Eyebrow badge -->
-        <div class="anim mb-9" style="animation-delay:0.08s">
-          <div class="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5">
-            <span class="w-2 h-2 rounded-full bg-nz-green flex-shrink-0"></span>
-            <span id="t-eyebrow" class="text-nz-green text-xs font-semibold tracking-widest uppercase"></span>
-          </div>
+      <!-- Links (desktop) -->
+      <nav class="hidden md:flex items-center gap-8 text-xs font-semibold text-white/40 tracking-widest uppercase">
+        <a href="#stories" class="hover:text-white/70 transition-colors" id="nav-stories">Stories</a>
+        <a href="#community" class="hover:text-white/70 transition-colors" id="nav-community">Community</a>
+        <a href="#subscribe" class="hover:text-white/70 transition-colors" id="nav-subscribe">Subscribe</a>
+      </nav>
+      <!-- Lang + CTA -->
+      <div class="flex items-center gap-3">
+        <div class="glass rounded-full p-1 flex items-center" role="group" aria-label="Select language">
+          <button class="lang-pill active" data-lang="en" aria-pressed="true">EN</button>
+          <button class="lang-pill" data-lang="si" aria-pressed="false">සිං</button>
         </div>
-
-        <!-- Headline -->
-        <h1 class="font-headline font-black tracking-tight mb-6" style="line-height: 1.04;">
-          <span class="anim block text-white" style="animation-delay:0.18s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
-            <span id="t-h1a"></span>
-          </span>
-          <span class="anim block grad-text" style="animation-delay:0.3s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
-            <span id="t-h1b"></span>
-          </span>
-          <span class="anim block text-white" style="animation-delay:0.42s; font-size:clamp(2.4rem,6.5vw,4.25rem)">
-            <span id="t-h1c"></span>
-          </span>
-        </h1>
-
-        <!-- Subtext -->
-        <p id="t-sub"
-           class="anim text-white/50 leading-relaxed max-w-md mx-auto mb-10"
-           style="animation-delay:0.55s; font-size:clamp(0.9rem,2vw,1.05rem)">
-        </p>
-
-        <!-- ── Form block ── -->
-        <div class="anim" style="animation-delay:0.68s">
-
-          <form id="email-form" novalidate>
-            <div class="form-row max-w-md mx-auto">
-              <input
-                type="email"
-                id="email-input"
-                class="email-field flex-1 min-w-0"
-                autocomplete="email"
-                required
-                aria-label="Email address"
-              />
-              <button type="submit" class="cta-btn" id="submit-btn" aria-label="Subscribe">
-                <span id="t-cta"></span>
-              </button>
-            </div>
-            <!-- Inline error -->
-            <p id="form-error" class="off text-red-400 text-sm mt-3" aria-live="polite" role="alert"></p>
-          </form>
-
-          <!-- ── Success state ── -->
-          <div id="success-state" class="off text-center">
-            <div class="success-icon scale-in">
-              <span class="material-symbols-outlined" style="color:#add09d;font-size:30px">check_circle</span>
-            </div>
-            <h2 id="t-success-h" class="font-headline font-bold text-xl text-white mb-2"></h2>
-            <p id="t-success-sub" class="text-white/45 text-sm leading-relaxed"></p>
-          </div>
-
-          <!-- Trust line -->
-          <p id="t-trust" class="text-white/25 text-xs mt-5 tracking-wide"></p>
-
-        </div>
-        <!-- /form block -->
-
+        <a href="#subscribe" class="hidden sm:block cta-btn py-2.5 px-5 text-xs"><span id="nav-cta">Subscribe Free</span></a>
       </div>
-    </main>
+    </div>
+  </header>
 
-    <!-- ════════════ STATS ════════════ -->
-    <section class="anim px-6 md:px-20 pb-10" style="animation-delay:0.88s">
-      <div class="max-w-sm mx-auto">
-        <div class="glass rounded-2xl grid grid-cols-3">
-          <div class="text-center py-5 px-3 stat-divider">
-            <div class="font-headline font-black text-xl text-white">2,400+</div>
-            <div id="t-stat1" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+  <!-- ────────────── HERO ────────────── -->
+  <section id="hero" class="min-h-screen flex items-center justify-center px-6 md:px-20 pt-36 pb-20">
+    <div class="max-w-2xl w-full mx-auto text-center">
+
+      <!-- Badge -->
+      <div class="anim mb-8" style="animation-delay:.08s">
+        <div class="inline-flex items-center gap-2.5 glass rounded-full px-5 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-nz-green flex-shrink-0"></span>
+          <span id="t-eyebrow" class="text-nz-green text-[11px] font-semibold tracking-[.15em] uppercase"></span>
+        </div>
+      </div>
+
+      <!-- Headline -->
+      <h1 class="font-headline font-black tracking-tight mb-6" style="line-height:1.04">
+        <span class="anim block text-white" style="animation-delay:.18s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+          <span id="t-h1a"></span>
+        </span>
+        <span class="anim block grad" style="animation-delay:.30s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+          <span id="t-h1b"></span>
+        </span>
+        <span class="anim block text-white" style="animation-delay:.42s;font-size:clamp(2.4rem,6.5vw,4.5rem)">
+          <span id="t-h1c"></span>
+        </span>
+      </h1>
+
+      <!-- Sub -->
+      <p id="t-sub" class="anim text-white/50 leading-relaxed max-w-md mx-auto mb-10"
+         style="animation-delay:.55s;font-size:clamp(.9rem,2vw,1.05rem)"></p>
+
+      <!-- Form -->
+      <div class="anim" style="animation-delay:.68s">
+        <form id="email-form" novalidate>
+          <div class="form-row max-w-md mx-auto">
+            <input type="email" id="email-input" class="email-field flex-1 min-w-0"
+                   autocomplete="email" required aria-label="Email address" />
+            <button type="submit" class="cta-btn" id="submit-btn"><span id="t-cta"></span></button>
           </div>
-          <div class="text-center py-5 px-3 stat-divider">
+          <p id="form-error" class="off text-red-400 text-sm mt-3" aria-live="polite" role="alert"></p>
+        </form>
+        <div id="success-state" class="off text-center">
+          <div class="success-icon scale-in">
+            <span class="material-symbols-outlined" style="color:#add09d;font-size:30px">check_circle</span>
+          </div>
+          <h2 id="t-success-h" class="font-headline font-bold text-xl text-white mb-2"></h2>
+          <p id="t-success-sub" class="text-white/45 text-sm leading-relaxed"></p>
+        </div>
+        <p id="t-trust" class="text-white/25 text-xs mt-5 tracking-wide"></p>
+      </div>
+
+      <!-- Stats -->
+      <div class="anim mt-14" style="animation-delay:.88s">
+        <div class="glass rounded-2xl grid grid-cols-3 max-w-sm mx-auto">
+          <div class="text-center py-5 px-3 border-r border-white/[.06]">
+            <div class="font-headline font-black text-xl text-white counter" data-target="2400" id="stat-readers">2,400+</div>
+            <div id="t-stat1" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
+          </div>
+          <div class="text-center py-5 px-3 border-r border-white/[.06]">
             <div class="font-headline font-black text-xl" style="color:#add09d">98%</div>
-            <div id="t-stat2" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+            <div id="t-stat2" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
           </div>
           <div class="text-center py-5 px-3">
             <div class="font-headline font-black text-xl text-white">Free</div>
-            <div id="t-stat3" class="text-white/30 text-[10px] mt-1 tracking-widest uppercase"></div>
+            <div id="t-stat3" class="text-white/30 text-[10px] mt-1 tracking-[.1em] uppercase"></div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- ════════════ FOOTER ════════════ -->
-    <footer class="px-6 md:px-20 py-6 border-t border-white/[0.05]">
-      <div class="max-w-xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-white/20 text-xs">
-        <span>© 2026 Pathfinder NZ. <span id="t-rights"></span></span>
-        <nav class="flex gap-5" aria-label="Footer">
-          <a href="#" id="t-privacy" class="hover:text-white/45 transition-colors duration-200"></a>
-          <a href="#" id="t-terms"   class="hover:text-white/45 transition-colors duration-200"></a>
-          <a href="mailto:hello@pathfinder.nz" class="hover:text-white/45 transition-colors duration-200">Contact</a>
-        </nav>
+  <!-- ────────────── MARQUEE ────────────── -->
+  <div class="relative overflow-hidden border-y border-white/[.05] py-5 bg-white/[.015]">
+    <div class="flex gap-16 marquee-track">
+      <!-- Two identical sets for seamless loop -->
+      <template id="marquee-items">
+        <div class="marquee-item"><span class="marquee-dot"></span>University of Auckland</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Victoria University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Canterbury University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>University of Otago</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>AUT University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Massey University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Lincoln University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Waikato University</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Skilled Migrant</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Green List Visa</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Student Visa</div>
+        <div class="marquee-item"><span class="marquee-dot"></span>Work to Residence</div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ────────────── VIDEO STORIES ────────────── -->
+  <section id="stories" class="px-6 md:px-20 py-28">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Heading -->
+      <div class="mb-16">
+        <div class="section-line" data-reveal="up"></div>
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h2 class="font-headline font-black text-white leading-tight mb-3" data-reveal="up"
+                style="font-size:clamp(2rem,4.5vw,3.2rem)">
+              <span id="t-stories-h"></span>
+            </h2>
+            <p id="t-stories-sub" class="text-white/45 max-w-sm" data-reveal="up" data-delay="1"></p>
+          </div>
+          <p class="text-white/25 text-xs tracking-widest uppercase" data-reveal="up" data-delay="2" id="t-stories-note"></p>
+        </div>
       </div>
-    </footer>
 
-  </div><!-- /page shell -->
+      <!-- Cards — horizontal scroll on mobile -->
+      <div class="flex gap-6 overflow-x-auto pb-4 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 snap-x snap-mandatory md:snap-none"
+           style="scrollbar-width:none;-ms-overflow-style:none">
 
-  <script>
-    // ══════════════════════════════════════════════
-    //  AURORA BACKGROUND
-    // ══════════════════════════════════════════════
-    (() => {
-      const canvas = document.getElementById('bg-canvas');
-      const ctx    = canvas.getContext('2d');
-      let W, H;
+        <!-- Card 1 -->
+        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="0"
+             data-video-src="" onclick="openModal(this)">
+          <div class="thumb-alps aspect-video relative">
+            <!-- SVG mountain silhouette decoration -->
+            <svg class="absolute bottom-0 left-0 w-full opacity-30" viewBox="0 0 400 80" fill="none">
+              <path d="M0 80 L80 30 L140 55 L220 10 L300 45 L370 20 L400 40 L400 80Z" fill="white"/>
+            </svg>
+            <div class="thumb-overlay"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
+                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              </div>
+            </div>
+            <div class="absolute bottom-0 inset-x-0 p-5">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Auckland</span>
+              </div>
+              <p class="font-headline font-bold text-white text-base">Kavindra Perera</p>
+              <p class="text-white/50 text-xs mt-0.5">MSc Computer Science · 2023</p>
+            </div>
+          </div>
+        </div>
 
-      const resize = () => {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-      };
-      resize();
-      window.addEventListener('resize', resize);
+        <!-- Card 2 -->
+        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="1"
+             data-video-src="" onclick="openModal(this)">
+          <div class="thumb-fiord aspect-video relative">
+            <svg class="absolute bottom-0 left-0 w-full opacity-25" viewBox="0 0 400 80" fill="none">
+              <path d="M0 60 L60 40 L120 55 L180 25 L240 50 L320 15 L400 35 L400 80 L0 80Z" fill="white"/>
+            </svg>
+            <div class="thumb-overlay"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
+                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              </div>
+            </div>
+            <div class="absolute bottom-0 inset-x-0 p-5">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Wellington</span>
+              </div>
+              <p class="font-headline font-bold text-white text-base">Dilini Wijesinghe</p>
+              <p class="text-white/50 text-xs mt-0.5">MBA · Victoria University · 2024</p>
+            </div>
+          </div>
+        </div>
 
-      // Each blob: rgb color, relative size, base speed, opacity
-      const DEFS = [
-        { rgb:[70,95,136],   size:0.60, spd:0.20, op:0.22 },  // surface-tint blue
-        { rgb:[72,102,60],   size:0.52, spd:0.16, op:0.18 },  // fern green
-        { rgb:[0,33,71],     size:0.75, spd:0.12, op:0.38 },  // deep navy
-        { rgb:[174,199,246], size:0.34, spd:0.30, op:0.12 },  // light blue
-        { rgb:[72,102,60],   size:0.42, spd:0.24, op:0.15 },  // green accent
-        { rgb:[90,60,130],   size:0.30, spd:0.36, op:0.09 },  // violet hint
-        { rgb:[70,95,136],   size:0.38, spd:0.28, op:0.13 },  // blue accent
-      ];
+        <!-- Card 3 -->
+        <div class="video-card w-[82vw] md:w-auto snap-start glass-heavy" data-reveal="up" data-delay="2"
+             data-video-src="" onclick="openModal(this)">
+          <div class="thumb-city aspect-video relative">
+            <svg class="absolute bottom-0 left-0 w-full opacity-20" viewBox="0 0 400 80" fill="none">
+              <path d="M0 80 L0 45 L30 45 L30 30 L50 30 L50 20 L70 20 L70 30 L90 30 L90 40 L120 40 L120 25 L140 25 L140 15 L160 15 L160 25 L180 25 L180 40 L220 40 L220 50 L400 50 L400 80Z" fill="white"/>
+            </svg>
+            <div class="thumb-overlay"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="play-btn-inner glass-heavy rounded-full w-16 h-16 flex items-center justify-center">
+                <span class="material-symbols-outlined text-white" style="font-size:28px;padding-left:3px">play_arrow</span>
+              </div>
+            </div>
+            <div class="absolute bottom-0 inset-x-0 p-5">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="glass rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-nz-green">Christchurch</span>
+              </div>
+              <p class="font-headline font-bold text-white text-base">Ruwan Abeykoon</p>
+              <p class="text-white/50 text-xs mt-0.5">BE Engineering · Canterbury · 2024</p>
+            </div>
+          </div>
+        </div>
 
-      const blobs = DEFS.map((d, i) => ({
-        ...d,
-        x:  Math.random() * window.innerWidth,
-        y:  Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * d.spd,
-        vy: (Math.random() - 0.5) * d.spd,
-        phase: i * 1.3,
-      }));
+      </div>
+    </div>
+  </section>
 
-      const draw = () => {
-        ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = '#000a1e';
-        ctx.fillRect(0, 0, W, H);
+  <!-- ────────────── VIDEO MODAL ────────────── -->
+  <div id="video-modal" role="dialog" aria-modal="true" aria-label="Video testimonial">
+    <div class="absolute inset-0" id="modal-backdrop" onclick="closeModal()"></div>
+    <div class="relative w-full max-w-3xl z-10">
+      <button onclick="closeModal()"
+              class="absolute -top-12 right-0 flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-sm font-semibold">
+        <span class="material-symbols-outlined text-base">close</span> Close
+      </button>
+      <div class="rounded-2xl overflow-hidden aspect-video bg-black/60 glass flex items-center justify-center">
+        <video id="modal-video" controls class="w-full h-full object-cover hidden"></video>
+        <!-- Placeholder when no src is set -->
+        <div id="modal-placeholder" class="text-center px-8">
+          <span class="material-symbols-outlined text-white/20" style="font-size:56px">video_file</span>
+          <p class="text-white/30 text-sm mt-4 font-semibold">Add your video URL to <code class="text-nz-green">data-video-src</code> on the card</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        const t = Date.now() * 0.0006;
+  <!-- ────────────── QUOTES ────────────── -->
+  <section id="community" class="px-6 md:px-20 py-28 bg-white/[.018]">
+    <div class="max-w-4xl mx-auto">
 
-        blobs.forEach((b) => {
-          // Organic drift using sine wave offset
-          b.x += b.vx + Math.sin(t * 0.5 + b.phase) * 0.15;
-          b.y += b.vy + Math.cos(t * 0.4 + b.phase) * 0.15;
+      <!-- Heading -->
+      <div class="text-center mb-16">
+        <div class="section-line mx-auto" data-reveal="up"></div>
+        <h2 class="font-headline font-black text-white leading-tight mb-3" data-reveal="up"
+            style="font-size:clamp(1.8rem,4vw,3rem)">
+          <span id="t-quotes-h"></span>
+        </h2>
+        <p id="t-quotes-sub" class="text-white/40 max-w-sm mx-auto" data-reveal="up" data-delay="1"></p>
+      </div>
 
-          // Wrap around edges
-          const r = Math.min(W, H) * b.size;
-          if (b.x < -r) b.x = W + r;
-          if (b.x > W + r) b.x = -r;
-          if (b.y < -r) b.y = H + r;
-          if (b.y > H + r) b.y = -r;
+      <!-- Quote carousel -->
+      <div class="relative" data-reveal="scale" style="min-height:320px" id="quote-container">
 
-          const [cr, cg, cb] = b.rgb;
-          const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-          g.addColorStop(0,    `rgba(${cr},${cg},${cb},${b.op})`);
-          g.addColorStop(0.40, `rgba(${cr},${cg},${cb},${(b.op * 0.35).toFixed(3)})`);
-          g.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
+        <!-- Quote 1 -->
+        <div class="quote-slide active px-2 md:px-8">
+          <div class="glass-heavy rounded-3xl p-8 md:p-12">
+            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
+            <p class="font-headline font-bold text-white leading-snug mb-8"
+               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
+              Moving to Auckland for my Master's was the best decision of my life.
+              Pathfinder's visa breakdown saved me months of confusion — it's the first
+              newsletter I open every week.
+            </p>
+            <div class="flex items-center gap-4">
+              <div class="avatar" style="background:linear-gradient(135deg,#1a4a6b,#2d8a9e)">K</div>
+              <div>
+                <p class="font-headline font-bold text-white">Kavindra Perera</p>
+                <p class="text-white/40 text-sm">MSc Computer Science · University of Auckland</p>
+              </div>
+              <div class="ml-auto flex gap-0.5">
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
-          ctx.fill();
-        });
+        <!-- Quote 2 -->
+        <div class="quote-slide px-2 md:px-8">
+          <div class="glass-heavy rounded-3xl p-8 md:p-12">
+            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
+            <p class="font-headline font-bold text-white leading-snug mb-8"
+               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
+              I never thought studying in New Zealand was within reach. The scholarship
+              insights from Pathfinder changed everything. I got 60% funding for my MBA
+              through a program I'd never have found on my own.
+            </p>
+            <div class="flex items-center gap-4">
+              <div class="avatar" style="background:linear-gradient(135deg,#1a5c3a,#2d8c5e)">D</div>
+              <div>
+                <p class="font-headline font-bold text-white">Dilini Wijesinghe</p>
+                <p class="text-white/40 text-sm">MBA · Victoria University of Wellington</p>
+              </div>
+              <div class="ml-auto flex gap-0.5">
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        requestAnimationFrame(draw);
-      };
-      draw();
-    })();
+        <!-- Quote 3 -->
+        <div class="quote-slide px-2 md:px-8">
+          <div class="glass-heavy rounded-3xl p-8 md:p-12">
+            <div class="text-6xl font-headline font-black leading-none mb-6" style="color:#add09d;opacity:.4">&ldquo;</div>
+            <p class="font-headline font-bold text-white leading-snug mb-8"
+               style="font-size:clamp(1.15rem,2.8vw,1.6rem)">
+              From visa checklists to finding flatmates in Christchurch — every issue
+              had exactly what I needed at each stage of my journey. This is an
+              absolute must-read for any Sri Lankan heading to New Zealand.
+            </p>
+            <div class="flex items-center gap-4">
+              <div class="avatar" style="background:linear-gradient(135deg,#3a1a6b,#6b2d8c)">R</div>
+              <div>
+                <p class="font-headline font-bold text-white">Ruwan Abeykoon</p>
+                <p class="text-white/40 text-sm">BE Engineering · University of Canterbury</p>
+              </div>
+              <div class="ml-auto flex gap-0.5">
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+                <span class="material-symbols-outlined text-nz-green" style="font-size:16px">star</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    // ══════════════════════════════════════════════
-    //  TRANSLATIONS
-    // ══════════════════════════════════════════════
-    const COPY = {
-      en: {
-        eyebrow:    'Newsletter · Free · Weekly',
-        h1a:        'Your Path to',
-        h1b:        'New Zealand',
-        h1c:        'Starts Here.',
-        sub:        'Expert insights on visas, master\'s programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.',
-        emailPH:    'Enter your email address',
-        cta:        'Join Community',
-        trust:      'Join 2,400+ readers  ·  No spam, ever  ·  Unsubscribe anytime',
-        successH:   "You're in. Welcome aboard!",
-        successSub: 'Check your inbox for a confirmation. Your first issue arrives soon.',
-        stat1:      'Readers',
-        stat2:      'Success Rate',
-        stat3:      'Always',
-        rights:     'All rights reserved.',
-        privacy:    'Privacy',
-        terms:      'Terms',
-        errEmail:   'Please enter a valid email address.',
-        errServer:  'Something went wrong — please try again.',
-        loading:    'Joining…',
-      },
-      si: {
-        eyebrow:    'පුවත් පත්‍රිකාව · නොමිලේ · සතිපතා',
-        h1a:        'ඔබේ ගමනාරම්භය',
-        h1b:        'නව සීලන්තයට',
-        h1c:        'මෙතැනින් ආරම්භ වේ.',
-        sub:        'වීසා, ශාස්ත්‍රපති වැඩසටහන් සහ ස්ථානාන්තරණය පිළිබඳ විශේෂඥ මඟනැඹීම් — ශ්‍රී ලාංකිකයන් සඳහා සතිපතා.',
-        emailPH:    'ඔබේ විද්‍යුත් ලිපිනය ඇතුළු කරන්න',
-        cta:        'ප්‍රජාවට එකතු වන්න',
-        trust:      'පාඨකයන් 2,400+  ·  spam නැත  ·  ඕනෑ වේලාවක ඉවත් වන්න',
-        successH:   'ඔබ ඇතුළු විය! ආදරයෙන් ආයුබෝවන්.',
-        successSub: 'ඔබේ inbox පරීක්ෂා කරන්න. ඔබේ පළමු කලාපය ළඟදීම ලැබේ.',
-        stat1:      'දායකයින්',
-        stat2:      'සාර්ථකත්ව අනු.',
-        stat3:      'සැමවිටම',
-        rights:     'සියලු හිමිකම් ඇවිරිණි.',
-        privacy:    'රහස්‍යතාව',
-        terms:      'නීතිමය කොන්දේසි',
-        errEmail:   'වලංගු විද්‍යුත් ලිපිනයක් ඇතුළු කරන්න.',
-        errServer:  'යමක් වැරදී ගියා. නැවත උත්සාහ කරන්න.',
-        loading:    'සකසමින්…',
-      },
-    };
+      <!-- Dots -->
+      <div class="flex items-center justify-center gap-2 mt-8">
+        <button class="quote-dot active" data-index="0" aria-label="Quote 1"></button>
+        <button class="quote-dot" data-index="1" aria-label="Quote 2"></button>
+        <button class="quote-dot" data-index="2" aria-label="Quote 3"></button>
+      </div>
+    </div>
+  </section>
 
-    // Elements map: translation key → element id
-    const EL = {
-      eyebrow:    't-eyebrow',
-      h1a:        't-h1a',
-      h1b:        't-h1b',
-      h1c:        't-h1c',
-      sub:        't-sub',
-      cta:        't-cta',
-      trust:      't-trust',
-      successH:   't-success-h',
-      successSub: 't-success-sub',
-      stat1:      't-stat1',
-      stat2:      't-stat2',
-      stat3:      't-stat3',
-      rights:     't-rights',
-      privacy:    't-privacy',
-      terms:      't-terms',
-    };
+  <!-- ────────────── SUBSCRIBE CTA ────────────── -->
+  <section id="subscribe" class="px-6 md:px-20 py-28">
+    <div class="max-w-4xl mx-auto">
+      <div class="glass-heavy rounded-3xl p-8 md:p-16 text-center relative overflow-hidden">
 
-    // Sinhala font applied to these element ids
-    const SI_FONT = ['t-eyebrow','t-h1a','t-h1b','t-h1c','t-sub','t-cta','t-trust',
-                     't-success-h','t-success-sub','t-stat1','t-stat2','t-stat3'];
+        <!-- Decorative gradient orbs inside card -->
+        <div class="absolute top-0 left-1/4 w-64 h-64 rounded-full opacity-20 pointer-events-none"
+             style="background:radial-gradient(circle,#add09d,transparent);filter:blur(60px)"></div>
+        <div class="absolute bottom-0 right-1/4 w-64 h-64 rounded-full opacity-15 pointer-events-none"
+             style="background:radial-gradient(circle,#aec7f6,transparent);filter:blur(60px)"></div>
 
-    let lang = 'en';
+        <div class="relative z-10">
+          <div class="section-line mx-auto mb-6" data-reveal="up"></div>
+          <h2 class="font-headline font-black text-white leading-tight mb-4" data-reveal="up"
+              style="font-size:clamp(1.8rem,4.5vw,3.2rem)">
+            <span id="t-cta2-h"></span>
+          </h2>
+          <p id="t-cta2-sub" class="text-white/45 max-w-md mx-auto mb-10 leading-relaxed" data-reveal="up" data-delay="1"></p>
 
-    function applyLang(l) {
-      lang = l;
-      const c = COPY[l];
-      const si = l === 'si';
+          <div class="anim" data-reveal="up" data-delay="2">
+            <form id="email-form-2" novalidate>
+              <div class="form-row max-w-md mx-auto">
+                <input type="email" id="email-input-2" class="email-field flex-1 min-w-0"
+                       autocomplete="email" required aria-label="Email address" />
+                <button type="submit" class="cta-btn" id="submit-btn-2"><span id="t-cta2-btn"></span></button>
+              </div>
+              <p id="form-error-2" class="off text-red-400 text-sm mt-3" aria-live="polite"></p>
+            </form>
+            <div id="success-state-2" class="off text-center mt-4">
+              <span class="material-symbols-outlined scale-in" style="color:#add09d;font-size:40px">check_circle</span>
+              <p id="t-success-h-2" class="font-headline font-bold text-lg text-white mt-3 mb-1"></p>
+              <p id="t-success-sub-2" class="text-white/45 text-sm"></p>
+            </div>
+            <p id="t-trust-2" class="text-white/20 text-xs mt-5 tracking-wide"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      Object.entries(EL).forEach(([key, id]) => {
-        const el = document.getElementById(id);
-        if (!el || !c[key]) return;
-        el.textContent = c[key];
-        if (SI_FONT.includes(id)) {
-          el.style.fontFamily = si ? "'Noto Sans Sinhala', sans-serif" : '';
-        }
-      });
+  <!-- ────────────── FOOTER ────────────── -->
+  <footer class="px-6 md:px-20 py-8 border-t border-white/[.04]">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 text-white/20 text-xs">
+      <div class="flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L14.8 9.2H22.5L16.3 13.7L18.8 21L12 16.5L5.2 21L7.7 13.7L1.5 9.2H9.2L12 2Z" fill="#add09d" opacity=".5"/>
+        </svg>
+        <span>© 2026 Pathfinder NZ. <span id="t-rights"></span></span>
+      </div>
+      <nav class="flex gap-6" aria-label="Footer links">
+        <a href="#" id="t-privacy" class="hover:text-white/45 transition-colors"></a>
+        <a href="#" id="t-terms"   class="hover:text-white/45 transition-colors"></a>
+        <a href="mailto:hello@pathfinder.nz" class="hover:text-white/45 transition-colors">Contact</a>
+      </nav>
+    </div>
+  </footer>
 
-      const inp = document.getElementById('email-input');
-      inp.placeholder = c.emailPH;
-      if (si) inp.style.fontFamily = "'Noto Sans Sinhala', sans-serif";
-      else    inp.style.fontFamily = '';
+</div><!-- /page -->
 
-      document.documentElement.lang = si ? 'si' : 'en';
-    }
+<script>
+// ══════════════════════════════════════════════════════
+//  AURORA CANVAS
+// ══════════════════════════════════════════════════════
+(() => {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H;
+  const resize = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; };
+  resize();
+  addEventListener('resize', resize);
 
-    document.querySelectorAll('.lang-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const l = btn.dataset.lang;
-        if (l === lang) return;
-        document.querySelectorAll('.lang-pill').forEach(b => {
-          b.classList.toggle('active', b === btn);
-          b.setAttribute('aria-pressed', String(b === btn));
-        });
-        applyLang(l);
-      });
+  const BLOBS = [
+    {rgb:[70,95,136], size:.62, spd:.22, op:.22},
+    {rgb:[72,102,60],  size:.50, spd:.16, op:.18},
+    {rgb:[0,33,71],    size:.78, spd:.11, op:.38},
+    {rgb:[174,199,246],size:.32, spd:.32, op:.11},
+    {rgb:[72,102,60],  size:.42, spd:.26, op:.15},
+    {rgb:[90,60,130],  size:.28, spd:.38, op:.08},
+    {rgb:[70,95,136],  size:.36, spd:.30, op:.13},
+  ].map((b,i) => ({
+    ...b,
+    x:Math.random()*innerWidth,
+    y:Math.random()*innerHeight,
+    vx:(Math.random()-.5)*b.spd,
+    vy:(Math.random()-.5)*b.spd,
+    phase:i*1.3,
+  }));
+
+  const draw = () => {
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#000a1e';
+    ctx.fillRect(0,0,W,H);
+    const t = Date.now()*.0006;
+    BLOBS.forEach(b => {
+      b.x += b.vx + Math.sin(t*.5+b.phase)*.16;
+      b.y += b.vy + Math.cos(t*.4+b.phase)*.16;
+      const r = Math.min(W,H)*b.size;
+      if(b.x<-r) b.x=W+r; if(b.x>W+r) b.x=-r;
+      if(b.y<-r) b.y=H+r; if(b.y>H+r) b.y=-r;
+      const [cr,cg,cb]=b.rgb;
+      const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,r);
+      g.addColorStop(0,   `rgba(${cr},${cg},${cb},${b.op})`);
+      g.addColorStop(.42, `rgba(${cr},${cg},${cb},${+(b.op*.3).toFixed(3)})`);
+      g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,r,0,Math.PI*2); ctx.fill();
     });
+    requestAnimationFrame(draw);
+  };
+  draw();
+})();
 
-    applyLang('en');
+// ══════════════════════════════════════════════════════
+//  MARQUEE — duplicate items for seamless loop
+// ══════════════════════════════════════════════════════
+(() => {
+  const track = document.querySelector('.marquee-track');
+  const tpl = document.getElementById('marquee-items');
+  const clone1 = tpl.content.cloneNode(true);
+  const clone2 = tpl.content.cloneNode(true);
+  track.appendChild(clone1);
+  track.appendChild(clone2);
+})();
 
-    // ══════════════════════════════════════════════
-    //  FORM SUBMISSION
-    //  ↓ Replace with your deployed Google Apps Script URL
-    // ══════════════════════════════════════════════
-    const ENDPOINT = 'YOUR_GOOGLE_APPS_SCRIPT_URL';
-
-    const formEl     = document.getElementById('email-form');
-    const inputEl    = document.getElementById('email-input');
-    const submitBtn  = document.getElementById('submit-btn');
-    const ctaSpan    = document.getElementById('t-cta');
-    const errorEl    = document.getElementById('form-error');
-    const successEl  = document.getElementById('success-state');
-    const trustEl    = document.getElementById('t-trust');
-
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    function showError(msg) {
-      errorEl.textContent = msg;
-      errorEl.classList.remove('off');
-      inputEl.classList.remove('shake');
-      // Trigger reflow to restart animation
-      void inputEl.offsetWidth;
-      inputEl.classList.add('shake');
-    }
-
-    function hideError() {
-      errorEl.classList.add('off');
-    }
-
-    inputEl.addEventListener('input', hideError);
-
-    formEl.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = inputEl.value.trim();
-      const c = COPY[lang];
-
-      if (!EMAIL_RE.test(email)) {
-        showError(c.errEmail);
-        return;
-      }
-
-      hideError();
-      submitBtn.disabled = true;
-      ctaSpan.textContent = c.loading;
-
-      try {
-        if (ENDPOINT !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
-          // no-cors: response is opaque — we assume success
-          await fetch(ENDPOINT, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
-          });
-        }
-
-        // Transition to success view
-        formEl.classList.add('off');
-        trustEl.classList.add('off');
-        successEl.classList.remove('off');
-
-      } catch {
-        submitBtn.disabled = false;
-        ctaSpan.textContent = COPY[lang].cta;
-        showError(c.errServer);
-      }
+// ══════════════════════════════════════════════════════
+//  SCROLL REVEAL (Intersection Observer)
+// ══════════════════════════════════════════════════════
+(() => {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const delay = (parseInt(el.dataset.delay || 0)) * 130;
+      setTimeout(() => el.classList.add('visible'), delay);
+      obs.unobserve(el);
     });
-  </script>
+  }, { threshold:.12, rootMargin:'0px 0px -40px 0px' });
+
+  document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
+})();
+
+// ══════════════════════════════════════════════════════
+//  SCROLL PROGRESS BAR + CURSOR GLOW
+// ══════════════════════════════════════════════════════
+const progressBar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const pct = scrollY / (document.documentElement.scrollHeight - innerHeight);
+  progressBar.style.transform = `scaleX(${pct})`;
+}, {passive:true});
+
+const cursorGlow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => {
+  cursorGlow.style.left = e.clientX + 'px';
+  cursorGlow.style.top  = e.clientY + 'px';
+}, {passive:true});
+
+// ══════════════════════════════════════════════════════
+//  MAGNETIC BUTTONS
+// ══════════════════════════════════════════════════════
+document.querySelectorAll('.cta-btn').forEach(btn => {
+  btn.addEventListener('mousemove', e => {
+    const r = btn.getBoundingClientRect();
+    const x = (e.clientX - r.left - r.width/2)  * .28;
+    const y = (e.clientY - r.top  - r.height/2) * .28;
+    btn.style.transform = `translate(${x}px,${y - 3}px)`;
+  });
+  btn.addEventListener('mouseleave', () => { btn.style.transform = ''; });
+});
+
+// ══════════════════════════════════════════════════════
+//  QUOTE CAROUSEL
+// ══════════════════════════════════════════════════════
+(() => {
+  const slides = document.querySelectorAll('.quote-slide');
+  const dots   = document.querySelectorAll('.quote-dot');
+  let current  = 0;
+  let timer;
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+  }
+
+  function next() { show((current + 1) % slides.length); }
+
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(next, 6000);
+  }
+
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      show(parseInt(dot.dataset.index));
+      startTimer();
+    });
+  });
+
+  // Dynamic height — match tallest slide
+  function setHeight() {
+    slides.forEach(s => { s.style.position='relative'; s.style.opacity='1'; });
+    const h = Math.max(...[...slides].map(s => s.offsetHeight));
+    slides.forEach(s => { s.style.position=''; s.style.opacity=''; });
+    document.getElementById('quote-container').style.minHeight = h + 'px';
+  }
+  setHeight();
+  window.addEventListener('resize', setHeight);
+
+  startTimer();
+})();
+
+// ══════════════════════════════════════════════════════
+//  VIDEO MODAL
+// ══════════════════════════════════════════════════════
+function openModal(card) {
+  const src = card.dataset.videoSrc;
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('modal-video');
+  const ph    = document.getElementById('modal-placeholder');
+  if (src) {
+    video.src = src;
+    video.classList.remove('hidden');
+    ph.classList.add('hidden');
+  } else {
+    video.classList.add('hidden');
+    ph.classList.remove('hidden');
+  }
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('modal-video');
+  modal.classList.remove('open');
+  video.pause();
+  video.src = '';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+// ══════════════════════════════════════════════════════
+//  TRANSLATIONS
+// ══════════════════════════════════════════════════════
+const COPY = {
+  en: {
+    eyebrow:       'Newsletter · Free · Weekly',
+    h1a:           'Your Path to',
+    h1b:           'New Zealand',
+    h1c:           'Starts Here.',
+    sub:           'Expert insights on visas, master\'s programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.',
+    emailPH:       'Enter your email address',
+    cta:           'Join Community',
+    trust:         'Join 2,400+ readers  ·  No spam, ever  ·  Unsubscribe anytime',
+    successH:      "You're in! Welcome aboard.",
+    successSub:    'Check your inbox for a confirmation. Your first issue is on its way.',
+    stat1:         'Readers',
+    stat2:         'Success Rate',
+    stat3:         'Always',
+    storiesH:      'Their Journey,\nYour Inspiration.',
+    storiesSub:    'Real stories from Sri Lankans who took the leap and built their new life in New Zealand.',
+    storiesNote:   'Click any card to watch',
+    quotesH:       'From the Community',
+    quotesSub:     'Thousands of Sri Lankans trust Pathfinder every week.',
+    cta2H:         'Ready to Begin\nYour Journey?',
+    cta2Sub:       'Get expert visa guides, scholarship alerts, and real settlement stories delivered to your inbox every week. Free, always.',
+    cta2Btn:       'Get Free Access',
+    trust2:        'No credit card · No spam · Cancel anytime',
+    successH2:     'Welcome to Pathfinder!',
+    successSub2:   'Check your inbox — your first issue is coming soon.',
+    rights:        'All rights reserved.',
+    privacy:       'Privacy',
+    terms:         'Terms',
+    navStories:    'Stories',
+    navCommunity:  'Community',
+    navSubscribe:  'Subscribe',
+    navCta:        'Subscribe Free',
+    errEmail:      'Please enter a valid email address.',
+    errServer:     'Something went wrong. Please try again.',
+    loading:       'Joining…',
+  },
+  si: {
+    eyebrow:       'පුවත් පත්‍රිකාව · නොමිලේ · සතිපතා',
+    h1a:           'ඔබේ ගමනාරම්භය',
+    h1b:           'නව සීලන්තයට',
+    h1c:           'මෙතැනින් ආරම්භ වේ.',
+    sub:           'වීසා, ශාස්ත්‍රපති වැඩසටහන් සහ ස්ථානාන්තරණය — ශ්‍රී ලාංකිකයන් සඳහා සතිපතා.',
+    emailPH:       'ඔබේ විද්‍යුත් ලිපිනය',
+    cta:           'ප්‍රජාවට එකතු වන්න',
+    trust:         'පාඨකයන් 2,400+ · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
+    successH:      'ඔබ ඇතුළු විය! ආදරයෙන් ආයුබෝවන්.',
+    successSub:    'ඔබේ inbox පරීක්ෂා කරන්න. ඔබේ පළමු කලාපය ළඟදීම ලැබේ.',
+    stat1:         'දායකයින්',
+    stat2:         'සාර්ථකත්ව අනු.',
+    stat3:         'සැමවිටම',
+    storiesH:      'ඔවුන්ගේ ගමන,\nඔබේ ආශ්වාදය.',
+    storiesSub:    'නව සීලන්තයේ නව ජීවිතයක් ගොඩනැගූ ශ්‍රී ලාංකිකයන්ගේ සැබෑ කථා.',
+    storiesNote:   'කාඩ්පත ස්පර්ශ කරන්න',
+    quotesH:       'ශ්‍රී ලාංකික ජනකාය',
+    quotesSub:     'දහස් ගනනක් ශ්‍රී ලාංකිකයන් සෑම සතියකම Pathfinder විශ්වාස කරති.',
+    cta2H:         'ඔබේ ගමන\nආරම්භ කිරීමට සූදානම්ද?',
+    cta2Sub:       'සෑම සතියකම විශේෂඥ වීසා මාර්ගෝපදේශ, ශිෂ්‍යත්ව ඇඟවීම් සහ ජනකාය කථා ලබාගන්න.',
+    cta2Btn:       'නොමිලේ ලියාපදිංචි වන්න',
+    trust2:        'ගෙවීමක් නැත · spam නැත · ඕනෑ වේලාවක ඉවත් වන්න',
+    successH2:     'Pathfinder ට ආදරයෙන් ආයුබෝවන්!',
+    successSub2:   'ඔබේ inbox බලන්න — ඔබේ පළමු කලාපය ළඟදීම.',
+    rights:        'සියලු හිමිකම් ඇවිරිණි.',
+    privacy:       'රහස්‍යතාව',
+    terms:         'නීතිමය කොන්දේසි',
+    navStories:    'කථා',
+    navCommunity:  'ජනකාය',
+    navSubscribe:  'ලියාපදිංචිය',
+    navCta:        'නොමිලේ ලියාපදිංචි',
+    errEmail:      'වලංගු ඊමේල් ලිපිනයක් ඇතුළු කරන්න.',
+    errServer:     'දෝෂයක් සිදු විය. නැවත උත්සාහ කරන්න.',
+    loading:       'සකසමින්…',
+  },
+};
+
+const TEXT_IDS = {
+  eyebrow:'t-eyebrow', h1a:'t-h1a', h1b:'t-h1b', h1c:'t-h1c', sub:'t-sub',
+  cta:'t-cta', trust:'t-trust', successH:'t-success-h', successSub:'t-success-sub',
+  stat1:'t-stat1', stat2:'t-stat2', stat3:'t-stat3',
+  storiesH:'t-stories-h', storiesSub:'t-stories-sub', storiesNote:'t-stories-note',
+  quotesH:'t-quotes-h', quotesSub:'t-quotes-sub',
+  cta2H:'t-cta2-h', cta2Sub:'t-cta2-sub', cta2Btn:'t-cta2-btn', trust2:'t-trust-2',
+  successH2:'t-success-h-2', successSub2:'t-success-sub-2',
+  rights:'t-rights', privacy:'t-privacy', terms:'t-terms',
+  navStories:'nav-stories', navCommunity:'nav-community', navSubscribe:'nav-subscribe', navCta:'nav-cta',
+};
+const SI_IDS = new Set(['t-eyebrow','t-h1a','t-h1b','t-h1c','t-sub','t-cta','t-trust','t-success-h','t-success-sub',
+  't-stat1','t-stat2','t-stat3','t-stories-h','t-stories-sub','t-quotes-h','t-quotes-sub',
+  't-cta2-h','t-cta2-sub','t-cta2-btn','t-trust-2','t-success-h-2','t-success-sub-2']);
+
+let lang = 'en';
+
+function applyLang(l) {
+  lang = l;
+  const c = COPY[l];
+  const si = l === 'si';
+  const siFont = si ? "'Noto Sans Sinhala',sans-serif" : '';
+
+  Object.entries(TEXT_IDS).forEach(([key,id]) => {
+    const el = document.getElementById(id);
+    if (!el || !c[key]) return;
+    el.textContent = c[key];
+    if (SI_IDS.has(id)) el.style.fontFamily = siFont;
+  });
+
+  ['email-input','email-input-2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.placeholder = c.emailPH; el.style.fontFamily = siFont; }
+  });
+  document.documentElement.lang = si ? 'si' : 'en';
+}
+
+document.querySelectorAll('.lang-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const l = btn.dataset.lang;
+    if (l === lang) return;
+    document.querySelectorAll('.lang-pill').forEach(b => {
+      b.classList.toggle('active', b===btn);
+      b.setAttribute('aria-pressed', String(b===btn));
+    });
+    applyLang(l);
+  });
+});
+
+applyLang('en');
+
+// ══════════════════════════════════════════════════════
+//  FORM SUBMISSION
+//  ▶ Replace YOUR_GOOGLE_APPS_SCRIPT_URL with your URL
+//  ▶ Use text/plain — required for no-cors mode
+// ══════════════════════════════════════════════════════
+const ENDPOINT = 'YOUR_GOOGLE_APPS_SCRIPT_URL';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function setupForm(formId, inputId, btnId, ctaSpanId, errorId, successId, trustId, successHId, successSubId) {
+  const form    = document.getElementById(formId);
+  const input   = document.getElementById(inputId);
+  const btn     = document.getElementById(btnId);
+  const ctaSpan = document.getElementById(ctaSpanId);
+  const error   = document.getElementById(errorId);
+  const success = document.getElementById(successId);
+  const trust   = document.getElementById(trustId);
+
+  function showErr(msg) {
+    error.textContent = msg;
+    error.classList.remove('off');
+    input.classList.remove('shake');
+    void input.offsetWidth;
+    input.classList.add('shake');
+  }
+  input.addEventListener('input', () => error.classList.add('off'));
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = input.value.trim();
+    if (!EMAIL_RE.test(email)) { showErr(COPY[lang].errEmail); return; }
+
+    error.classList.add('off');
+    btn.disabled = true;
+    ctaSpan.textContent = COPY[lang].loading;
+
+    try {
+      if (ENDPOINT !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
+        // ✅ FIX: text/plain is a CORS-safe header — body reaches Apps Script
+        await fetch(ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ email, lang, ts: new Date().toISOString() }),
+        });
+      }
+      form.classList.add('off');
+      if (trust) trust.classList.add('off');
+      success.classList.remove('off');
+    } catch {
+      btn.disabled = false;
+      ctaSpan.textContent = COPY[lang][ctaSpanId === 't-cta' ? 'cta' : 'cta2Btn'];
+      showErr(COPY[lang].errServer);
+    }
+  });
+}
+
+setupForm('email-form',   'email-input',   'submit-btn',   't-cta',     'form-error',   'success-state',   't-trust',   't-success-h',   't-success-sub');
+setupForm('email-form-2', 'email-input-2', 'submit-btn-2', 't-cta2-btn','form-error-2', 'success-state-2', 't-trust-2', 't-success-h-2', 't-success-sub-2');
+</script>
 
 </body>
 </html>
