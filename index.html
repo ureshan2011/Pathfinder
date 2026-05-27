@@ -166,6 +166,26 @@
     }
 
     .off { display:none !important; }
+
+    /* ── Dark hero + 3D NZ Map ── */
+    .hero-section { background: #0d0b17; }
+    #nz-map-canvas {
+      position:absolute; inset:0; width:100%; height:100%;
+      z-index:0; pointer-events:none;
+      background: linear-gradient(168deg, #0d0b17 0%, #16101f 48%, #1c1829 88%);
+    }
+    .hero-center-glow {
+      position:absolute; inset:0; z-index:1; pointer-events:none;
+      background: radial-gradient(ellipse 58% 52% at 50% 46%, rgba(13,11,23,.52) 0%, transparent 72%);
+    }
+    .hero-bottom-fade {
+      position:absolute; bottom:0; left:0; right:0; height:160px;
+      background: linear-gradient(to bottom, transparent 0%, #f7f2eb 100%);
+      z-index:3; pointer-events:none;
+    }
+    .hero-section .hero-photo { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08); }
+    .hero-section .hero-shape { display:none; }
+    .hero-section .section-tag { background:rgba(232,80,58,.15); border-color:rgba(232,80,58,.38); }
   </style>
 </head>
 <body>
@@ -203,6 +223,10 @@
 
 <!-- ══════════ HERO ══════════ -->
 <section class="hero-section" id="hero">
+
+  <!-- 3D NZ Map background -->
+  <canvas id="nz-map-canvas" aria-hidden="true"></canvas>
+  <div class="hero-center-glow" aria-hidden="true"></div>
 
   <!-- Top-left photo: smiling man -->
   <div class="hero-photo fl" style="--rot:-5deg;width:165px;height:210px;top:13%;left:5%;transform:rotate(-5deg);z-index:2;">
@@ -244,20 +268,20 @@
       </span>
     </div>
 
-    <h1 class="anim font-headline font-black uppercase leading-none mb-6" style="animation-delay:.14s;font-size:clamp(3.4rem,9vw,6.2rem);color:#1c1829;line-height:.94;letter-spacing:-.01em;">
+    <h1 class="anim font-headline font-black uppercase leading-none mb-6" style="animation-delay:.14s;font-size:clamp(3.4rem,9vw,6.2rem);color:#f7f2eb;line-height:.94;letter-spacing:-.01em;">
       <span id="t-h1a">YOUR PATH TO</span><br>
       <span id="t-h1b" style="color:#e8503a;">NEW ZEALAND</span><br>
       <span id="t-h1c">STARTS HERE.</span>
     </h1>
 
-    <p id="t-sub" class="anim leading-relaxed max-w-lg mx-auto mb-8" style="animation-delay:.28s;font-size:clamp(.95rem,2vw,1.08rem);color:rgba(28,24,41,.55);">
+    <p id="t-sub" class="anim leading-relaxed max-w-lg mx-auto mb-8" style="animation-delay:.28s;font-size:clamp(.95rem,2vw,1.08rem);color:rgba(247,242,235,.78);">
       Expert insights on visas, master's programs, and relocation — curated every week for Sri Lankans building a new life in Aotearoa.
     </p>
 
     <div class="anim" style="animation-delay:.42s;">
       <form id="email-form" novalidate>
         <div class="form-row max-w-md mx-auto mb-3">
-          <input type="email" id="email-input" class="email-field flex-1 min-w-0"
+          <input type="email" id="email-input" class="email-field dark-input flex-1 min-w-0"
                  autocomplete="email" required aria-label="Email address" placeholder="Enter your email" />
           <button type="submit" class="btn-coral" id="submit-btn"><span id="t-cta">Join Free</span></button>
         </div>
@@ -267,12 +291,15 @@
         <div class="scale-in w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(232,80,58,.1);border:1px solid rgba(232,80,58,.25);">
           <span class="material-symbols-outlined" style="color:#e8503a;font-size:28px;">check_circle</span>
         </div>
-        <h3 id="t-success-h" class="font-headline font-black text-2xl mb-1" style="color:#1c1829;">You're in! Welcome aboard.</h3>
-        <p id="t-success-sub" class="text-sm" style="color:rgba(28,24,41,.5);">Check your inbox — your first issue is on its way.</p>
+        <h3 id="t-success-h" class="font-headline font-black text-2xl mb-1" style="color:#f7f2eb;">You're in! Welcome aboard.</h3>
+        <p id="t-success-sub" class="text-sm" style="color:rgba(247,242,235,.6);">Check your inbox — your first issue is on its way.</p>
       </div>
-      <p id="t-trust" class="text-xs mt-3 tracking-wide" style="color:rgba(28,24,41,.3);">Join 2,400+ readers · No spam · Unsubscribe anytime</p>
+      <p id="t-trust" class="text-xs mt-3 tracking-wide" style="color:rgba(247,242,235,.42);">Join 2,400+ readers · No spam · Unsubscribe anytime</p>
     </div>
   </div>
+
+  <!-- Gradient transition to cream -->
+  <div class="hero-bottom-fade" aria-hidden="true"></div>
 
 </section>
 
@@ -754,6 +781,7 @@
   </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
 // ── Marquee ──
 (() => {
@@ -775,10 +803,23 @@
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
 })();
 
-// ── Nav shrink ──
-window.addEventListener('scroll', () => {
-  document.getElementById('main-nav').classList.toggle('nav-scrolled', scrollY > 60);
-}, { passive: true });
+// ── Nav shrink + dark-hero text adaptation ──
+(function () {
+  const nav   = document.getElementById('main-nav');
+  const pText = nav.querySelector('a .font-headline.font-black.text-xl'); // "Pathfinder" text
+  const links = nav.querySelectorAll('nav a');
+  const pills = nav.querySelectorAll('.lang-pill:not(.active)');
+
+  function updateNav() {
+    const atTop = scrollY <= 60;
+    nav.classList.toggle('nav-scrolled', !atTop);
+    if (pText) pText.style.color = atTop ? '#f7f2eb' : '';
+    links.forEach(a => { a.style.color = atTop ? 'rgba(247,242,235,.65)' : ''; });
+    pills.forEach(p => { p.style.color = atTop ? 'rgba(247,242,235,.45)' : ''; });
+  }
+  updateNav();
+  window.addEventListener('scroll', updateNav, { passive: true });
+})();
 
 // ── Back to top ──
 const backTop = document.getElementById('back-top');
@@ -1103,6 +1144,168 @@ function goToTestimonial(e, idx) {
   e.stopPropagation();
   transitionTestimonial(idx);
 }
+
+// ── 3D New Zealand Map (Three.js) ─────────────────────────────────────────────
+(function () {
+  const canvas = document.getElementById('nz-map-canvas');
+  if (!canvas || typeof THREE === 'undefined') return;
+
+  /* Renderer */
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  /* Scene & camera */
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.set(0, 1.8, 21);
+  camera.lookAt(0, -0.3, 0);
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /* Coordinate projection: [lon, lat] → Three.js [x, y] */
+  const SC = 0.95, CX = 172.5, CY = -41.0;
+  const ll = (lon, lat) => [(lon - CX) * SC, (lat - CY) * SC];
+
+  /* NZ island outlines [lon, lat] */
+  const NI_raw = [
+    [172.7,-34.4],[173.0,-34.8],[173.4,-35.1],[174.0,-35.5],
+    [174.5,-36.0],[174.8,-36.3],[175.1,-36.2],[175.6,-36.4],
+    [176.5,-37.1],[177.3,-37.6],[178.1,-37.7],[178.5,-38.5],
+    [178.0,-39.0],[177.5,-39.5],[176.7,-40.5],[175.9,-41.0],
+    [175.4,-41.6],[175.0,-41.3],[174.8,-41.0],[174.5,-40.8],
+    [174.1,-39.9],[173.9,-39.3],[173.7,-39.0],[173.5,-38.5],
+    [174.0,-38.0],[174.1,-37.3],[173.8,-36.8],[173.3,-36.0],
+    [173.0,-35.3],[172.8,-34.9],
+  ];
+  const SI_raw = [
+    [172.7,-40.5],[173.2,-40.7],[174.0,-41.1],[174.3,-41.4],
+    [173.7,-41.9],[173.6,-42.5],[172.7,-43.5],[172.8,-44.0],
+    [171.5,-44.4],[171.0,-45.1],[170.5,-45.9],[169.8,-46.2],
+    [168.4,-46.6],[167.6,-46.2],[166.5,-46.0],[166.0,-45.3],
+    [166.2,-44.5],[167.5,-43.5],[168.3,-43.0],[169.0,-42.5],
+    [170.5,-42.5],[171.6,-41.8],[172.1,-41.2],
+  ];
+  const ST_raw = [
+    [167.4,-46.9],[168.4,-46.6],[168.6,-47.1],
+    [168.3,-47.4],[167.7,-47.3],[167.4,-47.0],
+  ];
+
+  function makeIsland(rawPts, depth) {
+    let pts = rawPts.map(([lo, la]) => ll(lo, la));
+
+    /* Ensure CCW winding required by THREE.Shape */
+    let area = 0;
+    for (let i = 0, j; i < pts.length; i++) {
+      j = (i + 1) % pts.length;
+      area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1];
+    }
+    if (area < 0) pts = pts.slice().reverse();
+
+    const shape = new THREE.Shape();
+    shape.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+    shape.closePath();
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: true,
+      bevelThickness: 0.05,
+      bevelSize: 0.035,
+      bevelSegments: 2,
+    });
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1e1530,
+      emissive: 0x2d1820,
+      emissiveIntensity: 0.28,
+      roughness: 0.80,
+      metalness: 0.12,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    /* Coral coastline outline on front face */
+    const oPts = pts.map(([x, y]) => new THREE.Vector3(x, y, depth + 0.025));
+    oPts.push(new THREE.Vector3(pts[0][0], pts[0][1], depth + 0.025));
+    const outline = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(oPts),
+      new THREE.LineBasicMaterial({ color: 0xe8503a, transparent: true, opacity: 0.82 })
+    );
+
+    const g = new THREE.Group();
+    g.add(mesh, outline);
+    return g;
+  }
+
+  /* Islands */
+  const DEPTH = 0.34;
+  const nzGroup = new THREE.Group();
+  nzGroup.add(makeIsland(NI_raw, DEPTH));
+  nzGroup.add(makeIsland(SI_raw, DEPTH));
+  nzGroup.add(makeIsland(ST_raw, DEPTH * 0.65));
+  nzGroup.rotation.x = 0.10;
+  scene.add(nzGroup);
+
+  /* Ocean grid */
+  const grid = new THREE.GridHelper(44, 36, 0x3d1535, 0x1e0d1a);
+  grid.rotation.x = Math.PI / 2;
+  grid.position.z = -1.2;
+  [].concat(grid.material).forEach(m => { m.transparent = true; m.opacity = 0.15; });
+  scene.add(grid);
+
+  /* Particle field */
+  const pN = 300;
+  const pPos = new Float32Array(pN * 3);
+  for (let i = 0; i < pN; i++) {
+    pPos[i*3]   = (Math.random() - 0.5) * 42;
+    pPos[i*3+1] = (Math.random() - 0.5) * 46;
+    pPos[i*3+2] = (Math.random() - 0.5) * 14 - 3;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  scene.add(new THREE.Points(pGeo,
+    new THREE.PointsMaterial({ color: 0xe8503a, size: 0.07, transparent: true, opacity: 0.35 })
+  ));
+
+  /* Lighting */
+  scene.add(new THREE.AmbientLight(0x7066aa, 0.5));
+  const kl = new THREE.DirectionalLight(0xf7f2eb, 2.0);
+  kl.position.set(5, 9, 10); scene.add(kl);
+  const fl = new THREE.DirectionalLight(0xe8503a, 0.65);
+  fl.position.set(-7, 2, 5); scene.add(fl);
+  const rl = new THREE.DirectionalLight(0x8866cc, 0.38);
+  rl.position.set(0, -8, -6); scene.add(rl);
+
+  /* Scroll-driven + idle animation */
+  let scrollProg = 0, tgt = 0, t = 0;
+  window.addEventListener('scroll', () => {
+    tgt = Math.min(window.scrollY / window.innerHeight, 1);
+  }, { passive: true });
+
+  (function frame() {
+    requestAnimationFrame(frame);
+    t += 0.007;
+    scrollProg += (tgt - scrollProg) * 0.045;
+
+    /* Idle oscillation */
+    const idleY = Math.sin(t * 0.28) * 0.18;
+    const float = Math.sin(t * 0.37) * 0.28;
+
+    /* Apply transforms — scroll tilts and rotates the map away */
+    nzGroup.rotation.y = idleY + scrollProg * 1.0;
+    nzGroup.rotation.x = 0.10 + scrollProg * 0.52;
+    nzGroup.position.y = float - scrollProg * 2.6;
+    canvas.style.opacity = Math.max(0, 1 - scrollProg * 0.85).toFixed(3);
+
+    renderer.render(scene, camera);
+  })();
+})();
 </script>
 
 </body>
