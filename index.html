@@ -14,86 +14,180 @@
   <link rel="stylesheet" href="assets/css/site.css" />
 
   <style>
-    /* ════════ HERO — the route map ════════ */
-    .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; padding-top: 64px; }
+    /* ════════ HERO — the doorway ════════
+       A 230vh scroll zone with a sticky stage: as you scroll, the
+       camera walks toward a glowing doorway, copy falls away, and
+       a paper veil hands off to the next section. */
 
-    /* graticule backdrop — survey-grid lines, barely there */
-    .graticule {
-      position: absolute; inset: 0; pointer-events: none; z-index: 0;
-      background-image:
-        linear-gradient(var(--line-soft) 1px, transparent 1px),
-        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
-      background-size: 96px 96px;
-      mask-image: radial-gradient(120% 90% at 50% 30%, #000 40%, transparent 100%);
-      -webkit-mask-image: radial-gradient(120% 90% at 50% 30%, #000 40%, transparent 100%);
+    .hero-zone { position: relative; height: 230vh; }
+    .stage {
+      position: sticky; top: 0; height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column; isolation: isolate;
+    }
+    .stage::before {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(120% 90% at 16% 10%, rgba(255,255,255,.6), transparent 55%),
+        radial-gradient(130% 110% at 100% 100%, rgba(194,64,28,.05), transparent 55%);
+    }
+    .grain {
+      position: absolute; inset: -50%; z-index: 1; pointer-events: none; opacity: .4;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply;
     }
 
-    .hero-top { position: relative; z-index: 2; padding: clamp(40px, 7vh, 84px) 0 0; }
-    .hero-kicker { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .hero-kicker .rule { flex: 0 0 48px; height: 1px; background: var(--ink); }
+    .hero-grid {
+      position: relative; z-index: 30; flex: 1; min-height: 0;
+      display: grid; grid-template-columns: minmax(400px, 1fr) minmax(420px, 1.05fr);
+      align-items: center;
+      padding: 76px clamp(24px, 5vw, 72px) 0;
+    }
+
+    /* — copy — */
+    .copy { position: relative; max-width: 620px; padding-bottom: 36px; will-change: transform, opacity; }
+    .eyebrow {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 30px;
+      opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .5s forwards;
+    }
+    .eyebrow .rule { width: 46px; height: 2px; background: var(--route); }
+
     .hero h1 {
-      font-size: clamp(2.7rem, 6.4vw, 5.4rem);
-      max-width: 13ch; margin: 26px 0 0;
+      font-weight: 700; line-height: .98; letter-spacing: -.032em;
+      font-size: clamp(44px, 5.8vw, 90px); color: var(--ink);
     }
-    .hero-deck {
-      display: flex; gap: clamp(24px, 5vw, 80px); align-items: flex-end;
-      justify-content: space-between; flex-wrap: wrap; margin-top: 30px;
+    .hero h1 .ln { display: block; overflow: hidden; padding-bottom: .04em; }
+    .hero h1 .ln > span { display: block; transform: translateY(112%); animation: lineUp 1s cubic-bezier(.16,.84,.32,1) forwards; }
+    .hero h1 .serif {
+      font-family: var(--font-display); font-style: italic; font-weight: 540;
+      font-variation-settings: 'SOFT' 70, 'WONK' 1;
+      letter-spacing: -.015em; color: var(--route);
     }
-    .hero-deck p { max-width: 46ch; color: var(--ink-soft); font-size: 16.5px; }
-    .hero-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    @keyframes lineUp { to { transform: translateY(0); } }
 
-    /* — Chart area — */
-    .chart { position: relative; z-index: 1; margin-top: clamp(16px, 4vh, 44px); flex: 1; }
-    .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
-
-    .route-path {
-      fill: none; stroke: var(--route); stroke-width: 1.6;
-      stroke-dasharray: 6 7; stroke-linecap: round;
+    .sub {
+      margin-top: 26px; max-width: 430px;
+      font-size: clamp(15px, 1.15vw, 17px); line-height: 1.62; color: var(--ink-soft);
+      opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .64s forwards;
     }
-    .route-ghost { fill: none; stroke: var(--line); stroke-width: 1; }
-
-    .wp { cursor: pointer; }
-    .wp circle.core { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; transition: all .25s cubic-bezier(.22,1,.36,1); }
-    .wp circle.halo { fill: none; stroke: var(--route); stroke-width: 1; opacity: 0; transition: opacity .25s, r .25s; }
-    .wp:hover circle.core, .wp.lit circle.core { fill: var(--route); stroke: var(--route); }
-    .wp:hover circle.halo, .wp.lit circle.halo { opacity: .7; }
-    .wp text { font-family: var(--font-mono); fill: var(--ink-soft); letter-spacing: .12em; }
-    .wp .wp-no { font-size: 10px; fill: var(--route); font-weight: 600; }
-    .wp .wp-name { font-size: 11.5px; text-transform: uppercase; fill: var(--ink); font-weight: 500; }
-    .wp .wp-when { font-size: 10px; fill: var(--ink-faint); }
-
-    .endpt text { font-family: var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
-    .endpt .city { font-size: 12px; fill: var(--ink); font-weight: 600; }
-    .endpt .coord { font-size: 9.5px; fill: var(--ink-faint); }
-
-    /* annotation card following the active waypoint */
-    .wp-card {
-      position: absolute; z-index: 5; width: 248px; padding: 16px 18px;
-      background: var(--surface); border: 1px solid var(--ink); border-radius: 2px;
-      box-shadow: 4px 4px 0 rgba(194,64,28,.9);
-      opacity: 0; pointer-events: none; transform: translateY(6px);
-      transition: opacity .25s, transform .25s cubic-bezier(.22,1,.36,1);
+    .actions {
+      margin-top: 36px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .76s forwards;
     }
-    .wp-card.show { opacity: 1; transform: none; pointer-events: auto; }
-    .wp-card .mono { display: block; margin-bottom: 6px; }
-    .wp-card h4 { font-family: var(--font-display); font-size: 17px; font-weight: 520; margin-bottom: 5px; }
-    .wp-card p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+    .trust {
+      margin-top: 50px;
+      opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .88s forwards;
+    }
+    .trust .lab { margin-bottom: 12px; }
+    .trust .unis { display: flex; gap: 10px 26px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
+    .trust .unis span { opacity: .75; transition: opacity .25s, color .25s; cursor: default; }
+    .trust .unis span:hover { opacity: 1; color: var(--route); }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
 
-    /* mobile vertical route */
-    .route-mobile { display: none; }
-    @media (max-width: 760px) {
-      .chart { display: none; }
-      .route-mobile { display: block; margin: 40px 0 56px; position: relative; z-index: 1; }
-      .rm-item { position: relative; padding: 0 0 26px 34px; border-left: 1px dashed var(--route); margin-left: 7px; }
-      .rm-item:last-child { border-left-color: transparent; padding-bottom: 0; }
-      .rm-item::before {
-        content: ''; position: absolute; left: -8px; top: 2px; width: 15px; height: 15px;
-        border-radius: 50%; background: var(--paper); border: 1.4px solid var(--ink);
-      }
-      .rm-item:first-child::before, .rm-item:last-child::before { background: var(--route); border-color: var(--route); }
-      .rm-item .mono { display: block; margin-bottom: 2px; }
-      .rm-item strong { font-weight: 600; font-size: 15px; }
-      .rm-item span.when { display: block; font-size: 12.5px; color: var(--ink-faint); }
+    /* — scene — */
+    .scene-wrap { position: relative; align-self: stretch; min-height: 0; }
+    .scene-cam { position: absolute; inset: 0; will-change: transform; transform-origin: 50% 46%; }
+    .scene { position: absolute; inset: 0; }
+    .layer { position: absolute; inset: 0; will-change: transform; }
+
+    .rings { display: grid; place-items: center; z-index: 1; }
+    .rings svg { width: min(120%, 840px); height: auto; opacity: .55; }
+
+    .blueprint {
+      position: absolute; right: 3%; bottom: 13%; width: 116px; height: 92px; z-index: 1; opacity: .4;
+      background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 19px 19px; border: 1px solid var(--line);
+    }
+
+    /* the doorway — true 3D recess */
+    .portal { display: grid; place-items: center; z-index: 6; }
+    .door {
+      position: relative;
+      width: min(22vw, 240px); height: min(64vh, 580px);
+      perspective: 1000px; perspective-origin: 46% 44%;
+      filter: drop-shadow(-22px 26px 36px rgba(28,26,21,.13));
+    }
+    .recess { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(16deg); }
+    .back {
+      position: absolute; inset: 0; transform: translateZ(-118px); overflow: hidden;
+      background: radial-gradient(125% 82% at 50% 120%, #fff 0%, #FFE7D8 13%, #E8652E 36%, #C2401C 62%, #8F2B10 100%);
+      box-shadow: 0 0 70px 12px rgba(212,84,40,.45), 0 0 200px 60px rgba(212,84,40,.26);
+      transition: filter .2s linear;
+    }
+    .back::after {
+      content: ""; position: absolute; left: 50%; top: 0; width: 30%; height: 100%; transform: translateX(-50%);
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.65) 84%, #fff);
+      filter: blur(7px);
+    }
+    .wall { position: absolute; }
+    .wall-l { left: 0; top: 0; width: 118px; height: 100%; transform-origin: left center; transform: rotateY(90deg);
+      background: linear-gradient(90deg, #DCD7CB 0%, #CBA28B 24%, #E8763F 62%, #C2401C 100%); }
+    .wall-r { right: 0; top: 0; width: 118px; height: 100%; transform-origin: right center; transform: rotateY(-90deg);
+      background: linear-gradient(270deg, #C9C4B8 0%, #B58A77 26%, #D9602C 64%, #8F2B10 100%); }
+    .wall-t { left: 0; top: 0; width: 100%; height: 118px; transform-origin: top center; transform: rotateX(-90deg);
+      background: linear-gradient(180deg, #E2DDD1 0%, #CCA591 28%, #E8763F 66%, #C2401C 100%); }
+
+    /* stone front frame */
+    .frame-bar { position: absolute; }
+    .fb-top { top: -25px; left: -29px; right: -31px; height: 25px;
+      background: linear-gradient(180deg, #EBE6DB, #CFCABF); box-shadow: inset 0 2px 0 rgba(255,255,255,.5); }
+    .fb-left { top: -25px; bottom: 0; left: -29px; width: 29px;
+      background: linear-gradient(90deg, #E5E0D5, #C2BDB2); box-shadow: inset 2px 0 0 rgba(255,255,255,.45); }
+    .fb-right { top: -25px; bottom: 0; right: -31px; width: 31px;
+      background: linear-gradient(90deg, #ACA79C, #918D83); box-shadow: inset -2px 0 6px rgba(0,0,0,.12); }
+
+    /* floor light spill */
+    .spill {
+      position: absolute; left: 50%; bottom: -2%; width: 240%; height: 46%;
+      transform: translateX(-50%); z-index: 5;
+      background: radial-gradient(60% 100% at 50% 0%, rgba(212,84,40,.85), rgba(212,84,40,.4) 35%, rgba(212,84,40,.1) 62%, transparent 78%);
+      clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+      filter: blur(2px); mix-blend-mode: multiply; opacity: .85;
+    }
+    .spill-core {
+      position: absolute; left: 50%; bottom: 0; width: 120%; height: 30%; transform: translateX(-50%); z-index: 5;
+      background: radial-gradient(50% 100% at 50% 0, rgba(255,238,228,.9), transparent 70%);
+      clip-path: polygon(44% 0, 56% 0, 82% 100%, 18% 100%); filter: blur(4px);
+    }
+
+    /* the candidate, en route */
+    .figure {
+      position: absolute; left: calc(50% - 15px); bottom: 6%;
+      width: 30px; height: 76px; z-index: 7;
+      filter: drop-shadow(10px 1px 9px rgba(143,43,16,.5));
+    }
+
+    /* foreground survey marks */
+    .marks { z-index: 12; pointer-events: none; }
+    .mk { position: absolute; font-family: var(--font-mono); color: var(--ink-faint); opacity: .55; }
+    .mk.plus { font-size: 21px; font-weight: 400; }
+
+    /* bottom strip */
+    .stage-foot {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 35;
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      padding: 0 clamp(24px, 5vw, 72px) 22px;
+    }
+    .scroll-hint { display: flex; align-items: center; gap: 10px; }
+    .scroll-hint .sbar { width: 34px; height: 1px; background: var(--line-2); position: relative; overflow: hidden; }
+    .scroll-hint .sbar::after { content: ""; position: absolute; left: -40%; top: 0; width: 40%; height: 100%; background: var(--route); animation: slide 2.4s ease-in-out infinite; }
+    @keyframes slide { 0% { left: -40%; } 60%, 100% { left: 100%; } }
+
+    /* hand-off veil into the next section */
+    .veil { position: absolute; inset: 0; z-index: 50; background: var(--paper); opacity: 0; pointer-events: none; }
+
+    @media (max-width: 980px) {
+      .hero-zone { height: auto; }
+      .stage { position: relative; height: auto; min-height: 100vh; }
+      .hero-grid { grid-template-columns: 1fr; padding-top: 84px; }
+      .scene-wrap { order: -1; min-height: 46vh; }
+      .door { width: min(46vw, 210px); height: min(46vh, 430px); margin: 0 auto; }
+      .copy { padding-bottom: 60px; max-width: none; }
+      .stage-foot { display: none; }
+      .blueprint { display: none; }
+    }
+    @media (max-width: 560px) {
+      .hero h1 { font-size: clamp(40px, 11vw, 54px); }
+      .actions .btn { flex: 1; justify-content: center; }
     }
 
     /* ════════ INDEX STRIP — the legend ════════ */
@@ -250,69 +344,110 @@
 </header>
 
 <!-- ══════════ HERO ══════════ -->
-<section class="hero">
-  <div class="graticule" id="graticule" aria-hidden="true"></div>
+<section class="hero-zone" id="hero-zone">
+  <div class="stage hero" id="stage">
+    <div class="grain" aria-hidden="true"></div>
 
-  <div class="wrap hero-top">
-    <div class="hero-kicker" data-reveal>
-      <span class="rule"></span>
-      <span class="mono">6.9271° N, 79.8612° E <span class="tick">→</span> 36.8485° S, 174.7633° E</span>
-    </div>
-    <h1 class="display" data-reveal style="transition-delay:90ms">A doctorate is not luck.<br>It is <em>a route.</em></h1>
-    <div class="hero-deck">
-      <p data-reveal style="transition-delay:180ms">
-        PathFinder is the field guide for Sri Lankan students charting a PhD in New Zealand —
-        the only country where international doctoral candidates pay domestic fees. Assess your
-        position, plot the waypoints, and track every application to landfall.
-      </p>
-      <div class="hero-actions" data-reveal style="transition-delay:260ms">
-        <a class="btn btn-primary" href="app.html#assessment">Begin the assessment <span class="material-symbols-outlined" style="font-size:17px">east</span></a>
-        <a class="tlink" href="#method">Read the method</a>
+    <div class="hero-grid">
+      <!-- LEFT: copy -->
+      <div class="copy" id="hero-copy">
+        <div class="eyebrow">
+          <span class="rule"></span>
+          <span class="mono" style="color:var(--ink-soft)">Doctoral study · Sri Lanka <span class="tick">→</span> Aotearoa</span>
+        </div>
+
+        <h1>
+          <span class="ln"><span style="animation-delay:.08s">The door to your</span></span>
+          <span class="ln"><span class="serif" style="animation-delay:.2s">doctorate</span></span>
+          <span class="ln"><span style="animation-delay:.32s">is already open.</span></span>
+        </h1>
+
+        <p class="sub">
+          New Zealand charges PhD candidates domestic fees, pays stipends that cover rent,
+          and hands graduates a three-year work visa. PathFinder walks you through —
+          assessment, supervisors, scholarships, and every application, tracked.
+        </p>
+
+        <div class="actions">
+          <a class="btn btn-primary" href="app.html#assessment">
+            Begin the assessment
+            <span class="material-symbols-outlined" style="font-size:17px">east</span>
+          </a>
+          <a class="tlink" href="#method">How it works</a>
+        </div>
+
+        <div class="trust">
+          <div class="lab mono">Routes into</div>
+          <div class="unis">
+            <span>Auckland</span><span>Otago</span><span>Victoria — Wellington</span>
+            <span>Canterbury</span><span>Massey</span><span>Waikato</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: doorway scene -->
+      <div class="scene-wrap">
+        <div class="scene-cam" id="scene-cam">
+          <div class="scene" id="scene">
+
+            <div class="layer rings" data-depth="0.6">
+              <svg viewBox="0 0 600 600" fill="none" aria-hidden="true">
+                <circle cx="300" cy="300" r="120" stroke="var(--line)" stroke-width="1"/>
+                <circle cx="300" cy="300" r="190" stroke="var(--line)" stroke-width="1"/>
+                <circle cx="300" cy="300" r="260" stroke="var(--line-soft)" stroke-width="1" stroke-dasharray="3 7"/>
+                <circle cx="300" cy="300" r="295" stroke="var(--line-soft)" stroke-width="1"/>
+              </svg>
+            </div>
+            <div class="layer" data-depth="0.4"><div class="blueprint"></div></div>
+
+            <div class="layer portal" data-depth="1.4">
+              <div class="door">
+                <div class="recess" id="recess">
+                  <div class="back" id="door-back"></div>
+                  <div class="wall wall-l"></div>
+                  <div class="wall wall-r"></div>
+                  <div class="wall wall-t"></div>
+                </div>
+                <div class="frame-bar fb-top"></div>
+                <div class="frame-bar fb-left"></div>
+                <div class="frame-bar fb-right"></div>
+              </div>
+            </div>
+
+            <div class="layer portal" data-depth="1.7" style="z-index:7">
+              <div class="door" style="pointer-events:none">
+                <div class="spill"></div>
+                <div class="spill-core"></div>
+                <div class="figure" aria-hidden="true">
+                  <svg viewBox="0 0 30 78" fill="#15130D">
+                    <ellipse cx="15" cy="13" rx="6" ry="7"/>
+                    <path d="M5.5 7.5 L15 3 L24.5 7.5 L15 11.5 Z"/>
+                    <rect x="14" y="9.5" width="1.6" height="5" rx=".8"/>
+                    <path d="M6 30c0-5 4-9 9-9s9 4 9 9v22h-6l-1 24h-4l-1-24H6V30z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="layer marks" data-depth="2.4" aria-hidden="true">
+              <span class="mk plus" style="left:7%;top:13%">+</span>
+              <span class="mk plus" style="right:9%;top:30%">+</span>
+              <span class="mk plus" style="left:15%;bottom:17%">+</span>
+              <span class="mk plus" style="right:6%;bottom:32%;font-size:15px">+</span>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
+
+    <div class="stage-foot">
+      <span class="mono"><span class="tick">●</span>&nbsp; 2027 intake open · CMB → AKL</span>
+      <span class="scroll-hint mono">Scroll — step through<span class="sbar"></span></span>
+    </div>
+
+    <div class="veil" id="veil" aria-hidden="true"></div>
   </div>
-
-  <!-- The chart: Colombo → Auckland with six waypoints -->
-  <div class="wrap chart" id="chart">
-    <svg viewBox="0 0 1200 460" role="img" aria-label="Route map of the PhD journey from Colombo to Auckland with six waypoints">
-      <!-- destination contour rings -->
-      <g stroke="var(--line)" fill="none" opacity=".8">
-        <circle cx="1106" cy="330" r="26"/><circle cx="1106" cy="330" r="48"/><circle cx="1106" cy="330" r="74"/>
-      </g>
-      <!-- origin cross-hair -->
-      <g stroke="var(--line-2)" opacity=".9">
-        <line x1="74" y1="318" x2="74" y2="346"/><line x1="60" y1="332" x2="88" y2="332"/>
-      </g>
-
-      <path id="routeGhost" class="route-ghost" d="M74,332 C220,140 420,90 600,128 C800,170 960,180 1106,330"/>
-      <path id="routeLine" class="route-path" d="M74,332 C220,140 420,90 600,128 C800,170 960,180 1106,330"/>
-
-      <!-- endpoints -->
-      <g class="endpt">
-        <circle cx="74" cy="332" r="5.5" fill="var(--route)"/>
-        <text class="city" x="58" y="368">Colombo</text>
-        <text class="coord" x="58" y="384">06.92°N · ORIGIN</text>
-      </g>
-      <g class="endpt">
-        <circle cx="1106" cy="330" r="5.5" fill="var(--route)"/>
-        <text class="city" x="1058" y="378">Auckland</text>
-        <text class="coord" x="1042" y="394">36.85°S · ENROLMENT</text>
-      </g>
-
-      <!-- waypoints injected by JS -->
-      <g id="waypoints"></g>
-
-      <!-- traveling marker -->
-      <g id="vessel">
-        <circle r="4" fill="var(--ink)"/>
-        <circle r="9" fill="none" stroke="var(--route)" stroke-width="1" opacity=".7"/>
-      </g>
-    </svg>
-    <div class="wp-card" id="wp-card" role="status"></div>
-  </div>
-
-  <!-- mobile vertical route -->
-  <div class="wrap route-mobile" id="route-mobile"></div>
 </section>
 
 <!-- ══════════ LEGEND STRIP ══════════ -->
@@ -555,116 +690,71 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
 })();
 
-/* ── Graticule parallax (very subtle) ── */
-if (!REDUCED) addEventListener('scroll', () => {
-  document.getElementById('graticule').style.transform = `translateY(${scrollY * .08}px)`;
-}, { passive: true });
-
-/* ── HERO ROUTE MAP ─────────────────────────────────────── */
-const WAYPOINTS = [
-  { name:'Assess',      when:'Month 0',    t: .10, view:'assessment', above: true,
-    desc:'Fix your position: degree, research record, field, funding. Seven questions.' },
-  { name:'Supervisors', when:'Months 2–4', t: .28, view:'explore', above: false,
-    desc:'Shortlist labs, write to named supervisors with the field-tested template.' },
-  { name:'Proposal',    when:'Months 3–6', t: .46, view:'kit', above: true,
-    desc:'A 4–6 page research proposal, drafted with your supervisor’s feedback.' },
-  { name:'Scholarship', when:'Months 3–6', t: .62, view:'funding', above: false,
-    desc:'Doctoral scholarships — fees plus NZ$28–33k/yr — mostly automatic with admission.' },
-  { name:'Visa',        when:'Months 6–9', t: .78, view:'funding', above: true,
-    desc:'Student visa via INZ eVisa. Full-time work rights. Partner gets an open work visa.' },
-  { name:'Enrolment',   when:'Month 9+',   t: .92, view:'roadmap', above: false,
-    desc:'Provisional registration, supervision plan, confirmation at month 12.' },
-];
-
+/* ── HERO: doorway scene ─────────────────────────────────── */
 (() => {
-  const svg = document.querySelector('#chart svg');
-  const path = document.getElementById('routeLine');
-  const wpG = document.getElementById('waypoints');
-  const vessel = document.getElementById('vessel');
-  const card = document.getElementById('wp-card');
-  const chart = document.getElementById('chart');
-  const L = path.getTotalLength();
+  const stage = document.getElementById('stage');
+  const zone = document.getElementById('hero-zone');
+  const cam = document.getElementById('scene-cam');
+  const copy = document.getElementById('hero-copy');
+  const recess = document.getElementById('recess');
+  const back = document.getElementById('door-back');
+  const veil = document.getElementById('veil');
+  const layers = [...stage.querySelectorAll('.layer')];
 
-  /* draw-in on first view */
-  path.style.strokeDasharray = '6 7';
-  if (!REDUCED) {
-    path.style.strokeDashoffset = L;
-    path.style.transition = 'none';
-    new IntersectionObserver((es, o) => {
-      if (!es[0].isIntersecting) return;
-      path.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 2400, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
-      path.style.strokeDashoffset = 0;
-      o.disconnect();
-    }, { threshold: .3 }).observe(chart);
+  /* safety net — backgrounded tabs throttle CSS animations */
+  setTimeout(() => {
+    stage.querySelectorAll('.eyebrow,.sub,.actions,.trust').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+    stage.querySelectorAll('h1 .ln > span').forEach(s => s.style.transform = 'translateY(0)');
+  }, 2600);
+
+  /* mouse parallax with critically-damped lerp */
+  if (!REDUCED && !matchMedia('(pointer: coarse)').matches) {
+    let tx = 0, ty = 0, cx = 0, cy = 0, ticking = false;
+    stage.addEventListener('mousemove', e => {
+      const r = stage.getBoundingClientRect();
+      tx = (e.clientX - r.left) / r.width - .5;
+      ty = (e.clientY - r.top) / r.height - .5;
+      if (!ticking) { ticking = true; requestAnimationFrame(loop); }
+    });
+    function loop() {
+      cx += (tx - cx) * .08;
+      cy += (ty - cy) * .08;
+      layers.forEach(l => {
+        const d = parseFloat(l.dataset.depth) || 1;
+        l.style.transform = `translate3d(${-cx * d * 24}px, ${-cy * d * 14}px, 0)`;
+      });
+      recess.style.transform = `rotateY(${16 + cx * 9}deg) rotateX(${cy * 5}deg)`;
+      if (Math.abs(tx - cx) > .001 || Math.abs(ty - cy) > .001) requestAnimationFrame(loop);
+      else ticking = false;
+    }
   }
 
-  /* waypoints */
-  WAYPOINTS.forEach((w, i) => {
-    const p = path.getPointAtLength(L * w.t);
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'wp');
-    g.setAttribute('tabindex', '0');
-    g.setAttribute('role', 'link');
-    g.setAttribute('aria-label', `${w.name} — ${w.when}`);
-    const dy = w.above ? -1 : 1;
-    g.innerHTML = `
-      <circle class="halo" cx="${p.x}" cy="${p.y}" r="13"/>
-      <circle class="core" cx="${p.x}" cy="${p.y}" r="6"/>
-      <line x1="${p.x}" y1="${p.y + dy * 10}" x2="${p.x}" y2="${p.y + dy * 26}" stroke="var(--line-2)" stroke-width="1"/>
-      <text class="wp-no" x="${p.x - 14}" y="${p.y + dy * (w.above ? 58 : 46)}">0${i + 1}</text>
-      <text class="wp-name" x="${p.x + 4}" y="${p.y + dy * (w.above ? 58 : 46)}">${w.name}</text>
-      <text class="wp-when" x="${p.x - 14}" y="${p.y + dy * (w.above ? 42 : 62)}">${w.when}</text>`;
-    g.addEventListener('click', () => location.href = 'app.html#' + w.view);
-    g.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = 'app.html#' + w.view; });
-    g.addEventListener('mouseenter', () => showCard(w, p));
-    g.addEventListener('focus', () => showCard(w, p));
-    g.addEventListener('mouseleave', hideCard);
-    g.addEventListener('blur', hideCard);
-    wpG.appendChild(g);
+  /* scroll push: walk toward the door, copy falls away, veil hands off */
+  const canPush = () => !REDUCED && innerWidth > 980;
+  let sp = 0, spT = 0, sailing = false;
+  function onScroll() {
+    if (!canPush()) return;
+    const range = zone.offsetHeight - innerHeight;
+    spT = Math.min(Math.max((-zone.getBoundingClientRect().top) / range, 0), 1);
+    if (!sailing) { sailing = true; requestAnimationFrame(push); }
+  }
+  function push() {
+    sp += (spT - sp) * .12;
+    const e = sp * sp * (3 - 2 * sp);                      // smoothstep
+    cam.style.transform = `scale(${1 + e * .85})`;
+    copy.style.opacity = Math.max(0, 1 - e * 1.7);
+    copy.style.transform = `translateY(${e * -46}px)`;
+    back.style.filter = `brightness(${1 + e * .55}) saturate(${1 + e * .2})`;
+    veil.style.opacity = Math.max(0, (e - .72) / .28);
+    if (Math.abs(spT - sp) > .0008) requestAnimationFrame(push);
+    else sailing = false;
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', () => {
+    if (!canPush()) { cam.style.transform = ''; copy.style.opacity = ''; copy.style.transform = ''; veil.style.opacity = 0; }
+    onScroll();
   });
-
-  let hideT;
-  function showCard(w, p) {
-    clearTimeout(hideT);
-    const r = chart.getBoundingClientRect();
-    const vb = svg.viewBox.baseVal;
-    const sx = r.width / vb.width;
-    card.innerHTML = `<span class="mono">${w.when} · waypoint</span><h4>${w.name}</h4><p>${w.desc}</p>`;
-    const x = Math.min(Math.max(p.x * sx - 124, 8), r.width - 256);
-    const y = p.y * (r.height / vb.height) + (w.above ? 30 : -150);
-    card.style.left = x + 'px';
-    card.style.top = y + 'px';
-    card.classList.add('show');
-  }
-  function hideCard() { hideT = setTimeout(() => card.classList.remove('show'), 180); }
-  card.addEventListener('mouseenter', () => clearTimeout(hideT));
-  card.addEventListener('mouseleave', hideCard);
-
-  /* traveling vessel + waypoint lighting */
-  if (REDUCED) {
-    const p = path.getPointAtLength(L * .5);
-    vessel.setAttribute('transform', `translate(${p.x},${p.y})`);
-  } else {
-    const start = performance.now();
-    (function sail(now) {
-      const t = ((now - start) / 26000) % 1;           // one full passage ≈ 26s
-      const eased = t;
-      const p = path.getPointAtLength(L * eased);
-      vessel.setAttribute('transform', `translate(${p.x},${p.y})`);
-      document.querySelectorAll('.wp').forEach((g, i) => g.classList.toggle('lit', WAYPOINTS[i].t <= eased + .01));
-      requestAnimationFrame(sail);
-    })(start);
-  }
-
-  /* mobile vertical route */
-  document.getElementById('route-mobile').innerHTML =
-    `<div class="rm-item"><span class="mono">Origin</span><strong>Colombo</strong><span class="when">06.92°N — where you are</span></div>` +
-    WAYPOINTS.map((w, i) => `
-      <a class="rm-item" href="app.html#${w.view}" style="display:block">
-        <span class="mono">0${i + 1} · ${w.when}</span><strong>${w.name}</strong>
-        <span class="when">${w.desc}</span>
-      </a>`).join('') +
-    `<div class="rm-item"><span class="mono">Landfall</span><strong>Auckland</strong><span class="when">36.85°S — where you’re going</span></div>`;
+  onScroll();
 })();
 
 /* ── Legend strip: universities with latitudes ── */
