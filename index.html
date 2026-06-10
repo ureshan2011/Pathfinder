@@ -3,190 +3,231 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PathFinder — helping Sri Lankan students discover PhD opportunities in New Zealand: personalized roadmaps, supervisor discovery, scholarships, and application tracking." />
-  <meta property="og:title" content="PathFinder — Your Path to a PhD in New Zealand" />
-  <meta property="og:description" content="Assessment, roadmap, labs, scholarships, and application tracking — built for Sri Lankan students." />
-  <title>PathFinder — Your Path to a PhD in New Zealand</title>
+  <meta name="description" content="PathFinder — the field guide for Sri Lankan students charting a route to a PhD in New Zealand. Assessment, roadmap, supervisors, scholarships, and application tracking." />
+  <meta property="og:title" content="PathFinder — Chart your route to a PhD in New Zealand" />
+  <meta property="og:description" content="A doctorate is not luck. It is a route. Plot yours from Colombo to Aotearoa." />
+  <title>PathFinder — Chart your route to a PhD in New Zealand</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/site.css" />
 
   <style>
-    /* ════════════════ HERO + PORTAL ════════════════
-       The portal reads as a real luminous gateway because every
-       light source is shared with its surroundings: the rim casts
-       glow onto the hero, the scene reflects on the floor, and
-       dust particles drift toward the aperture. */
+    /* ════════ HERO — the route map ════════ */
+    .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; padding-top: 64px; }
 
-    .hero {
-      position: relative; min-height: 100vh; overflow: hidden;
-      display: flex; align-items: center; padding: 120px 0 80px;
-      background:
-        radial-gradient(1100px 700px at 72% 42%, rgba(56,225,196,.07), transparent 60%),
-        radial-gradient(900px 600px at 80% 70%, rgba(139,124,248,.06), transparent 60%),
-        var(--ink);
-    }
-    #dust { position: absolute; inset: 0; pointer-events: none; }
-    .hero-grid {
-      position: relative; z-index: 3; display: grid;
-      grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; width: 100%;
-    }
-    .hero h1 { font-size: clamp(2.6rem, 5.2vw, 4.3rem); line-height: 1.06; margin: 22px 0 18px; }
-    .hero-sub { color: var(--text-dim); font-size: clamp(.98rem, 1.6vw, 1.12rem); max-width: 480px; margin-bottom: 32px; }
-    .hero-stats { display: flex; gap: 34px; margin-top: 44px; flex-wrap: wrap; }
-    .hero-stat strong { display: block; font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; }
-    .hero-stat span { font-size: 12px; color: var(--text-faint); letter-spacing: .06em; text-transform: uppercase; }
-
-    /* — Portal — */
-    .portal-stage { position: relative; display: flex; justify-content: center; perspective: 1200px; }
-    .portal-tilt { position: relative; transform-style: preserve-3d; transition: transform .35s cubic-bezier(.22,1,.36,1); }
-
-    /* ambient halo — bleeds far past the portal so it lights the section */
-    .portal-halo {
-      position: absolute; inset: -42%; pointer-events: none; z-index: 0;
-      background:
-        radial-gradient(45% 50% at 50% 46%, rgba(56,225,196,.22), transparent 70%),
-        radial-gradient(60% 65% at 52% 55%, rgba(99,140,245,.14), transparent 72%),
-        radial-gradient(75% 80% at 48% 50%, rgba(139,124,248,.10), transparent 75%);
-      filter: blur(14px);
-      animation: haloBreathe 7s ease-in-out infinite;
-    }
-    @keyframes haloBreathe { 0%,100% { opacity:.85; transform:scale(1); } 50% { opacity:1; transform:scale(1.045); } }
-
-    .portal {
-      position: relative; z-index: 2;
-      width: min(380px, 78vw); aspect-ratio: 380 / 500;
-      border-radius: 50% / 46%;
-      padding: 7px; /* rim thickness */
-      background: conic-gradient(from var(--spin, 0deg),
-        #1de3c0, #3f9bf2 22%, #8b7cf8 40%, #1a4f63 55%, #1de3c0 70%, #c8f7ec 84%, #1de3c0);
-      animation: rimSpin 14s linear infinite;
-      box-shadow:
-        0 0 18px rgba(56,225,196,.55),
-        0 0 60px rgba(56,225,196,.30),
-        0 0 140px rgba(99,140,245,.22),
-        inset 0 0 22px rgba(8,12,20,.9);
-    }
-    @property --spin { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    @keyframes rimSpin { to { --spin: 360deg; } }
-
-    /* soft blurred copy of the rim = light bloom hugging the edge */
-    .portal::before {
-      content: ''; position: absolute; inset: -10px; border-radius: inherit;
-      background: inherit; filter: blur(22px); opacity: .55; z-index: -1;
+    /* graticule backdrop — survey-grid lines, barely there */
+    .graticule {
+      position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(var(--line-soft) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+      background-size: 96px 96px;
+      mask-image: radial-gradient(120% 90% at 50% 30%, #000 40%, transparent 100%);
+      -webkit-mask-image: radial-gradient(120% 90% at 50% 30%, #000 40%, transparent 100%);
     }
 
-    /* — The scene inside: NZ dawn through the gateway — */
-    .portal-scene {
-      position: relative; width: 100%; height: 100%;
-      border-radius: 50% / 46%; overflow: hidden;
-      background: linear-gradient(180deg, #060d1f 0%, #0b1f3d 30%, #14525e 58%, #2b8f86 74%, #0c2433 88%, #071019 100%);
-      box-shadow: inset 0 0 60px rgba(2,6,12,.85), inset 0 -22px 50px rgba(2,8,14,.7);
+    .hero-top { position: relative; z-index: 2; padding: clamp(40px, 7vh, 84px) 0 0; }
+    .hero-kicker { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .hero-kicker .rule { flex: 0 0 48px; height: 1px; background: var(--ink); }
+    .hero h1 {
+      font-size: clamp(2.7rem, 6.4vw, 5.4rem);
+      max-width: 13ch; margin: 26px 0 0;
     }
-    /* aurora veils */
-    .aurora { position: absolute; inset: -20% -30%; mix-blend-mode: screen; pointer-events: none; }
-    .aurora.a1 {
-      background: radial-gradient(45% 32% at 38% 30%, rgba(56,225,196,.5), transparent 70%);
-      filter: blur(20px); animation: auroraDrift 11s ease-in-out infinite alternate;
+    .hero-deck {
+      display: flex; gap: clamp(24px, 5vw, 80px); align-items: flex-end;
+      justify-content: space-between; flex-wrap: wrap; margin-top: 30px;
     }
-    .aurora.a2 {
-      background: radial-gradient(40% 30% at 66% 24%, rgba(139,124,248,.45), transparent 70%);
-      filter: blur(24px); animation: auroraDrift 13s ease-in-out infinite alternate-reverse;
-    }
-    @keyframes auroraDrift {
-      from { transform: translate(-4%, 0) rotate(-4deg); }
-      to   { transform: translate(5%, 4%) rotate(5deg); }
-    }
-    .scene-stars { position: absolute; inset: 0; }
-    .scene-stars i {
-      position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff;
-      animation: twinkle 3.4s ease-in-out infinite;
-    }
-    @keyframes twinkle { 0%,100% { opacity:.15; } 50% { opacity:.95; } }
+    .hero-deck p { max-width: 46ch; color: var(--ink-soft); font-size: 16.5px; }
+    .hero-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 
-    .scene-layer { position: absolute; left: -6%; right: -6%; bottom: -2px; pointer-events: none; transition: transform .4s cubic-bezier(.22,1,.36,1); }
-    .scene-layer svg { display: block; width: 100%; height: auto; }
+    /* — Chart area — */
+    .chart { position: relative; z-index: 1; margin-top: clamp(16px, 4vh, 44px); flex: 1; }
+    .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 
-    /* water shimmer strip at scene base */
-    .scene-water {
-      position: absolute; left: 0; right: 0; bottom: 0; height: 24%;
-      background: linear-gradient(180deg, transparent, rgba(56,225,196,.16) 35%, rgba(10,26,38,.85));
-      mix-blend-mode: screen;
+    .route-path {
+      fill: none; stroke: var(--route); stroke-width: 1.6;
+      stroke-dasharray: 6 7; stroke-linecap: round;
     }
-    .scene-water::after {
-      content: ''; position: absolute; left: 18%; right: 18%; top: 18%; height: 3px; border-radius: 999px;
-      background: linear-gradient(90deg, transparent, rgba(220,255,247,.8), transparent);
-      filter: blur(1px); animation: shimmer 4.5s ease-in-out infinite;
-    }
-    @keyframes shimmer { 0%,100% { opacity:.35; transform:scaleX(.7);} 50% { opacity:.95; transform:scaleX(1);} }
+    .route-ghost { fill: none; stroke: var(--line); stroke-width: 1; }
 
-    /* inner edge glow where rim light hits the scene atmosphere */
-    .scene-vignette {
-      position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-      box-shadow: inset 0 0 34px rgba(56,225,196,.28), inset 0 0 90px rgba(6,10,18,.55);
-    }
+    .wp { cursor: pointer; }
+    .wp circle.core { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; transition: all .25s cubic-bezier(.22,1,.36,1); }
+    .wp circle.halo { fill: none; stroke: var(--route); stroke-width: 1; opacity: 0; transition: opacity .25s, r .25s; }
+    .wp:hover circle.core, .wp.lit circle.core { fill: var(--route); stroke: var(--route); }
+    .wp:hover circle.halo, .wp.lit circle.halo { opacity: .7; }
+    .wp text { font-family: var(--font-mono); fill: var(--ink-soft); letter-spacing: .12em; }
+    .wp .wp-no { font-size: 10px; fill: var(--route); font-weight: 600; }
+    .wp .wp-name { font-size: 11.5px; text-transform: uppercase; fill: var(--ink); font-weight: 500; }
+    .wp .wp-when { font-size: 10px; fill: var(--ink-faint); }
 
-    /* — Floor: reflection + light pooling under the portal — */
-    .portal-floor {
-      position: absolute; z-index: 1; left: 50%; bottom: -68px; transform: translateX(-50%);
-      width: 130%; height: 130px; pointer-events: none;
-      background: radial-gradient(50% 100% at 50% 0%, rgba(56,225,196,.20), rgba(99,140,245,.08) 45%, transparent 75%);
-      filter: blur(8px);
-    }
-    .portal-reflection {
-      position: absolute; z-index: 1; left: 50%; top: 100%; margin-top: 10px;
-      transform: translateX(-50%) scaleY(-.55);
-      width: min(380px, 78vw); aspect-ratio: 380 / 500;
-      border-radius: 50% / 46%;
-      background: linear-gradient(180deg, #060d1f, #14525e 60%, #2b8f86 78%, #071019);
-      opacity: .28; filter: blur(10px) saturate(1.3);
-      -webkit-mask-image: linear-gradient(180deg, transparent 30%, #000 100%);
-              mask-image: linear-gradient(180deg, transparent 30%, #000 100%);
-      pointer-events: none;
-    }
+    .endpt text { font-family: var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+    .endpt .city { font-size: 12px; fill: var(--ink); font-weight: 600; }
+    .endpt .coord { font-size: 9.5px; fill: var(--ink-faint); }
 
-    /* gate runes — faint markers orbiting outside the rim */
-    .portal-orbit { position: absolute; inset: -34px; z-index: 1; animation: orbit 26s linear infinite; pointer-events: none; }
-    @keyframes orbit { to { transform: rotate(360deg); } }
-    .portal-orbit i {
-      position: absolute; width: 5px; height: 5px; border-radius: 50%;
-      background: var(--teal); box-shadow: 0 0 10px var(--teal);
+    /* annotation card following the active waypoint */
+    .wp-card {
+      position: absolute; z-index: 5; width: 248px; padding: 16px 18px;
+      background: var(--surface); border: 1px solid var(--ink); border-radius: 2px;
+      box-shadow: 4px 4px 0 rgba(194,64,28,.9);
+      opacity: 0; pointer-events: none; transform: translateY(6px);
+      transition: opacity .25s, transform .25s cubic-bezier(.22,1,.36,1);
+    }
+    .wp-card.show { opacity: 1; transform: none; pointer-events: auto; }
+    .wp-card .mono { display: block; margin-bottom: 6px; }
+    .wp-card h4 { font-family: var(--font-display); font-size: 17px; font-weight: 520; margin-bottom: 5px; }
+    .wp-card p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+    /* mobile vertical route */
+    .route-mobile { display: none; }
+    @media (max-width: 760px) {
+      .chart { display: none; }
+      .route-mobile { display: block; margin: 40px 0 56px; position: relative; z-index: 1; }
+      .rm-item { position: relative; padding: 0 0 26px 34px; border-left: 1px dashed var(--route); margin-left: 7px; }
+      .rm-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+      .rm-item::before {
+        content: ''; position: absolute; left: -8px; top: 2px; width: 15px; height: 15px;
+        border-radius: 50%; background: var(--paper); border: 1.4px solid var(--ink);
+      }
+      .rm-item:first-child::before, .rm-item:last-child::before { background: var(--route); border-color: var(--route); }
+      .rm-item .mono { display: block; margin-bottom: 2px; }
+      .rm-item strong { font-weight: 600; font-size: 15px; }
+      .rm-item span.when { display: block; font-size: 12.5px; color: var(--ink-faint); }
     }
 
-    @media (max-width: 940px) {
-      .hero-grid { grid-template-columns: 1fr; text-align: center; }
-      .hero-sub { margin-left: auto; margin-right: auto; }
-      .hero-stats, .hero-cta { justify-content: center; }
-      .portal-stage { order: -1; margin-bottom: -20px; }
-      .portal { width: min(290px, 72vw); }
-      .portal-reflection { display: none; }
+    /* ════════ INDEX STRIP — the legend ════════ */
+    .legend-strip { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); padding: 18px 0; }
+    .legend-list { display: flex; flex-wrap: wrap; gap: 10px 36px; }
+    .legend-list .li { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+    .legend-list .li b { color: var(--ink); font-weight: 600; }
+    .legend-list .li i { font-style: normal; color: var(--ink-faint); margin-left: 8px; }
+
+    /* ════════ CHAPTER 01 — assessment widget ════════ */
+    .split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+    @media (max-width: 880px) { .split { grid-template-columns: 1fr; } }
+
+    .asm-widget { background: var(--surface); border: 1px solid var(--ink); border-radius: 3px; box-shadow: 6px 6px 0 var(--paper-2); }
+    .asm-widget .head { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+    .asm-widget .body { padding: 24px 20px; }
+    .asm-q { font-family: var(--font-display); font-size: 19px; font-weight: 520; margin-bottom: 18px; }
+    .asm-row {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      text-align: left; background: none; border: none; border-top: 1px solid var(--line-soft);
+      padding: 13px 4px; font-size: 14.5px; transition: padding-left .25s cubic-bezier(.22,1,.36,1), color .2s;
+    }
+    .asm-row .idx { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); width: 18px; }
+    .asm-row::after { content: '→'; margin-left: auto; opacity: 0; transition: opacity .2s; color: var(--route); }
+    .asm-row:hover { padding-left: 12px; color: var(--route); }
+    .asm-row:hover::after { opacity: 1; }
+
+    @media (max-width: 720px) { .ledger-hide-sm { display: none; } .ledger td, .ledger th { padding-right: 10px; } }
+
+    /* ════════ CHAPTER 03 — labs index ════════ */
+    .lab-index { border-top: 1px solid var(--ink); }
+    .li-row {
+      display: grid; grid-template-columns: 52px minmax(0,5fr) minmax(0,4fr) auto;
+      gap: 18px; align-items: baseline; padding: 22px 4px;
+      border-bottom: 1px solid var(--line); transition: background .2s;
+      cursor: pointer; position: relative;
+    }
+    .li-row:hover { background: rgba(194,64,28,.035); }
+    .li-row .no { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+    .li-row .uni { font-family: var(--font-display); font-size: clamp(18px, 2.2vw, 23px); font-weight: 500; transition: color .2s; }
+    .li-row:hover .uni { color: var(--route); }
+    .li-row .meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+    .li-row .go { font-size: 18px; color: var(--ink-faint); transition: transform .25s, color .25s; }
+    .li-row:hover .go { transform: translateX(4px); color: var(--route); }
+    @media (max-width: 720px) { .li-row { grid-template-columns: 36px 1fr auto; } .li-row .meta { display: none; } }
+
+    /* ════════ CHAPTER 04 — night band (tracker) ════════ */
+    .night { background: var(--night); color: var(--paper); }
+    .night .chapter { border-top-color: rgba(244,241,234,.85); }
+    .night .chapter .ttl { color: rgba(244,241,234,.6); }
+    .night .chapter .end { color: rgba(244,241,234,.35); }
+    .night .muted { color: rgba(244,241,234,.62); }
+    .night .faint { color: rgba(244,241,234,.38); }
+
+    .pipeline { margin: 56px 0 16px; position: relative; }
+    .pipe-track { display: flex; justify-content: space-between; position: relative; }
+    .pipe-track::before {
+      content: ''; position: absolute; left: 8px; right: 8px; top: 7px; height: 0;
+      border-top: 1px dashed rgba(244,241,234,.3);
+    }
+    .pipe-stop { position: relative; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; min-width: 0; }
+    .pipe-stop .node {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--night); border: 1.4px solid rgba(244,241,234,.5); position: relative; z-index: 1;
+      transition: background .3s, border-color .3s, box-shadow .3s;
+    }
+    .pipe-stop.on .node { background: var(--route); border-color: var(--route); box-shadow: 0 0 14px rgba(194,64,28,.7); }
+    .pipe-stop .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgba(244,241,234,.45); max-width: 90px; line-height: 1.45; }
+    .pipe-stop.on .lbl { color: var(--paper); }
+    @media (max-width: 720px) {
+      .pipe-track { flex-direction: column; gap: 18px; }
+      .pipe-track::before { left: 7px; top: 8px; bottom: 8px; right: auto; height: auto; width: 0; border-top: none; border-left: 1px dashed rgba(244,241,234,.3); }
+      .pipe-stop { flex-direction: row; align-items: center; }
+      .pipe-stop .lbl { max-width: none; }
     }
 
-    /* ════════════════ OTHER SECTIONS ════════════════ */
-    .marquee { overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 18px 0; background: var(--ink-2); }
-    .marquee-track { display: flex; gap: 0; animation: mScroll 38s linear infinite; width: max-content; }
-    .marquee-track:hover { animation-play-state: paused; }
-    @keyframes mScroll { to { transform: translateX(-50%); } }
-    .m-item { display: flex; align-items: center; gap: 10px; padding: 0 26px; white-space: nowrap;
-      font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
-    .m-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--teal); opacity: .6; }
+    .night .btn { border-color: var(--paper); color: var(--paper); }
+    .night .btn-primary { background: var(--paper); color: var(--ink); }
+    .night .btn-primary:hover { background: var(--route); border-color: var(--route); color: var(--paper); }
 
-    .feat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
-    .step-num { font-family: var(--font-display); font-size: 3.2rem; line-height: 1; opacity: .25; }
-
-    .cta-panel {
-      position: relative; overflow: hidden; border-radius: var(--radius-lg);
-      border: 1px solid var(--line-2); padding: clamp(40px, 6vw, 72px);
-      background:
-        radial-gradient(600px 320px at 50% 0%, rgba(56,225,196,.13), transparent 70%),
-        radial-gradient(500px 300px at 80% 100%, rgba(139,124,248,.12), transparent 70%),
-        var(--surface);
-      text-align: center;
+    /* ════════ CHAPTER 05 — paper stack ════════ */
+    .paper-stack { position: relative; height: 340px; }
+    .sheet {
+      position: absolute; width: min(250px, 70%); padding: 22px 20px;
+      background: #FDFCF8; border: 1px solid var(--line);
+      box-shadow: 0 2px 4px rgba(28,26,21,.06), 0 14px 34px rgba(28,26,21,.1);
+      font-family: var(--font-mono); font-size: 10px; line-height: 1.8; color: var(--ink-soft);
+      transition: transform .4s cubic-bezier(.22,1,.36,1);
     }
-    .email-row { display: flex; gap: 10px; max-width: 440px; margin: 0 auto; }
-    @media (max-width: 560px) { .email-row { flex-direction: column; } }
+    .sheet .sh-title { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); margin-bottom: 10px; }
+    .sheet .ln { height: 5px; background: var(--line-soft); margin: 7px 0; }
+    .sheet .ln.short { width: 62%; }
+    .sheet.s1 { top: 8%; left: 4%; transform: rotate(-4deg); z-index: 1; }
+    .sheet.s2 { top: 2%; left: 32%; transform: rotate(2.5deg); z-index: 2; }
+    .sheet.s3 { top: 26%; left: 18%; transform: rotate(-1deg); z-index: 3; }
+    .paper-stack:hover .s1 { transform: rotate(-7deg) translate(-12px, 4px); }
+    .paper-stack:hover .s2 { transform: rotate(5deg) translate(14px, -6px); }
+    .paper-stack:hover .s3 { transform: rotate(0deg) translateY(-8px); }
+
+    .kit-list { border-top: 1px solid var(--ink); }
+    .kit-row { display: flex; align-items: baseline; gap: 16px; padding: 17px 4px; border-bottom: 1px solid var(--line); }
+    .kit-row .no { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+    .kit-row strong { font-weight: 600; font-size: 15px; }
+    .kit-row .mono { margin-left: auto; }
+
+    /* ════════ FIELD NOTES (stories) ════════ */
+    .notes { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .note { padding: 8px clamp(20px, 3vw, 40px) 8px 0; }
+    .note + .note { border-left: 1px solid var(--line); padding-left: clamp(20px, 3vw, 40px); }
+    .note blockquote { font-family: var(--font-display); font-size: clamp(17px, 1.8vw, 21px); font-weight: 460; line-height: 1.4; font-variation-settings: 'SOFT' 60; }
+    .note .who { margin-top: 18px; }
+    @media (max-width: 880px) {
+      .notes { grid-template-columns: 1fr; gap: 32px; }
+      .note + .note { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 32px; }
+    }
+
+    /* ════════ DISPATCH (newsletter) ════════ */
+    .dispatch { max-width: 560px; margin: 0 auto; text-align: center; }
+    .dispatch .rule-x { width: 56px; height: 1px; background: var(--ink); margin: 0 auto 26px; }
+    .email-row { display: flex; gap: 0; max-width: 420px; margin: 30px auto 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); }
+    .email-row .field { border: none; box-shadow: none !important; background: transparent; }
+    .email-row .btn { border: none; border-left: 1px solid var(--ink); border-radius: 0; }
+    @media (max-width: 480px) {
+      .email-row { flex-direction: column; }
+      .email-row .btn { border-left: none; border-top: 1px solid var(--ink); justify-content: center; }
+    }
+
+    /* ════════ FOOTER colophon ════════ */
+    .colophon { border-top: 1px solid var(--ink); padding: var(--s6) 0 var(--s4); }
+    .colophon .big {
+      font-family: var(--font-display); font-weight: 480; letter-spacing: -.03em;
+      font-size: clamp(3.4rem, 11vw, 9rem); line-height: .95; color: var(--ink);
+    }
+    .colophon .big i { font-style: italic; color: var(--route); }
   </style>
 </head>
 <body>
@@ -194,390 +235,505 @@
 <!-- ══════════ NAV ══════════ -->
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="logo" href="index.html">
-      <span class="logo-mark">P</span><span>PathFinder</span>
-      <span class="chip chip-teal" style="font-size:10px;margin-left:2px">PhD · NZ</span>
-    </a>
+    <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span><span class="mono" style="font-size:10px">EST. CMB→AKL</span></a>
     <nav class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#how">How it works</a>
-      <a href="app.html#explore">Labs</a>
-      <a href="app.html#funding">Scholarships</a>
+      <a href="#method">Method</a>
+      <a href="#funding">Funding</a>
+      <a href="#labs">Labs</a>
+      <a href="#kit">Starter&nbsp;Kit</a>
     </nav>
     <div style="display:flex;gap:10px;align-items:center">
-      <a class="btn btn-ghost btn-sm" href="app.html#dashboard">Dashboard</a>
-      <a class="btn btn-primary btn-sm" href="app.html#assessment">Start assessment</a>
+      <a class="tlink" href="app.html#dashboard" style="font-size:13px">Dashboard</a>
+      <a class="btn btn-primary btn-sm" href="app.html#assessment">Plot my route</a>
     </div>
   </div>
 </header>
 
 <!-- ══════════ HERO ══════════ -->
 <section class="hero">
-  <canvas id="dust" aria-hidden="true"></canvas>
+  <div class="graticule" id="graticule" aria-hidden="true"></div>
 
-  <div class="wrap hero-grid">
-    <!-- Left: copy -->
-    <div>
-      <span class="tag" data-reveal><span class="dot"></span>For Sri Lankan students · Free forever</span>
-      <h1 class="display" data-reveal style="transition-delay:80ms">
-        Step through to your<br><em>PhD in Aotearoa.</em>
-      </h1>
-      <p class="hero-sub" data-reveal style="transition-delay:160ms">
-        PathFinder turns the maze of New Zealand doctoral admissions into one clear path —
-        a 5-minute assessment, a personalized roadmap, matched supervisors and scholarships,
-        and a dashboard that tracks every application to the finish.
-      </p>
-      <div class="hero-cta" data-reveal style="transition-delay:240ms;display:flex;gap:12px;flex-wrap:wrap">
-        <a class="btn btn-primary" href="app.html#assessment">
-          Find my pathway <span class="material-symbols-outlined" style="font-size:17px">arrow_forward</span></a>
-        <a class="btn btn-ghost" href="app.html#explore">Explore research labs</a>
-      </div>
-      <div class="hero-stats" data-reveal style="transition-delay:320ms">
-        <div class="hero-stat"><strong data-counter="8">8</strong><span>NZ universities</span></div>
-        <div class="hero-stat"><strong>NZ$33k</strong><span>Top stipend / yr</span></div>
-        <div class="hero-stat"><strong>3 yrs</strong><span>Post-study work visa</span></div>
-        <div class="hero-stat"><strong data-counter="12">12</strong><span>Research labs mapped</span></div>
-      </div>
+  <div class="wrap hero-top">
+    <div class="hero-kicker" data-reveal>
+      <span class="rule"></span>
+      <span class="mono">6.9271° N, 79.8612° E <span class="tick">→</span> 36.8485° S, 174.7633° E</span>
     </div>
-
-    <!-- Right: the portal -->
-    <div class="portal-stage">
-      <div class="portal-tilt" id="portal-tilt">
-        <div class="portal-halo"></div>
-
-        <div class="portal-orbit" aria-hidden="true">
-          <i style="top:6%;left:50%"></i>
-          <i style="top:50%;right:0;width:3px;height:3px"></i>
-          <i style="bottom:10%;left:14%;width:4px;height:4px"></i>
-        </div>
-
-        <div class="portal">
-          <div class="portal-scene">
-            <div class="scene-stars" id="scene-stars"></div>
-            <div class="aurora a1"></div>
-            <div class="aurora a2"></div>
-
-            <!-- far range -->
-            <div class="scene-layer" data-depth="14" style="bottom:16%">
-              <svg viewBox="0 0 400 120" preserveAspectRatio="none" style="height:120px">
-                <path d="M0 120 L0 70 L48 38 L86 64 L130 22 L172 58 L214 30 L258 66 L302 26 L348 60 L400 40 L400 120 Z"
-                      fill="#10283f" opacity=".9"/>
-                <path d="M118 34 L130 22 L143 35 L130 30 Z" fill="#cfe9f4" opacity=".55"/>
-                <path d="M290 38 L302 26 L315 39 L302 33 Z" fill="#cfe9f4" opacity=".5"/>
-              </svg>
-            </div>
-            <!-- near range -->
-            <div class="scene-layer" data-depth="26" style="bottom:6%">
-              <svg viewBox="0 0 400 110" preserveAspectRatio="none" style="height:110px">
-                <path d="M0 110 L0 84 L60 44 L110 78 L168 34 L230 80 L286 42 L344 76 L400 52 L400 110 Z"
-                      fill="#0a1828"/>
-                <path d="M156 44 L168 34 L181 46 L168 41 Z" fill="#bfe6f0" opacity=".7"/>
-              </svg>
-            </div>
-
-            <div class="scene-water"></div>
-            <div class="scene-vignette"></div>
-          </div>
-        </div>
-
-        <div class="portal-reflection" aria-hidden="true"></div>
-        <div class="portal-floor" aria-hidden="true"></div>
+    <h1 class="display" data-reveal style="transition-delay:90ms">A doctorate is not luck.<br>It is <em>a route.</em></h1>
+    <div class="hero-deck">
+      <p data-reveal style="transition-delay:180ms">
+        PathFinder is the field guide for Sri Lankan students charting a PhD in New Zealand —
+        the only country where international doctoral candidates pay domestic fees. Assess your
+        position, plot the waypoints, and track every application to landfall.
+      </p>
+      <div class="hero-actions" data-reveal style="transition-delay:260ms">
+        <a class="btn btn-primary" href="app.html#assessment">Begin the assessment <span class="material-symbols-outlined" style="font-size:17px">east</span></a>
+        <a class="tlink" href="#method">Read the method</a>
       </div>
     </div>
   </div>
+
+  <!-- The chart: Colombo → Auckland with six waypoints -->
+  <div class="wrap chart" id="chart">
+    <svg viewBox="0 0 1200 460" role="img" aria-label="Route map of the PhD journey from Colombo to Auckland with six waypoints">
+      <!-- destination contour rings -->
+      <g stroke="var(--line)" fill="none" opacity=".8">
+        <circle cx="1106" cy="330" r="26"/><circle cx="1106" cy="330" r="48"/><circle cx="1106" cy="330" r="74"/>
+      </g>
+      <!-- origin cross-hair -->
+      <g stroke="var(--line-2)" opacity=".9">
+        <line x1="74" y1="318" x2="74" y2="346"/><line x1="60" y1="332" x2="88" y2="332"/>
+      </g>
+
+      <path id="routeGhost" class="route-ghost" d="M74,332 C220,140 420,90 600,128 C800,170 960,180 1106,330"/>
+      <path id="routeLine" class="route-path" d="M74,332 C220,140 420,90 600,128 C800,170 960,180 1106,330"/>
+
+      <!-- endpoints -->
+      <g class="endpt">
+        <circle cx="74" cy="332" r="5.5" fill="var(--route)"/>
+        <text class="city" x="58" y="368">Colombo</text>
+        <text class="coord" x="58" y="384">06.92°N · ORIGIN</text>
+      </g>
+      <g class="endpt">
+        <circle cx="1106" cy="330" r="5.5" fill="var(--route)"/>
+        <text class="city" x="1058" y="378">Auckland</text>
+        <text class="coord" x="1042" y="394">36.85°S · ENROLMENT</text>
+      </g>
+
+      <!-- waypoints injected by JS -->
+      <g id="waypoints"></g>
+
+      <!-- traveling marker -->
+      <g id="vessel">
+        <circle r="4" fill="var(--ink)"/>
+        <circle r="9" fill="none" stroke="var(--route)" stroke-width="1" opacity=".7"/>
+      </g>
+    </svg>
+    <div class="wp-card" id="wp-card" role="status"></div>
+  </div>
+
+  <!-- mobile vertical route -->
+  <div class="wrap route-mobile" id="route-mobile"></div>
 </section>
 
-<!-- ══════════ MARQUEE ══════════ -->
-<div class="marquee">
-  <div class="marquee-track" id="marquee-track">
-    <template id="marquee-tpl">
-      <div class="m-item"><span class="dot"></span>University of Auckland</div>
-      <div class="m-item"><span class="dot"></span>University of Otago</div>
-      <div class="m-item"><span class="dot"></span>Victoria University of Wellington</div>
-      <div class="m-item"><span class="dot"></span>University of Canterbury</div>
-      <div class="m-item"><span class="dot"></span>Massey University</div>
-      <div class="m-item"><span class="dot"></span>University of Waikato</div>
-      <div class="m-item"><span class="dot"></span>AUT</div>
-      <div class="m-item"><span class="dot"></span>Lincoln University</div>
-      <div class="m-item"><span class="dot"></span>Domestic fees for PhD</div>
-      <div class="m-item"><span class="dot"></span>Full-time work rights</div>
-    </template>
-  </div>
+<!-- ══════════ LEGEND STRIP ══════════ -->
+<div class="legend-strip">
+  <div class="wrap legend-list" id="legend"></div>
 </div>
 
-<!-- ══════════ FEATURES ══════════ -->
-<section class="sec" id="features">
+<!-- ══════════ 01 · THE METHOD (assessment preview) ══════════ -->
+<section class="sec" id="method">
   <div class="wrap">
-    <div class="sec-head center">
-      <span class="tag" data-reveal><span class="material-symbols-outlined" style="font-size:14px">auto_awesome</span>The complete toolkit</span>
-      <h2 class="display" data-reveal style="transition-delay:80ms">Everything between <em>“I want a PhD”</em><br>and your first day on campus.</h2>
-      <p data-reveal style="transition-delay:160ms">Eight integrated tools, one continuous journey — built specifically for the Sri Lanka → New Zealand pathway.</p>
+    <div class="chapter" data-reveal>
+      <span class="no">01</span><span class="ttl">The Method</span><span class="end">Fig. 1 — Position fixing</span>
     </div>
-
-    <div class="grid-4">
-      <a class="card" href="app.html#assessment" data-reveal>
-        <div class="feat-icon" style="background:var(--teal-soft)"><span class="material-symbols-outlined" style="color:var(--teal)">quiz</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Pathway Assessment</h3>
-        <p class="muted" style="font-size:13px">Seven questions, under five minutes. Get your readiness score and recommended entry route.</p>
-      </a>
-      <a class="card" href="app.html#roadmap" data-reveal style="transition-delay:70ms">
-        <div class="feat-icon" style="background:var(--violet-soft)"><span class="material-symbols-outlined" style="color:#B0A6FB">route</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Roadmap Generator</h3>
-        <p class="muted" style="font-size:13px">A month-by-month interactive timeline from IELTS to enrollment, generated from your answers.</p>
-      </a>
-      <a class="card" href="app.html#explore" data-reveal style="transition-delay:140ms">
-        <div class="feat-icon" style="background:var(--gold-soft)"><span class="material-symbols-outlined" style="color:var(--gold)">science</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Lab Explorer</h3>
-        <p class="muted" style="font-size:13px">Flagship research groups across all 8 universities, filtered to your field, with insider tips.</p>
-      </a>
-      <a class="card" href="app.html#explore" data-reveal style="transition-delay:210ms">
-        <div class="feat-icon" style="background:rgba(248,124,155,.13)"><span class="material-symbols-outlined" style="color:var(--rose)">person_search</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Supervisor Discovery</h3>
-        <p class="muted" style="font-size:13px">Named supervisors per lab and a contact strategy that gets replies, not silence.</p>
-      </a>
-      <a class="card" href="app.html#funding" data-reveal>
-        <div class="feat-icon" style="background:var(--teal-soft)"><span class="material-symbols-outlined" style="color:var(--teal)">payments</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Scholarship Hub</h3>
-        <p class="muted" style="font-size:13px">Doctoral scholarships worth NZ$28–33k/yr, with deadlines and eligibility decoded.</p>
-      </a>
-      <a class="card" href="app.html#funding" data-reveal style="transition-delay:70ms">
-        <div class="feat-icon" style="background:var(--violet-soft)"><span class="material-symbols-outlined" style="color:#B0A6FB">flight_takeoff</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Visa Updates</h3>
-        <p class="muted" style="font-size:13px">Immigration changes that matter to PhD students — work rights, family, post-study visas.</p>
-      </a>
-      <a class="card" href="app.html#kit" data-reveal style="transition-delay:140ms">
-        <div class="feat-icon" style="background:var(--gold-soft)"><span class="material-symbols-outlined" style="color:var(--gold)">package_2</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">PhD Starter Kit</h3>
-        <p class="muted" style="font-size:13px">Supervisor email, proposal outline, academic CV, and SOP frameworks — copy or download.</p>
-      </a>
-      <a class="card" href="app.html#dashboard" data-reveal style="transition-delay:210ms">
-        <div class="feat-icon" style="background:rgba(248,124,155,.13)"><span class="material-symbols-outlined" style="color:var(--rose)">space_dashboard</span></div>
-        <h3 style="font-size:1rem;margin-bottom:8px">Application Tracker</h3>
-        <p class="muted" style="font-size:13px">Every saved lab, scholarship, and application in one dashboard — from “researching” to “enrolled”.</p>
-      </a>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ HOW IT WORKS ══════════ -->
-<section class="sec" id="how" style="background:var(--ink-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="tag" data-reveal><span class="material-symbols-outlined" style="font-size:14px">timeline</span>How it works</span>
-      <h2 class="display" data-reveal style="transition-delay:80ms">Three steps. <em>One clear path.</em></h2>
-    </div>
-    <div class="grid-3">
-      <div class="card" data-reveal>
-        <div class="step-num">01</div>
-        <h3 style="font-size:1.08rem;margin:10px 0 8px">Assess</h3>
-        <p class="muted" style="font-size:13.5px">Answer seven questions about your degree, research experience, field, and funding needs. PathFinder scores your readiness and picks your entry route — direct PhD, honours-bridge, or research master’s first.</p>
+    <div class="split">
+      <div>
+        <h2 class="display sec-head" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:22px">Before the route,<br><em>the position.</em></h2>
+        <p class="muted" data-reveal style="max-width:44ch;margin-bottom:18px">
+          Navigators fix their position before plotting a course. The assessment does the same:
+          seven questions on your degree, research record, field, and funding — under five minutes —
+          and PathFinder determines your entry route: direct PhD, honours bridge, or research
+          master's first.
+        </p>
+        <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch">
+          Your answers generate a month-by-month roadmap, matched universities, and the
+          scholarships you actually qualify for. Nothing generic survives.
+        </p>
       </div>
-      <div class="card" data-reveal style="transition-delay:90ms">
-        <div class="step-num">02</div>
-        <h3 style="font-size:1.08rem;margin:10px 0 8px">Plan & discover</h3>
-        <p class="muted" style="font-size:13.5px">Your roadmap lays out the next 9+ months. The explorer surfaces matched universities, labs, and supervisors; the funding hub shows every scholarship you’re eligible for.</p>
-      </div>
-      <div class="card" data-reveal style="transition-delay:180ms">
-        <div class="step-num">03</div>
-        <h3 style="font-size:1.08rem;margin:10px 0 8px">Apply & track</h3>
-        <p class="muted" style="font-size:13.5px">Use Starter Kit templates to contact supervisors, then move each application through the pipeline — contacted, applied, interview, offer, enrolled — without losing track of a single deadline.</p>
+      <div data-reveal style="transition-delay:120ms">
+        <div class="asm-widget">
+          <div class="head">
+            <span class="mono">Assessment · Q.1 of 7</span>
+            <span class="mono" style="color:var(--route)">~4 min</span>
+          </div>
+          <div class="body">
+            <p class="asm-q">What is your highest completed qualification?</p>
+            <div id="asm-preview"></div>
+          </div>
+        </div>
+        <p class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">Answer to continue in the full assessment ↗</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ══════════ WHY NZ ══════════ -->
-<section class="sec">
+<!-- ══════════ 02 · THE LEDGER (funding) ══════════ -->
+<section class="sec" id="funding" style="padding-top:0">
   <div class="wrap">
-    <div class="sec-head center">
-      <span class="tag" data-reveal><span class="material-symbols-outlined" style="font-size:14px">public</span>Why New Zealand</span>
-      <h2 class="display" data-reveal style="transition-delay:80ms">The world’s most <em>generous</em> PhD deal.</h2>
+    <div class="chapter" data-reveal>
+      <span class="no">02</span><span class="ttl">The Ledger</span><span class="end">Doctoral funding, audited</span>
     </div>
-    <div class="grid-4">
-      <div class="card" data-reveal style="text-align:center">
-        <div style="font-size:2rem;font-weight:700;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent">~NZ$7.5k</div>
-        <p class="muted" style="font-size:13px;margin-top:6px">International PhD students pay <strong>domestic fees</strong> — unique among major destinations.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px">
+      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Stipends that pay<br>the <em>rent and then some.</em></h2>
+      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
+        NZ doctoral scholarships cover fees plus NZ$28–33k a year, tax-free. Most are awarded
+        automatically with admission. The ledger below is the shortlist.
+      </p>
+    </div>
+    <div data-reveal style="overflow-x:auto">
+      <table class="ledger" id="ledger">
+        <thead><tr>
+          <th style="width:42%">Scholarship</th>
+          <th>Annual value</th>
+          <th>Deadline</th>
+          <th class="ledger-hide-sm">Fields</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div style="margin-top:28px" data-reveal>
+      <a class="tlink" href="app.html#funding">Open the full funding hub — eligibility decoded <span style="color:var(--route)">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 03 · THE TERRITORY (labs) ══════════ -->
+<section class="sec" id="labs" style="padding-top:0">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no">03</span><span class="ttl">The Territory</span><span class="end">8 universities · 12 labs charted</span>
+    </div>
+    <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:40px">Know the terrain.<br>Then <em>write to it.</em></h2>
+    <div class="lab-index" id="lab-index" data-reveal></div>
+    <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-top:18px">
+      Each entry opens the explorer — labs, named supervisors, and the note that gets replies.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════ 04 · NIGHT WATCH (tracker) ══════════ -->
+<section class="sec night">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no" style="color:var(--route)">04</span><span class="ttl">The Night Watch</span><span class="end">Application tracking</span>
+    </div>
+    <div class="split" style="align-items:end">
+      <div>
+        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Seven harbours between<br>you and <em>landfall.</em></h2>
       </div>
-      <div class="card" data-reveal style="text-align:center;transition-delay:70ms">
-        <div style="font-size:2rem;font-weight:700;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent">Full-time</div>
-        <p class="muted" style="font-size:13px;margin-top:6px">Unlimited work rights during your PhD; your partner gets an open work visa.</p>
+      <p class="muted" data-reveal style="font-size:15px;max-width:44ch">
+        Applications fail in the gaps — the supervisor you forgot to follow up, the deadline that
+        slid past. The dashboard holds every application on one chart, from first contact to
+        enrolment, with nothing left to memory.
+      </p>
+    </div>
+
+    <div class="pipeline" data-reveal>
+      <div class="pipe-track" id="pipe-track"></div>
+    </div>
+
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:48px" data-reveal>
+      <a class="btn btn-primary" href="app.html#dashboard">Open the dashboard</a>
+      <span class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.08em">DATA STAYS ON YOUR DEVICE</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 05 · THE PAPERS (starter kit) ══════════ -->
+<section class="sec" id="kit">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no">05</span><span class="ttl">The Papers</span><span class="end">Templates, field-tested</span>
+    </div>
+    <div class="split">
+      <div class="paper-stack" data-reveal aria-hidden="true">
+        <div class="sheet s1">
+          <div class="sh-title">Research Proposal</div>
+          <div class="ln"></div><div class="ln"></div><div class="ln short"></div>
+          <div class="ln"></div><div class="ln short"></div>
+        </div>
+        <div class="sheet s2">
+          <div class="sh-title">Academic CV</div>
+          <div class="ln short"></div><div class="ln"></div><div class="ln"></div>
+          <div class="ln short"></div>
+        </div>
+        <div class="sheet s3">
+          <div class="sh-title">To: Prof. —</div>
+          Subject: Prospective PhD applicant — [your research area]
+          <div class="ln"></div><div class="ln"></div><div class="ln short"></div>
+        </div>
       </div>
-      <div class="card" data-reveal style="text-align:center;transition-delay:140ms">
-        <div style="font-size:2rem;font-weight:700;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent">3 years</div>
-        <p class="muted" style="font-size:13px;margin-top:6px">Open post-study work visa after graduation — a direct line to residency.</p>
-      </div>
-      <div class="card" data-reveal style="text-align:center;transition-delay:210ms">
-        <div style="font-size:2rem;font-weight:700;background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent">Free school</div>
-        <p class="muted" style="font-size:13px;margin-top:6px">Your children attend NZ schools as domestic students while you study.</p>
+      <div>
+        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:18px">The difference between<br><em>read</em> and <em>deleted.</em></h2>
+        <p class="muted" data-reveal style="max-width:46ch;margin-bottom:34px">
+          Supervisors skim hundreds of cold emails a term. The Starter Kit holds the four documents
+          that survive the skim — each one annotated with why it works.
+        </p>
+        <div class="kit-list" data-reveal>
+          <div class="kit-row"><span class="no">i.</span><strong>Supervisor first-contact email</strong><span class="mono">20–30% reply rate</span></div>
+          <div class="kit-row"><span class="no">ii.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
+          <div class="kit-row"><span class="no">iii.</span><strong>Academic CV skeleton</strong><span class="mono">2 pp. max</span></div>
+          <div class="kit-row"><span class="no">iv.</span><strong>Statement of purpose framework</strong><span class="mono">1,000 words</span></div>
+        </div>
+        <div style="margin-top:30px">
+          <a class="btn btn-ghost" href="app.html#kit">Open the kit <span class="material-symbols-outlined" style="font-size:16px">east</span></a>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ══════════ EMAIL CTA ══════════ -->
-<section class="sec" id="subscribe">
+<!-- ══════════ FIELD NOTES ══════════ -->
+<section class="sec" style="padding-top:0">
   <div class="wrap">
-    <div class="cta-panel" data-reveal>
-      <span class="tag" style="margin-bottom:18px"><span class="dot"></span>Scholarship & PhD alerts</span>
-      <h2 class="display" style="font-size:clamp(1.8rem,4vw,2.8rem);margin:14px 0 12px">Never miss a deadline <em>again.</em></h2>
-      <p class="muted" style="max-width:440px;margin:0 auto 28px">Scholarship rounds, new funded PhD positions, and visa changes — delivered when they matter. Free, no spam.</p>
+    <div class="chapter" data-reveal>
+      <span class="no">06</span><span class="ttl">Field Notes</span><span class="end">From students en route*</span>
+    </div>
+    <div class="notes">
+      <div class="note" data-reveal>
+        <blockquote>“I emailed eleven supervisors with the template. Four replied. One of them is now my primary supervisor at Otago.”</blockquote>
+        <div class="who mono">— K. Perera · Health Sciences · <span class="tick">Dunedin</span></div>
+      </div>
+      <div class="note" data-reveal style="transition-delay:100ms">
+        <blockquote>“Nobody told me NZ charges PhD students domestic fees. That single fact changed which country I applied to.”</blockquote>
+        <div class="who mono">— D. Wijesinghe · Engineering · <span class="tick">Christchurch</span></div>
+      </div>
+      <div class="note" data-reveal style="transition-delay:200ms">
+        <blockquote>“The roadmap said month 3: proposal draft. I was on time for the first deadline of my life.”</blockquote>
+        <div class="who mono">— R. Abeykoon · Computer Science · <span class="tick">Hamilton</span></div>
+      </div>
+    </div>
+    <p class="faint" data-reveal style="font-size:11px;margin-top:34px;font-family:var(--font-mono)">* Illustrative accounts.</p>
+  </div>
+</section>
+
+<!-- ══════════ DISPATCH ══════════ -->
+<section class="sec" style="background:var(--paper-2);border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="dispatch" data-reveal>
+      <div class="rule-x"></div>
+      <span class="mono">The Dispatch · Scholarship &amp; visa alerts</span>
+      <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.6rem);margin:16px 0 12px">Deadlines don't announce<br>themselves. <em>We do.</em></h2>
+      <p class="muted" style="font-size:14.5px">Scholarship rounds, funded positions, visa changes — sent only when they matter.</p>
       <form id="lead-form" novalidate>
         <div class="email-row">
           <input type="email" id="lead-email" class="field" placeholder="you@example.com" autocomplete="email" required aria-label="Email address" />
-          <button type="submit" class="btn btn-primary" id="lead-btn">Subscribe</button>
+          <button type="submit" class="btn btn-primary">Subscribe</button>
         </div>
-        <p id="lead-msg" class="faint" style="font-size:12.5px;margin-top:14px">Join students from Moratuwa, Peradeniya, Colombo, Jaffna & beyond.</p>
+        <p id="lead-msg" class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">No spam · Unsubscribe anytime</p>
       </form>
     </div>
   </div>
 </section>
 
-<!-- ══════════ FOOTER ══════════ -->
-<footer class="footer">
+<!-- ══════════ COLOPHON ══════════ -->
+<footer class="colophon">
   <div class="wrap">
-    <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:28px">
-      <a class="logo" href="index.html"><span class="logo-mark">P</span><span>PathFinder</span></a>
-      <nav style="display:flex;gap:22px;font-size:13px;color:var(--text-dim);flex-wrap:wrap">
-        <a href="app.html#assessment">Assessment</a>
-        <a href="app.html#roadmap">Roadmap</a>
-        <a href="app.html#explore">Labs</a>
-        <a href="app.html#funding">Scholarships</a>
-        <a href="app.html#kit">Starter Kit</a>
+    <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:40px">
+      <nav style="display:flex;gap:26px" class="mono">
+        <a class="tlink" style="font-size:11px" href="app.html#assessment">Assessment</a>
+        <a class="tlink" style="font-size:11px" href="app.html#roadmap">Roadmap</a>
+        <a class="tlink" style="font-size:11px" href="app.html#explore">Labs</a>
+        <a class="tlink" style="font-size:11px" href="app.html#funding">Funding</a>
+        <a class="tlink" style="font-size:11px" href="app.html#kit">Kit</a>
       </nav>
+      <span class="mono">CMB 06.92°N <span class="tick">→</span> AKL 36.85°S · 11,061 KM</span>
     </div>
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:22px;border-top:1px solid var(--line);font-size:12px;color:var(--text-faint)">
-      <span>© 2026 PathFinder. Guiding Sri Lankan students to doctoral study in Aotearoa New Zealand.</span>
-      <span>Informational only — always verify with universities & Immigration NZ.</span>
+    <div class="big">Path<i>finder</i></div>
+    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:36px;padding-top:20px;border-top:1px solid var(--line)">
+      <span class="mono" style="font-size:10px">© 2026 · For Sri Lankan students bound for Aotearoa</span>
+      <span class="mono" style="font-size:10px">Verify all figures with universities &amp; Immigration NZ</span>
     </div>
   </div>
 </footer>
 
 <div id="toast" role="status"></div>
 
+<script src="assets/js/data.js"></script>
 <script src="assets/js/store.js"></script>
 <script>
-/* ── Nav scroll ── */
-addEventListener('scroll', () => document.getElementById('nav').classList.toggle('scrolled', scrollY > 40), { passive: true });
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── Nav ── */
+addEventListener('scroll', () => document.getElementById('nav').classList.toggle('scrolled', scrollY > 24), { passive: true });
 
 /* ── Reveal ── */
 (() => {
   const obs = new IntersectionObserver(es => es.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
-  }), { threshold: .12, rootMargin: '0px 0px -40px 0px' });
+  }), { threshold: .12, rootMargin: '0px 0px -32px 0px' });
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
 })();
 
-/* ── Marquee duplicate ── */
-(() => {
-  const track = document.getElementById('marquee-track');
-  const tpl = document.getElementById('marquee-tpl');
-  track.appendChild(tpl.content.cloneNode(true));
-  track.appendChild(tpl.content.cloneNode(true));
-})();
+/* ── Graticule parallax (very subtle) ── */
+if (!REDUCED) addEventListener('scroll', () => {
+  document.getElementById('graticule').style.transform = `translateY(${scrollY * .08}px)`;
+}, { passive: true });
 
-/* ── Scene stars ── */
+/* ── HERO ROUTE MAP ─────────────────────────────────────── */
+const WAYPOINTS = [
+  { name:'Assess',      when:'Month 0',    t: .10, view:'assessment', above: true,
+    desc:'Fix your position: degree, research record, field, funding. Seven questions.' },
+  { name:'Supervisors', when:'Months 2–4', t: .28, view:'explore', above: false,
+    desc:'Shortlist labs, write to named supervisors with the field-tested template.' },
+  { name:'Proposal',    when:'Months 3–6', t: .46, view:'kit', above: true,
+    desc:'A 4–6 page research proposal, drafted with your supervisor’s feedback.' },
+  { name:'Scholarship', when:'Months 3–6', t: .62, view:'funding', above: false,
+    desc:'Doctoral scholarships — fees plus NZ$28–33k/yr — mostly automatic with admission.' },
+  { name:'Visa',        when:'Months 6–9', t: .78, view:'funding', above: true,
+    desc:'Student visa via INZ eVisa. Full-time work rights. Partner gets an open work visa.' },
+  { name:'Enrolment',   when:'Month 9+',   t: .92, view:'roadmap', above: false,
+    desc:'Provisional registration, supervision plan, confirmation at month 12.' },
+];
+
 (() => {
-  const wrap = document.getElementById('scene-stars');
-  for (let i = 0; i < 26; i++) {
-    const s = document.createElement('i');
-    s.style.left = Math.random() * 100 + '%';
-    s.style.top = Math.random() * 55 + '%';
-    s.style.animationDelay = (Math.random() * 3.4) + 's';
-    s.style.opacity = .2 + Math.random() * .6;
-    if (Math.random() > .8) { s.style.width = s.style.height = '3px'; s.style.boxShadow = '0 0 6px #fff'; }
-    wrap.appendChild(s);
+  const svg = document.querySelector('#chart svg');
+  const path = document.getElementById('routeLine');
+  const wpG = document.getElementById('waypoints');
+  const vessel = document.getElementById('vessel');
+  const card = document.getElementById('wp-card');
+  const chart = document.getElementById('chart');
+  const L = path.getTotalLength();
+
+  /* draw-in on first view */
+  path.style.strokeDasharray = '6 7';
+  if (!REDUCED) {
+    path.style.strokeDashoffset = L;
+    path.style.transition = 'none';
+    new IntersectionObserver((es, o) => {
+      if (!es[0].isIntersecting) return;
+      path.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 2400, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+      path.style.strokeDashoffset = 0;
+      o.disconnect();
+    }, { threshold: .3 }).observe(chart);
   }
-})();
 
-/* ── Portal tilt + scene parallax (mouse) ── */
-(() => {
-  const tilt = document.getElementById('portal-tilt');
-  const layers = document.querySelectorAll('.scene-layer');
-  if (matchMedia('(pointer: coarse)').matches) return;
-  document.querySelector('.hero').addEventListener('mousemove', e => {
-    const r = tilt.getBoundingClientRect();
-    const dx = (e.clientX - (r.left + r.width / 2)) / r.width;
-    const dy = (e.clientY - (r.top + r.height / 2)) / r.height;
-    tilt.style.transform = `rotateY(${dx * 7}deg) rotateX(${dy * -5}deg)`;
-    layers.forEach(l => l.style.transform = `translateX(${dx * -l.dataset.depth}px)`);
+  /* waypoints */
+  WAYPOINTS.forEach((w, i) => {
+    const p = path.getPointAtLength(L * w.t);
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'wp');
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('role', 'link');
+    g.setAttribute('aria-label', `${w.name} — ${w.when}`);
+    const dy = w.above ? -1 : 1;
+    g.innerHTML = `
+      <circle class="halo" cx="${p.x}" cy="${p.y}" r="13"/>
+      <circle class="core" cx="${p.x}" cy="${p.y}" r="6"/>
+      <line x1="${p.x}" y1="${p.y + dy * 10}" x2="${p.x}" y2="${p.y + dy * 26}" stroke="var(--line-2)" stroke-width="1"/>
+      <text class="wp-no" x="${p.x - 14}" y="${p.y + dy * (w.above ? 58 : 46)}">0${i + 1}</text>
+      <text class="wp-name" x="${p.x + 4}" y="${p.y + dy * (w.above ? 58 : 46)}">${w.name}</text>
+      <text class="wp-when" x="${p.x - 14}" y="${p.y + dy * (w.above ? 42 : 62)}">${w.when}</text>`;
+    g.addEventListener('click', () => location.href = 'app.html#' + w.view);
+    g.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = 'app.html#' + w.view; });
+    g.addEventListener('mouseenter', () => showCard(w, p));
+    g.addEventListener('focus', () => showCard(w, p));
+    g.addEventListener('mouseleave', hideCard);
+    g.addEventListener('blur', hideCard);
+    wpG.appendChild(g);
   });
-  document.querySelector('.hero').addEventListener('mouseleave', () => {
-    tilt.style.transform = '';
-    layers.forEach(l => l.style.transform = '');
-  });
+
+  let hideT;
+  function showCard(w, p) {
+    clearTimeout(hideT);
+    const r = chart.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    const sx = r.width / vb.width;
+    card.innerHTML = `<span class="mono">${w.when} · waypoint</span><h4>${w.name}</h4><p>${w.desc}</p>`;
+    const x = Math.min(Math.max(p.x * sx - 124, 8), r.width - 256);
+    const y = p.y * (r.height / vb.height) + (w.above ? 30 : -150);
+    card.style.left = x + 'px';
+    card.style.top = y + 'px';
+    card.classList.add('show');
+  }
+  function hideCard() { hideT = setTimeout(() => card.classList.remove('show'), 180); }
+  card.addEventListener('mouseenter', () => clearTimeout(hideT));
+  card.addEventListener('mouseleave', hideCard);
+
+  /* traveling vessel + waypoint lighting */
+  if (REDUCED) {
+    const p = path.getPointAtLength(L * .5);
+    vessel.setAttribute('transform', `translate(${p.x},${p.y})`);
+  } else {
+    const start = performance.now();
+    (function sail(now) {
+      const t = ((now - start) / 26000) % 1;           // one full passage ≈ 26s
+      const eased = t;
+      const p = path.getPointAtLength(L * eased);
+      vessel.setAttribute('transform', `translate(${p.x},${p.y})`);
+      document.querySelectorAll('.wp').forEach((g, i) => g.classList.toggle('lit', WAYPOINTS[i].t <= eased + .01));
+      requestAnimationFrame(sail);
+    })(start);
+  }
+
+  /* mobile vertical route */
+  document.getElementById('route-mobile').innerHTML =
+    `<div class="rm-item"><span class="mono">Origin</span><strong>Colombo</strong><span class="when">06.92°N — where you are</span></div>` +
+    WAYPOINTS.map((w, i) => `
+      <a class="rm-item" href="app.html#${w.view}" style="display:block">
+        <span class="mono">0${i + 1} · ${w.when}</span><strong>${w.name}</strong>
+        <span class="when">${w.desc}</span>
+      </a>`).join('') +
+    `<div class="rm-item"><span class="mono">Landfall</span><strong>Auckland</strong><span class="when">36.85°S — where you’re going</span></div>`;
 })();
 
-/* ── Dust particles drifting toward the portal ── */
+/* ── Legend strip: universities with latitudes ── */
 (() => {
-  const cv = document.getElementById('dust');
-  const ctx = cv.getContext('2d');
-  let W, H, target = { x: 0, y: 0 }, parts = [];
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) return;
-
-  function size() {
-    W = cv.width = cv.offsetWidth;
-    H = cv.height = cv.offsetHeight;
-    const p = document.querySelector('.portal');
-    const hr = cv.getBoundingClientRect(), pr = p.getBoundingClientRect();
-    target.x = pr.left - hr.left + pr.width / 2;
-    target.y = pr.top - hr.top + pr.height / 2;
-  }
-  size();
-  addEventListener('resize', size);
-
-  const N = Math.min(70, Math.floor(innerWidth / 18));
-  for (let i = 0; i < N; i++) parts.push(spawn(true));
-
-  function spawn(anywhere) {
-    return {
-      x: Math.random() * (W || innerWidth),
-      y: anywhere ? Math.random() * (H || innerHeight) : (Math.random() > .5 ? -8 : (H || innerHeight) + 8),
-      r: .6 + Math.random() * 1.7,
-      a: .12 + Math.random() * .4,
-      vx: (Math.random() - .5) * .25,
-      vy: (Math.random() - .5) * .25,
-      hue: Math.random() > .35 ? '56,225,196' : '139,124,248',
-    };
-  }
-
-  (function frame() {
-    ctx.clearRect(0, 0, W, H);
-    for (const p of parts) {
-      // gentle gravitational pull toward the portal aperture
-      const dx = target.x - p.x, dy = target.y - p.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const pull = Math.min(.012, 26 / (d * d));
-      p.vx += (dx / d) * pull; p.vy += (dy / d) * pull;
-      p.vx *= .992; p.vy *= .992;
-      p.x += p.vx; p.y += p.vy;
-      // absorbed by the portal → respawn at the edges
-      if (d < 60) Object.assign(p, spawn(false));
-      const tw = .75 + .25 * Math.sin(Date.now() / 600 + p.x);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, 7);
-      ctx.fillStyle = `rgba(${p.hue},${p.a * tw})`;
-      ctx.fill();
-    }
-    requestAnimationFrame(frame);
-  })();
+  const LAT = { uoa:'36.85°S', uoo:'45.87°S', vuw:'41.29°S', uc:'43.52°S', massey:'40.35°S', waikato:'37.79°S', aut:'36.85°S', lincoln:'43.64°S' };
+  document.getElementById('legend').innerHTML = PF_UNIVERSITIES.map(u =>
+    `<span class="li"><b>${u.name.replace('University of ','U. ').replace(' University','')}</b><i>${LAT[u.id]}</i></span>`).join('');
 })();
 
-/* ── Email lead capture ── */
+/* ── Assessment preview (Q1, live) ── */
+(() => {
+  const q = PF_QUESTIONS[0];
+  document.getElementById('asm-preview').innerHTML = q.opts.map((o, i) =>
+    `<button class="asm-row" data-i="${i}"><span class="idx">${String.fromCharCode(97 + i)}.</span>${o.t}</button>`).join('');
+  document.querySelectorAll('.asm-row').forEach(b => b.onclick = () => location.href = 'app.html#assessment');
+})();
+
+/* ── Funding ledger ── */
+(() => {
+  document.querySelector('#ledger tbody').innerHTML = PF_SCHOLARSHIPS.slice(0, 6).map(s => `
+    <tr style="cursor:pointer" onclick="location.href='app.html#funding'">
+      <td style="font-weight:600;padding-right:24px">${s.name}</td>
+      <td style="font-family:var(--font-mono);font-size:12.5px;white-space:nowrap">${s.value.replace('Fees + ','Fees + ')}</td>
+      <td style="font-family:var(--font-mono);font-size:12.5px;color:var(--route);white-space:nowrap">${s.deadline.split('(')[0].trim()}</td>
+      <td class="ledger-hide-sm" style="font-family:var(--font-mono);font-size:11.5px;color:var(--ink-faint)">${s.fields}</td>
+    </tr>`).join('');
+})();
+
+/* ── Lab index ── */
+(() => {
+  document.getElementById('lab-index').innerHTML = PF_UNIVERSITIES.map((u, i) => {
+    const labCount = PF_LABS.filter(l => l.uni === u.id).length;
+    return `<div class="li-row" onclick="location.href='app.html#explore'" tabindex="0" role="link"
+      onkeydown="if(event.key==='Enter')location.href='app.html#explore'">
+      <span class="no">${String(i + 1).padStart(2, '0')}</span>
+      <span class="uni">${u.name}</span>
+      <span class="meta">${u.city.split(' /')[0]} · ${labCount ? labCount + ' lab' + (labCount > 1 ? 's' : '') + ' charted' : u.rank}</span>
+      <span class="go">→</span>
+    </div>`;
+  }).join('');
+})();
+
+/* ── Pipeline (tracker stages) ── */
+(() => {
+  document.getElementById('pipe-track').innerHTML = PFStore.APP_STATUSES.map((s, i) =>
+    `<div class="pipe-stop" data-i="${i}"><span class="node"></span><span class="lbl">${s}</span></div>`).join('');
+  const stops = document.querySelectorAll('.pipe-stop');
+  new IntersectionObserver((es, o) => {
+    if (!es[0].isIntersecting) return;
+    stops.forEach((st, i) => setTimeout(() => st.classList.add('on'), 250 + i * 240));
+    o.disconnect();
+  }, { threshold: .4 }).observe(document.querySelector('.pipeline'));
+})();
+
+/* ── Lead capture ── */
 document.getElementById('lead-form').addEventListener('submit', e => {
   e.preventDefault();
   const input = document.getElementById('lead-email');
   const msg = document.getElementById('lead-msg');
   const email = input.value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    msg.textContent = 'Please enter a valid email address.';
-    msg.style.color = 'var(--rose)';
+    msg.textContent = 'Enter a valid email address.';
+    msg.style.color = 'var(--route)';
     return;
   }
   PFStore.addLead(email, 'landing');
-  e.target.querySelector('.email-row').innerHTML =
-    '<p style="color:var(--teal);font-weight:600;width:100%;text-align:center">✓ You’re on the list — watch your inbox for scholarship alerts.</p>';
-  msg.textContent = 'Saved locally for now; syncs to our list when Firebase goes live.';
+  e.target.querySelector('.email-row').outerHTML =
+    '<p style="font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;color:var(--pine);margin-top:30px">✓ LOGGED. THE NEXT DISPATCH FINDS YOU.</p>';
+  msg.textContent = 'Stored locally — syncs to our list when Firebase goes live.';
   msg.style.color = '';
 });
 </script>

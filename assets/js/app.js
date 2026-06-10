@@ -148,12 +148,10 @@ function resultCard(r) {
   return `<div class="card" style="max-width:720px">
     <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
       <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round"
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
           stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.readiness / 100)}" transform="rotate(-90 50 50)"/>
-        <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#38E1C4"/><stop offset="100%" stop-color="#8B7CF8"/></linearGradient></defs>
-        <text x="50" y="55" text-anchor="middle" fill="#E8ECF6" font-size="20" font-weight="700" font-family="Inter">${r.readiness}%</text>
+        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.readiness}%</text>
       </svg>
       <div style="flex:1;min-width:240px">
         <span class="chip chip-teal">Recommended pathway</span>
@@ -209,7 +207,7 @@ function renderRoadmap(main) {
   const phases = buildRoadmap(r);
   main.innerHTML = viewHead('route', 'Interactive Roadmap', r ? `Your roadmap to a PhD in ${r.field}` : 'Your PhD roadmap',
     r ? `Personalized for the <strong>${r.pathway}</strong> pathway, ${({'6m':'starting within 6 months','1y':'starting in about a year','2y':'starting in 1–2 years','explore':'exploration'})[r.timeline] || ''}.`
-      : 'This is the generic NZ PhD route. <a href="#assessment" style="color:var(--teal)">Take the 5-minute assessment</a> to personalize it.') +
+      : 'This is the generic NZ PhD route. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.') +
     `<div class="timeline">${phases.map((p, i) => `
       <div class="tl-phase" data-reveal style="transition-delay:${i * 90}ms">
         <div class="tl-node tl-${p.color}"><span>${i + 1}</span></div>
@@ -261,7 +259,7 @@ function renderExplore(main) {
                 <span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">person</span> ${l.supervisor}
                 &nbsp;·&nbsp; ${l.topics.join(' · ')}
               </div>
-              <div style="font-size:12.5px;color:var(--gold);margin-top:5px">💡 ${l.hint}</div>
+              <div style="font-size:12.5px;color:var(--ochre);margin-top:5px;font-family:var(--font-mono)">N.B. — ${l.hint}</div>
             </div>
             ${saveBtn('lab', l.id)}
           </div>`).join('')}
@@ -284,7 +282,7 @@ function renderFunding(main) {
     'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend.' +
     (matched ? ' Scholarships matching your assessment are highlighted.' : '')) +
     `<div class="grid-2">${PF_SCHOLARSHIPS.map(s => `
-      <div class="card" ${matched && matched.has(s.id) ? 'style="border-color:rgba(56,225,196,.35)"' : ''}>
+      <div class="card" ${matched && matched.has(s.id) ? 'style="border-color:var(--route)"' : ''}>
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
           <h3 style="font-size:1.02rem;line-height:1.35">${s.name}</h3>
           ${saveBtn('scholarship', s.id)}
@@ -333,11 +331,11 @@ function renderDashboard(main) {
       <a class="btn btn-ghost btn-sm" href="${href}">View</a>
       ${saveBtn(s.kind, s.id)}
     </div>`;
-  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark labs and scholarships from the <a href="#explore" style="color:var(--teal)">Explorer</a>.</p>`;
+  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark labs and scholarships from the <a href="#explore" style="color:var(--route)">Explorer</a>.</p>`;
 
   main.innerHTML = viewHead('space_dashboard', 'Your Dashboard', a ? `Welcome back — ${a.result.readiness}% PhD-ready` : 'Welcome to PathFinder',
     a ? `Pathway: <strong>${a.result.pathway}</strong> in ${a.result.field}.`
-      : 'Start with the <a href="#assessment" style="color:var(--teal)">5-minute assessment</a> to unlock your personalized roadmap.') +
+      : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> to unlock your personalized roadmap.') +
 
     `<div class="grid-4" style="margin-bottom:40px">
       ${[['quiz', a ? a.result.readiness + '%' : '—', 'Readiness score', '#assessment'],
@@ -345,7 +343,7 @@ function renderDashboard(main) {
          ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
          ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard']]
         .map(([ic, n, l, href]) => `<a class="card" href="${href}" style="display:block">
-          <span class="material-symbols-outlined" style="color:var(--teal);font-size:22px">${ic}</span>
+          <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
           <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
           <div class="faint" style="font-size:12.5px">${l}</div></a>`).join('')}
     </div>
@@ -420,7 +418,7 @@ function renderKit(main) {
       <div class="card">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
           <div style="width:40px;height:40px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center">
-            <span class="material-symbols-outlined" style="color:var(--teal);font-size:20px">${t.icon}</span>
+            <span class="material-symbols-outlined" style="color:var(--route);font-size:20px">${t.icon}</span>
           </div>
           <div><strong style="font-size:14.5px">${t.name}</strong>
             <div class="faint" style="font-size:12px">${t.type}</div></div>
