@@ -14,179 +14,140 @@
   <link rel="stylesheet" href="assets/css/site.css" />
 
   <style>
-    /* ════════ HERO — the doorway ════════
-       A 230vh scroll zone with a sticky stage: as you scroll, the
-       camera walks toward a glowing doorway, copy falls away, and
-       a paper veil hands off to the next section. */
+    /* ════════ HERO — the threshold (WebGL) ════════
+       Cinematic dark stage. A real 3D doorway rendered with
+       Three.js: true perspective, point-lit frame, floor
+       reflection, dust, fog. Scroll dollies the camera through. */
 
-    .hero-zone { position: relative; height: 230vh; }
+    .hero-zone { position: relative; height: 260vh; background: #131110; }
     .stage {
       position: sticky; top: 0; height: 100vh; overflow: hidden;
       display: flex; flex-direction: column; isolation: isolate;
+      background: #131110; color: #F0EDE6;
     }
-    .stage::before {
-      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    #hero-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+
+    /* cinematic vignette + readability scrim behind copy */
+    .stage-vignette {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
       background:
-        radial-gradient(120% 90% at 16% 10%, rgba(255,255,255,.6), transparent 55%),
-        radial-gradient(130% 110% at 100% 100%, rgba(194,64,28,.05), transparent 55%);
+        linear-gradient(100deg, rgba(15,13,11,.82) 0%, rgba(15,13,11,.46) 38%, transparent 62%),
+        radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(8,7,6,.55) 100%);
     }
     .grain {
-      position: absolute; inset: -50%; z-index: 1; pointer-events: none; opacity: .4;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
-      mix-blend-mode: multiply;
+      position: absolute; inset: -50%; z-index: 3; pointer-events: none; opacity: .28;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
     }
 
     .hero-grid {
-      position: relative; z-index: 30; flex: 1; min-height: 0;
-      display: grid; grid-template-columns: minmax(400px, 1fr) minmax(420px, 1.05fr);
+      position: relative; z-index: 10; flex: 1; min-height: 0;
+      display: grid; grid-template-columns: minmax(380px, 1fr) minmax(360px, 1fr);
       align-items: center;
       padding: 76px clamp(24px, 5vw, 72px) 0;
     }
 
-    /* — copy — */
-    .copy { position: relative; max-width: 620px; padding-bottom: 36px; will-change: transform, opacity; }
+    /* — copy (dark-adapted) — */
+    .copy { position: relative; max-width: 600px; padding-bottom: 36px; will-change: transform, opacity; }
     .eyebrow {
       display: flex; align-items: center; gap: 16px; margin-bottom: 30px;
       opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .5s forwards;
     }
-    .eyebrow .rule { width: 46px; height: 2px; background: var(--route); }
+    .eyebrow .rule { width: 46px; height: 2px; background: #E8763F; }
+    .eyebrow .mono { color: rgba(240,237,230,.55); }
+    .eyebrow .mono .tick { color: #E8763F; }
 
     .hero h1 {
-      font-weight: 700; line-height: .98; letter-spacing: -.032em;
-      font-size: clamp(44px, 5.8vw, 90px); color: var(--ink);
+      font-weight: 640; line-height: .99; letter-spacing: -.03em;
+      font-size: clamp(43px, 5.6vw, 86px); color: #F4F1EA;
+      font-family: var(--font-body);
     }
-    .hero h1 .ln { display: block; overflow: hidden; padding-bottom: .04em; }
+    .hero h1 .ln { display: block; overflow: hidden; padding-bottom: .05em; }
     .hero h1 .ln > span { display: block; transform: translateY(112%); animation: lineUp 1s cubic-bezier(.16,.84,.32,1) forwards; }
     .hero h1 .serif {
-      font-family: var(--font-display); font-style: italic; font-weight: 540;
+      font-family: var(--font-display); font-style: italic; font-weight: 500;
       font-variation-settings: 'SOFT' 70, 'WONK' 1;
-      letter-spacing: -.015em; color: var(--route);
+      letter-spacing: -.012em; color: #E8763F;
     }
     @keyframes lineUp { to { transform: translateY(0); } }
 
     .sub {
       margin-top: 26px; max-width: 430px;
-      font-size: clamp(15px, 1.15vw, 17px); line-height: 1.62; color: var(--ink-soft);
+      font-size: clamp(15px, 1.1vw, 16.5px); line-height: 1.65; color: rgba(240,237,230,.64);
       opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .64s forwards;
     }
     .actions {
-      margin-top: 36px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      margin-top: 36px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
       opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .76s forwards;
     }
+    .stage .btn-hero {
+      border: none; background: var(--route); color: #FFF4ED;
+      box-shadow: 0 12px 32px -10px rgba(194,64,28,.55), inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .stage .btn-hero:hover { background: #D9531F; transform: translateY(-2px); }
+    .stage .tlink { color: rgba(240,237,230,.85); }
+    .stage .tlink:hover { color: #E8763F; }
+    .stage .tlink::after { background: #E8763F; }
+
     .trust {
       margin-top: 50px;
       opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .88s forwards;
     }
-    .trust .lab { margin-bottom: 12px; }
-    .trust .unis { display: flex; gap: 10px 26px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
-    .trust .unis span { opacity: .75; transition: opacity .25s, color .25s; cursor: default; }
-    .trust .unis span:hover { opacity: 1; color: var(--route); }
+    .trust .lab { margin-bottom: 12px; color: rgba(240,237,230,.4); }
+    .trust .unis { display: flex; gap: 10px 26px; flex-wrap: wrap; font-size: 13.5px; font-weight: 500; color: rgba(240,237,230,.55); }
+    .trust .unis span { transition: color .25s; cursor: default; }
+    .trust .unis span:hover { color: #E8763F; }
     @keyframes rise { to { opacity: 1; transform: translateY(0); } }
-
-    /* — scene — */
-    .scene-wrap { position: relative; align-self: stretch; min-height: 0; }
-    .scene-cam { position: absolute; inset: 0; will-change: transform; transform-origin: 50% 46%; }
-    .scene { position: absolute; inset: 0; }
-    .layer { position: absolute; inset: 0; will-change: transform; }
-
-    .rings { display: grid; place-items: center; z-index: 1; }
-    .rings svg { width: min(120%, 840px); height: auto; opacity: .55; }
-
-    .blueprint {
-      position: absolute; right: 3%; bottom: 13%; width: 116px; height: 92px; z-index: 1; opacity: .4;
-      background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
-      background-size: 19px 19px; border: 1px solid var(--line);
-    }
-
-    /* the doorway — true 3D recess */
-    .portal { display: grid; place-items: center; z-index: 6; }
-    .door {
-      position: relative;
-      width: min(22vw, 240px); height: min(64vh, 580px);
-      perspective: 1000px; perspective-origin: 46% 44%;
-      filter: drop-shadow(-22px 26px 36px rgba(28,26,21,.13));
-    }
-    .recess { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(16deg); }
-    .back {
-      position: absolute; inset: 0; transform: translateZ(-118px); overflow: hidden;
-      background: radial-gradient(125% 82% at 50% 120%, #fff 0%, #FFE7D8 13%, #E8652E 36%, #C2401C 62%, #8F2B10 100%);
-      box-shadow: 0 0 70px 12px rgba(212,84,40,.45), 0 0 200px 60px rgba(212,84,40,.26);
-      transition: filter .2s linear;
-    }
-    .back::after {
-      content: ""; position: absolute; left: 50%; top: 0; width: 30%; height: 100%; transform: translateX(-50%);
-      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.65) 84%, #fff);
-      filter: blur(7px);
-    }
-    .wall { position: absolute; }
-    .wall-l { left: 0; top: 0; width: 118px; height: 100%; transform-origin: left center; transform: rotateY(90deg);
-      background: linear-gradient(90deg, #DCD7CB 0%, #CBA28B 24%, #E8763F 62%, #C2401C 100%); }
-    .wall-r { right: 0; top: 0; width: 118px; height: 100%; transform-origin: right center; transform: rotateY(-90deg);
-      background: linear-gradient(270deg, #C9C4B8 0%, #B58A77 26%, #D9602C 64%, #8F2B10 100%); }
-    .wall-t { left: 0; top: 0; width: 100%; height: 118px; transform-origin: top center; transform: rotateX(-90deg);
-      background: linear-gradient(180deg, #E2DDD1 0%, #CCA591 28%, #E8763F 66%, #C2401C 100%); }
-
-    /* stone front frame */
-    .frame-bar { position: absolute; }
-    .fb-top { top: -25px; left: -29px; right: -31px; height: 25px;
-      background: linear-gradient(180deg, #EBE6DB, #CFCABF); box-shadow: inset 0 2px 0 rgba(255,255,255,.5); }
-    .fb-left { top: -25px; bottom: 0; left: -29px; width: 29px;
-      background: linear-gradient(90deg, #E5E0D5, #C2BDB2); box-shadow: inset 2px 0 0 rgba(255,255,255,.45); }
-    .fb-right { top: -25px; bottom: 0; right: -31px; width: 31px;
-      background: linear-gradient(90deg, #ACA79C, #918D83); box-shadow: inset -2px 0 6px rgba(0,0,0,.12); }
-
-    /* floor light spill */
-    .spill {
-      position: absolute; left: 50%; bottom: -2%; width: 240%; height: 46%;
-      transform: translateX(-50%); z-index: 5;
-      background: radial-gradient(60% 100% at 50% 0%, rgba(212,84,40,.85), rgba(212,84,40,.4) 35%, rgba(212,84,40,.1) 62%, transparent 78%);
-      clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
-      filter: blur(2px); mix-blend-mode: multiply; opacity: .85;
-    }
-    .spill-core {
-      position: absolute; left: 50%; bottom: 0; width: 120%; height: 30%; transform: translateX(-50%); z-index: 5;
-      background: radial-gradient(50% 100% at 50% 0, rgba(255,238,228,.9), transparent 70%);
-      clip-path: polygon(44% 0, 56% 0, 82% 100%, 18% 100%); filter: blur(4px);
-    }
-
-    /* the candidate, en route */
-    .figure {
-      position: absolute; left: calc(50% - 15px); bottom: 6%;
-      width: 30px; height: 76px; z-index: 7;
-      filter: drop-shadow(10px 1px 9px rgba(143,43,16,.5));
-    }
-
-    /* foreground survey marks */
-    .marks { z-index: 12; pointer-events: none; }
-    .mk { position: absolute; font-family: var(--font-mono); color: var(--ink-faint); opacity: .55; }
-    .mk.plus { font-size: 21px; font-weight: 400; }
 
     /* bottom strip */
     .stage-foot {
-      position: absolute; left: 0; right: 0; bottom: 0; z-index: 35;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 10;
       display: flex; justify-content: space-between; align-items: center; gap: 16px;
       padding: 0 clamp(24px, 5vw, 72px) 22px;
     }
+    .stage-foot .mono { color: rgba(240,237,230,.4); }
+    .stage-foot .mono .tick { color: #E8763F; }
     .scroll-hint { display: flex; align-items: center; gap: 10px; }
-    .scroll-hint .sbar { width: 34px; height: 1px; background: var(--line-2); position: relative; overflow: hidden; }
-    .scroll-hint .sbar::after { content: ""; position: absolute; left: -40%; top: 0; width: 40%; height: 100%; background: var(--route); animation: slide 2.4s ease-in-out infinite; }
+    .scroll-hint .sbar { width: 34px; height: 1px; background: rgba(240,237,230,.2); position: relative; overflow: hidden; }
+    .scroll-hint .sbar::after { content: ""; position: absolute; left: -40%; top: 0; width: 40%; height: 100%; background: #E8763F; animation: slide 2.4s ease-in-out infinite; }
     @keyframes slide { 0% { left: -40%; } 60%, 100% { left: 100%; } }
 
-    /* hand-off veil into the next section */
-    .veil { position: absolute; inset: 0; z-index: 50; background: var(--paper); opacity: 0; pointer-events: none; }
+    /* hand-off veil into the paper site */
+    .veil { position: absolute; inset: 0; z-index: 40; background: var(--paper); opacity: 0; pointer-events: none; }
+
+    /* WebGL-unavailable fallback */
+    .stage.gl-fallback #hero-gl { display: none; }
+    .stage.gl-fallback::after {
+      content: ""; position: absolute; z-index: 1; pointer-events: none;
+      right: 8%; top: 18%; width: 34%; height: 64%;
+      background: radial-gradient(60% 50% at 50% 60%, rgba(232,118,63,.5), rgba(194,64,28,.18) 55%, transparent 75%);
+      filter: blur(30px);
+    }
+
+    /* nav over the dark stage */
+    .nav.on-dark { background: transparent; border-bottom-color: transparent; }
+    .nav.on-dark.scrolled { background: rgba(19,17,16,.78); backdrop-filter: blur(14px); border-bottom-color: rgba(244,241,234,.07); }
+    .nav.on-dark .logo .word { color: #F0EDE6; }
+    .nav.on-dark .logo .word i { color: #E8763F; }
+    .nav.on-dark .logo .mono { color: rgba(240,237,230,.35); }
+    .nav.on-dark .nav-links a { color: rgba(240,237,230,.6); }
+    .nav.on-dark .nav-links a:hover { color: #E8763F; }
+    .nav.on-dark .tlink { color: rgba(240,237,230,.8); }
+    .nav.on-dark .btn-primary { background: #F4F1EA; color: var(--ink); border-color: #F4F1EA; }
+    .nav.on-dark .btn-primary:hover { background: var(--route); border-color: var(--route); color: #FFF4ED; }
 
     @media (max-width: 980px) {
       .hero-zone { height: auto; }
-      .stage { position: relative; height: auto; min-height: 100vh; }
-      .hero-grid { grid-template-columns: 1fr; padding-top: 84px; }
-      .scene-wrap { order: -1; min-height: 46vh; }
-      .door { width: min(46vw, 210px); height: min(46vh, 430px); margin: 0 auto; }
-      .copy { padding-bottom: 60px; max-width: none; }
+      .stage { position: relative; height: auto; min-height: 100svh; }
+      .hero-grid { grid-template-columns: 1fr; align-items: end; padding-top: 90px; }
+      .copy { padding-bottom: 80px; max-width: none; }
+      .stage-vignette {
+        background: linear-gradient(180deg, rgba(15,13,11,.55) 0%, transparent 30%, transparent 45%, rgba(15,13,11,.86) 78%, rgba(15,13,11,.94) 100%);
+      }
       .stage-foot { display: none; }
-      .blueprint { display: none; }
     }
     @media (max-width: 560px) {
-      .hero h1 { font-size: clamp(40px, 11vw, 54px); }
+      .hero h1 { font-size: clamp(38px, 10.5vw, 52px); }
       .actions .btn { flex: 1; justify-content: center; }
     }
 
@@ -346,14 +307,15 @@
 <!-- ══════════ HERO ══════════ -->
 <section class="hero-zone" id="hero-zone">
   <div class="stage hero" id="stage">
+    <canvas id="hero-gl" aria-hidden="true"></canvas>
+    <div class="stage-vignette" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
 
     <div class="hero-grid">
-      <!-- LEFT: copy -->
       <div class="copy" id="hero-copy">
         <div class="eyebrow">
           <span class="rule"></span>
-          <span class="mono" style="color:var(--ink-soft)">Doctoral study · Sri Lanka <span class="tick">→</span> Aotearoa</span>
+          <span class="mono">Doctoral study · Sri Lanka <span class="tick">→</span> Aotearoa</span>
         </div>
 
         <h1>
@@ -369,7 +331,7 @@
         </p>
 
         <div class="actions">
-          <a class="btn btn-primary" href="app.html#assessment">
+          <a class="btn btn-hero" href="app.html#assessment">
             Begin the assessment
             <span class="material-symbols-outlined" style="font-size:17px">east</span>
           </a>
@@ -384,61 +346,7 @@
           </div>
         </div>
       </div>
-
-      <!-- RIGHT: doorway scene -->
-      <div class="scene-wrap">
-        <div class="scene-cam" id="scene-cam">
-          <div class="scene" id="scene">
-
-            <div class="layer rings" data-depth="0.6">
-              <svg viewBox="0 0 600 600" fill="none" aria-hidden="true">
-                <circle cx="300" cy="300" r="120" stroke="var(--line)" stroke-width="1"/>
-                <circle cx="300" cy="300" r="190" stroke="var(--line)" stroke-width="1"/>
-                <circle cx="300" cy="300" r="260" stroke="var(--line-soft)" stroke-width="1" stroke-dasharray="3 7"/>
-                <circle cx="300" cy="300" r="295" stroke="var(--line-soft)" stroke-width="1"/>
-              </svg>
-            </div>
-            <div class="layer" data-depth="0.4"><div class="blueprint"></div></div>
-
-            <div class="layer portal" data-depth="1.4">
-              <div class="door">
-                <div class="recess" id="recess">
-                  <div class="back" id="door-back"></div>
-                  <div class="wall wall-l"></div>
-                  <div class="wall wall-r"></div>
-                  <div class="wall wall-t"></div>
-                </div>
-                <div class="frame-bar fb-top"></div>
-                <div class="frame-bar fb-left"></div>
-                <div class="frame-bar fb-right"></div>
-              </div>
-            </div>
-
-            <div class="layer portal" data-depth="1.7" style="z-index:7">
-              <div class="door" style="pointer-events:none">
-                <div class="spill"></div>
-                <div class="spill-core"></div>
-                <div class="figure" aria-hidden="true">
-                  <svg viewBox="0 0 30 78" fill="#15130D">
-                    <ellipse cx="15" cy="13" rx="6" ry="7"/>
-                    <path d="M5.5 7.5 L15 3 L24.5 7.5 L15 11.5 Z"/>
-                    <rect x="14" y="9.5" width="1.6" height="5" rx=".8"/>
-                    <path d="M6 30c0-5 4-9 9-9s9 4 9 9v22h-6l-1 24h-4l-1-24H6V30z"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div class="layer marks" data-depth="2.4" aria-hidden="true">
-              <span class="mk plus" style="left:7%;top:13%">+</span>
-              <span class="mk plus" style="right:9%;top:30%">+</span>
-              <span class="mk plus" style="left:15%;bottom:17%">+</span>
-              <span class="mk plus" style="right:6%;bottom:32%;font-size:15px">+</span>
-            </div>
-
-          </div>
-        </div>
-      </div>
+      <div><!-- right column: the rendered doorway sits here in 3D space --></div>
     </div>
 
     <div class="stage-foot">
@@ -449,6 +357,260 @@
     <div class="veil" id="veil" aria-hidden="true"></div>
   </div>
 </section>
+
+<script type="module">
+/* ══════════ The Threshold — real-time 3D doorway ══════════ */
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+const stage = document.getElementById('stage');
+const zone  = document.getElementById('hero-zone');
+const copy  = document.getElementById('hero-copy');
+const veil  = document.getElementById('veil');
+const canvas = document.getElementById('hero-gl');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (e) {
+  stage.classList.add('gl-fallback');
+}
+
+if (renderer) {
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x131110);
+  scene.fog = new THREE.FogExp2(0x131110, 0.052);
+
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 80);
+
+  /* ── canvas-generated textures (no assets to load) ── */
+  function makeTex(w, h, draw) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  // the luminous plane inside the doorway — hot core low, cooling upward
+  const apertureTex = makeTex(256, 512, (g, w, h) => {
+    const grd = g.createRadialGradient(w/2, h*1.06, h*.04, w/2, h*1.06, h*1.35);
+    grd.addColorStop(0, '#fff7ef');
+    grd.addColorStop(.14, '#ffd9b8');
+    grd.addColorStop(.34, '#f08648');
+    grd.addColorStop(.58, '#c2401c');
+    grd.addColorStop(.82, '#71200a');
+    grd.addColorStop(1, '#2e0d04');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+  });
+  // soft round glow sprite
+  const glowTex = makeTex(256, 256, (g, w, h) => {
+    const grd = g.createRadialGradient(w/2, h/2, 0, w/2, h/2, w/2);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(.25, 'rgba(255,210,170,.55)');
+    grd.addColorStop(.6, 'rgba(255,140,80,.16)');
+    grd.addColorStop(1, 'rgba(255,120,60,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+  });
+  // vertical streak for the floor reflection
+  const streakTex = makeTex(128, 256, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, 'rgba(255,190,150,.95)');
+    grd.addColorStop(.4, 'rgba(240,110,55,.34)');
+    grd.addColorStop(1, 'rgba(240,110,55,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+  });
+
+  /* ── the doorway ── */
+  const FLOOR_Y = -2.05;
+  const doorway = new THREE.Group();
+  scene.add(doorway);
+
+  const APW = 2.1, APH = 3.9;                       // aperture size
+  const aperture = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW, APH),
+    new THREE.MeshBasicMaterial({ map: apertureTex, toneMapped: true })
+  );
+  aperture.position.y = FLOOR_Y + APH / 2;
+  doorway.add(aperture);
+
+  // light bloom hugging the aperture, plus a wide ambient halo
+  const bloom = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW * 2.6, APH * 1.9),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .5,
+      blending: THREE.AdditiveBlending, depthWrite: false, color: 0xff8a4e })
+  );
+  bloom.position.set(0, FLOOR_Y + APH / 2 - .2, -0.05);
+  doorway.add(bloom);
+  const halo = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW * 6.5, APH * 3.4),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .16,
+      blending: THREE.AdditiveBlending, depthWrite: false, color: 0xff7a40 })
+  );
+  halo.position.set(0, FLOOR_Y + APH / 2, -0.1);
+  doorway.add(halo);
+
+  // monolithic stone frame — lit for real by the doorway's point light
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x474038, roughness: .82, metalness: .04 });
+  const jambGeo = new THREE.BoxGeometry(.42, APH + .5, .8);
+  const jambL = new THREE.Mesh(jambGeo, stoneMat);
+  jambL.position.set(-(APW / 2 + .21), FLOOR_Y + (APH + .5) / 2, .12);
+  const jambR = jambL.clone(); jambR.position.x = APW / 2 + .21;
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(APW + 1.26, .46, .8), stoneMat);
+  lintel.position.set(0, FLOOR_Y + APH + .5 + .23 - .25, .12);
+  doorway.add(jambL, jambR, lintel);
+
+  // floor — rough dark ground that catches the warm light pool
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(120, 60),
+    new THREE.MeshStandardMaterial({ color: 0x16130f, roughness: .5, metalness: .08 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = FLOOR_Y;
+  scene.add(floor);
+
+  // glossy reflection streak stretching toward the camera
+  const streak = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW * .96, 7.5),
+    new THREE.MeshBasicMaterial({ map: streakTex, transparent: true, opacity: .34,
+      blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  streak.rotation.x = -Math.PI / 2;
+  streak.position.set(0, FLOOR_Y + .002, 3.75);
+  doorway.add(streak);
+
+  /* ── lights ── */
+  const portalLight = new THREE.PointLight(0xff6a2e, 90, 26, 2);
+  portalLight.position.set(0, FLOOR_Y + 1.4, .9);
+  doorway.add(portalLight);
+  scene.add(new THREE.HemisphereLight(0x4a4438, 0x0e0c0a, .42));
+
+  /* ── dust motes drifting in the light ── */
+  const DUST = 240;
+  const dustGeo = new THREE.BufferGeometry();
+  const dpos = new Float32Array(DUST * 3), dvel = new Float32Array(DUST);
+  for (let i = 0; i < DUST; i++) {
+    dpos[i*3]   = (Math.random() - .5) * 9;
+    dpos[i*3+1] = FLOOR_Y + Math.random() * 5.5;
+    dpos[i*3+2] = -0.5 + Math.random() * 7.5;
+    dvel[i] = .04 + Math.random() * .12;
+  }
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
+  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+    map: glowTex, size: .055, transparent: true, opacity: .5, color: 0xffb285,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  doorway.add(dust);
+
+  /* ── responsive composition ── */
+  let doorX = 0;
+  function layout() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    doorX = w > 980 ? 2.35 : 0;                 // door right of copy on desktop, centred on mobile
+    doorway.position.x = doorX;
+    camera.fov = w > 980 ? 36 : 44;
+    camera.updateProjectionMatrix();
+  }
+  layout();
+  addEventListener('resize', layout);
+
+  /* ── camera rig: base pose + mouse sway + scroll dolly ── */
+  const look = new THREE.Vector3();
+  let mx = 0, my = 0, smx = 0, smy = 0;          // mouse target / smoothed
+  if (!reduced && !matchMedia('(pointer: coarse)').matches) {
+    stage.addEventListener('mousemove', e => {
+      const r = stage.getBoundingClientRect();
+      mx = (e.clientX - r.left) / r.width - .5;
+      my = (e.clientY - r.top) / r.height - .5;
+    });
+  }
+
+  let sp = 0, spT = 0;                            // scroll progress (smoothed / target)
+  const canDolly = () => !reduced && innerWidth > 980;
+  function readScroll() {
+    if (!canDolly()) { spT = 0; return; }
+    const range = zone.offsetHeight - innerHeight;
+    spT = Math.min(Math.max(-zone.getBoundingClientRect().top / range, 0), 1);
+  }
+  addEventListener('scroll', readScroll, { passive: true });
+  readScroll();
+
+  /* render only while the hero is on screen */
+  let visible = true;
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: 0 }).observe(stage);
+
+  const clock = new THREE.Clock();
+  function frame() {
+    requestAnimationFrame(frame);
+    if (!visible || document.hidden) return;
+    const t = clock.getElapsedTime();
+
+    // smooth inputs
+    smx += (mx - smx) * .05;
+    smy += (my - smy) * .05;
+    sp  += (spT - sp) * .09;
+    const e = sp * sp * (3 - 2 * sp);             // smoothstep
+
+    // dolly: from establishing shot to the threshold
+    const z = 10.2 - e * 7.6;
+    camera.position.set(
+      doorX * .35 + smx * .55 + e * (doorX * .62),
+      .5 + smy * -.3 - e * .25,
+      z
+    );
+    look.set(doorX * .9 - e * doorX * 0, FLOOR_Y + APH * .48, 0);
+    camera.lookAt(look);
+
+    // living light: slow breathing + tiny flicker, intensifying as you approach
+    const breathe = Math.sin(t * 1.1) * .5 + Math.sin(t * 3.7) * .18;
+    portalLight.intensity = (88 + breathe * 10) * (1 + e * .9);
+    bloom.material.opacity = .48 + breathe * .04 + e * .25;
+    halo.material.opacity  = .15 + breathe * .015 + e * .12;
+
+    // dust drifts up, recycles
+    const p = dustGeo.attributes.position.array;
+    for (let i = 0; i < DUST; i++) {
+      p[i*3+1] += dvel[i] * .016;
+      p[i*3]   += Math.sin(t * .6 + i) * .0008;
+      if (p[i*3+1] > FLOOR_Y + 5.6) p[i*3+1] = FLOOR_Y + .05;
+    }
+    dustGeo.attributes.position.needsUpdate = true;
+
+    // copy falls away, veil hands off to the paper site
+    copy.style.opacity = Math.max(0, 1 - e * 1.9);
+    copy.style.transform = `translateY(${e * -40}px)`;
+    veil.style.opacity = Math.max(0, (e - .8) / .2);
+
+    renderer.render(scene, camera);
+  }
+
+  if (reduced) {
+    // single static establishing frame; collapse the scroll zone
+    zone.style.height = '100vh';
+    camera.position.set(doorX * .35, .5, 10.2);
+    look.set(doorX * .9, FLOOR_Y + APH * .48, 0);
+    camera.lookAt(look);
+    renderer.render(scene, camera);
+  } else {
+    frame();
+  }
+}
+
+/* nav adapts while over the dark stage */
+const nav = document.getElementById('nav');
+function navMode() {
+  nav.classList.toggle('on-dark', scrollY < zone.offsetHeight - innerHeight * .55);
+}
+addEventListener('scroll', navMode, { passive: true });
+navMode();
+</script>
 
 <!-- ══════════ LEGEND STRIP ══════════ -->
 <div class="legend-strip">
@@ -690,71 +852,13 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
   document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
 })();
 
-/* ── HERO: doorway scene ─────────────────────────────────── */
+/* ── HERO entrance safety net ────────────────────────────── */
 (() => {
   const stage = document.getElementById('stage');
-  const zone = document.getElementById('hero-zone');
-  const cam = document.getElementById('scene-cam');
-  const copy = document.getElementById('hero-copy');
-  const recess = document.getElementById('recess');
-  const back = document.getElementById('door-back');
-  const veil = document.getElementById('veil');
-  const layers = [...stage.querySelectorAll('.layer')];
-
-  /* safety net — backgrounded tabs throttle CSS animations */
   setTimeout(() => {
     stage.querySelectorAll('.eyebrow,.sub,.actions,.trust').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
     stage.querySelectorAll('h1 .ln > span').forEach(s => s.style.transform = 'translateY(0)');
   }, 2600);
-
-  /* mouse parallax with critically-damped lerp */
-  if (!REDUCED && !matchMedia('(pointer: coarse)').matches) {
-    let tx = 0, ty = 0, cx = 0, cy = 0, ticking = false;
-    stage.addEventListener('mousemove', e => {
-      const r = stage.getBoundingClientRect();
-      tx = (e.clientX - r.left) / r.width - .5;
-      ty = (e.clientY - r.top) / r.height - .5;
-      if (!ticking) { ticking = true; requestAnimationFrame(loop); }
-    });
-    function loop() {
-      cx += (tx - cx) * .08;
-      cy += (ty - cy) * .08;
-      layers.forEach(l => {
-        const d = parseFloat(l.dataset.depth) || 1;
-        l.style.transform = `translate3d(${-cx * d * 24}px, ${-cy * d * 14}px, 0)`;
-      });
-      recess.style.transform = `rotateY(${16 + cx * 9}deg) rotateX(${cy * 5}deg)`;
-      if (Math.abs(tx - cx) > .001 || Math.abs(ty - cy) > .001) requestAnimationFrame(loop);
-      else ticking = false;
-    }
-  }
-
-  /* scroll push: walk toward the door, copy falls away, veil hands off */
-  const canPush = () => !REDUCED && innerWidth > 980;
-  let sp = 0, spT = 0, sailing = false;
-  function onScroll() {
-    if (!canPush()) return;
-    const range = zone.offsetHeight - innerHeight;
-    spT = Math.min(Math.max((-zone.getBoundingClientRect().top) / range, 0), 1);
-    if (!sailing) { sailing = true; requestAnimationFrame(push); }
-  }
-  function push() {
-    sp += (spT - sp) * .12;
-    const e = sp * sp * (3 - 2 * sp);                      // smoothstep
-    cam.style.transform = `scale(${1 + e * .85})`;
-    copy.style.opacity = Math.max(0, 1 - e * 1.7);
-    copy.style.transform = `translateY(${e * -46}px)`;
-    back.style.filter = `brightness(${1 + e * .55}) saturate(${1 + e * .2})`;
-    veil.style.opacity = Math.max(0, (e - .72) / .28);
-    if (Math.abs(spT - sp) > .0008) requestAnimationFrame(push);
-    else sailing = false;
-  }
-  addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', () => {
-    if (!canPush()) { cam.style.transform = ''; copy.style.opacity = ''; copy.style.transform = ''; veil.style.opacity = 0; }
-    onScroll();
-  });
-  onScroll();
 })();
 
 /* ── Legend strip: universities with latitudes ── */
