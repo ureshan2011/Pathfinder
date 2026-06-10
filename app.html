@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PathFinder app — assessment, roadmap, lab explorer, scholarships, and application tracking for Sri Lankan students pursuing a PhD in New Zealand." />
+  <title>PathFinder — Your PhD Workspace</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/site.css" />
+
+  <style>
+    body { background: var(--ink); }
+    .shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+
+    /* Sidebar */
+    .side {
+      position: sticky; top: 0; height: 100vh; padding: 22px 16px;
+      border-right: 1px solid var(--line); background: var(--ink-2);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .side .logo { padding: 6px 10px 20px; }
+    .side-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border-radius: 11px;
+      font-size: 13.5px; font-weight: 500; color: var(--text-dim);
+      transition: background .2s, color .2s;
+    }
+    .side-link:hover { background: rgba(255,255,255,.04); color: var(--text); }
+    .side-link.active { background: rgba(56,225,196,.09); color: var(--teal); }
+    .side-link .material-symbols-outlined { font-size: 19px; }
+    .side-foot { margin-top: auto; padding: 14px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-faint); }
+
+    /* Main */
+    .main { padding: 36px clamp(20px, 4vw, 56px) 80px; max-width: 1080px; width: 100%; }
+    .vhead { margin-bottom: 36px; }
+
+    /* Assessment options */
+    .asm-opts { display: flex; flex-direction: column; gap: 10px; }
+    .asm-opt {
+      display: flex; align-items: center; gap: 13px; text-align: left;
+      padding: 14px 16px; border-radius: 13px; font-size: 14.5px; color: var(--text);
+      background: rgba(255,255,255,.03); border: 1px solid var(--line);
+      transition: border-color .2s, background .2s, transform .2s;
+    }
+    .asm-opt:hover { border-color: var(--teal); background: rgba(56,225,196,.06); transform: translateX(4px); }
+    .asm-radio { width: 17px; height: 17px; border-radius: 50%; border: 2px solid var(--line-2); flex-shrink: 0; transition: border-color .2s; }
+    .asm-opt:hover .asm-radio { border-color: var(--teal); }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 30px; max-width: 760px; }
+    .timeline::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px;
+      background: linear-gradient(180deg, var(--teal), var(--violet), var(--gold), var(--rose), var(--teal)); opacity: .35; }
+    .tl-phase { position: relative; margin-bottom: 26px; }
+    .tl-node {
+      position: absolute; left: -30px; top: 22px; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; background: var(--surface); border: 2px solid;
+    }
+    .tl-teal   { border-color: var(--teal);   color: var(--teal);   box-shadow: 0 0 14px rgba(56,225,196,.35); }
+    .tl-violet { border-color: var(--violet); color: #B0A6FB;       box-shadow: 0 0 14px rgba(139,124,248,.35); }
+    .tl-gold   { border-color: var(--gold);   color: var(--gold);   box-shadow: 0 0 14px rgba(242,200,121,.3); }
+    .tl-rose   { border-color: var(--rose);   color: var(--rose);   box-shadow: 0 0 14px rgba(248,124,155,.3); }
+    .tl-card { margin-left: 16px; }
+    .tl-list { margin: 14px 0 0 2px; list-style: none; }
+    .tl-list li { position: relative; padding: 5px 0 5px 24px; font-size: 13.5px; color: var(--text-dim); }
+    .tl-list li::before { content: ''; position: absolute; left: 4px; top: 13px; width: 7px; height: 7px;
+      border-radius: 2px; background: var(--grad-brand); opacity: .8; }
+
+    /* Explorer */
+    .chip-filter {
+      padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+      background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--text-dim);
+      transition: all .2s;
+    }
+    .chip-filter:hover { border-color: var(--line-2); color: var(--text); }
+    .chip-filter.active { background: rgba(56,225,196,.1); border-color: rgba(56,225,196,.4); color: var(--teal); }
+    .lab-row {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 14px 16px; border-radius: 12px; margin-top: 10px;
+      background: rgba(255,255,255,.025); border: 1px solid var(--line);
+    }
+    .save-btn.saved { border-color: rgba(56,225,196,.45); color: var(--teal); }
+
+    .visa-row { display: flex; gap: 16px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid var(--line); }
+
+    .tpl-preview {
+      background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 11px;
+      padding: 14px; font-size: 11.5px; line-height: 1.55; color: var(--text-dim);
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-family: ui-monospace, monospace;
+      scrollbar-width: thin;
+    }
+
+    @media (max-width: 880px) {
+      .shell { grid-template-columns: 1fr; }
+      .side { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; z-index: 100;
+        flex-direction: row; padding: 8px 10px; border-right: none; border-top: 1px solid var(--line);
+        justify-content: space-around; background: rgba(7,9,15,.92); backdrop-filter: blur(16px); }
+      .side .logo, .side-foot, .side-link span.lbl { display: none; }
+      .side-link { flex-direction: column; gap: 3px; font-size: 10px; padding: 8px 10px; }
+      .main { padding-bottom: 120px; }
+      .app-form { grid-template-columns: 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="index.html">
+      <span class="logo-mark">P</span>
+      <span>PathFinder</span>
+    </a>
+    <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">space_dashboard</span><span class="lbl">Dashboard</span></a>
+    <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">quiz</span><span class="lbl">Assessment</span></a>
+    <a class="side-link" data-view="roadmap"    href="#roadmap"><span class="material-symbols-outlined">route</span><span class="lbl">Roadmap</span></a>
+    <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">science</span><span class="lbl">Lab Explorer</span></a>
+    <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">payments</span><span class="lbl">Funding & Visa</span></a>
+    <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">package_2</span><span class="lbl">Starter Kit</span></a>
+    <div class="side-foot">PathFinder · Sri Lanka → Aotearoa<br>Data stored locally on your device.</div>
+  </aside>
+
+  <main class="main">
+    <div id="view"></div>
+  </main>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
