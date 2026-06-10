@@ -412,34 +412,27 @@ function renderDashboard(main) {
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
 function renderKit(main) {
-  const categories = [...new Set(PF_TEMPLATES.map(t => t.category))];
-  const tplCard = t => `
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-        <div style="width:40px;height:40px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <span class="material-symbols-outlined" style="color:var(--route);font-size:20px">${t.icon}</span>
+  main.innerHTML = viewHead('package_2', 'PhD Starter Kit', 'Templates & resources',
+    'Battle-tested templates for every stage — preview, copy, or download. Personalize everything: generic emails get deleted.') +
+    `<div class="grid-2">${PF_TEMPLATES.map(t => `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center">
+            <span class="material-symbols-outlined" style="color:var(--route);font-size:20px">${t.icon}</span>
+          </div>
+          <div><strong style="font-size:14.5px">${t.name}</strong>
+            <div class="faint" style="font-size:12px">${t.type}</div></div>
         </div>
-        <div><strong style="font-size:14.5px">${t.name}</strong>
-          <div class="faint" style="font-size:12px">${t.type}</div></div>
-      </div>
-      <pre class="tpl-preview">${esc(t.body)}</pre>
-      <div style="display:flex;gap:10px;margin-top:14px">
-        <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
-          <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
-        <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
-          <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
-      </div>
+        <pre class="tpl-preview">${esc(t.body)}</pre>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
+            <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
+          <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
+            <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
+        </div>
+      </div>`).join('')}
     </div>`;
 
-  main.innerHTML = viewHead('package_2', 'PhD Starter Kit', 'Templates & resources',
-    '19 battle-tested templates across every stage — emails, documents, planning, and logistics. Preview, copy, or download. Personalise everything: generic emails get deleted.') +
-    categories.map(cat => `
-      <div style="margin-bottom:48px">
-        <div style="display:flex;align-items:center;gap:14px;padding-top:18px;border-top:1px solid var(--ink);margin-bottom:22px">
-          <span class="mono" style="color:var(--route);font-weight:600;font-size:12px">${cat.toUpperCase()}</span>
-        </div>
-        <div class="grid-2">${PF_TEMPLATES.filter(t => t.category === cat).map(tplCard).join('')}</div>
-      </div>`).join('');
 }
 
 /* Template download/copy — delegated once so re-renders don't stack handlers */
