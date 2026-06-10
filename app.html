@@ -3,104 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PathFinder app — assessment, roadmap, lab explorer, scholarships, and application tracking for Sri Lankan students pursuing a PhD in New Zealand." />
-  <title>PathFinder — Your PhD Workspace</title>
+  <meta name="description" content="PathFinder workspace — assessment, roadmap, lab explorer, scholarships, and application tracking for Sri Lankan students pursuing a PhD in New Zealand." />
+  <title>PathFinder — Workspace</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/site.css" />
 
   <style>
-    body { background: var(--ink); }
-    .shell { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+    .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 
-    /* Sidebar */
+    /* Sidebar — chart margin */
     .side {
-      position: sticky; top: 0; height: 100vh; padding: 22px 16px;
-      border-right: 1px solid var(--line); background: var(--ink-2);
-      display: flex; flex-direction: column; gap: 4px;
+      position: sticky; top: 0; height: 100vh; padding: 26px 18px;
+      border-right: 1px solid var(--line); background: var(--paper);
+      display: flex; flex-direction: column; gap: 2px;
     }
-    .side .logo { padding: 6px 10px 20px; }
+    .side .logo { padding: 0 8px 26px; }
     .side-link {
       display: flex; align-items: center; gap: 11px;
-      padding: 10px 12px; border-radius: 11px;
-      font-size: 13.5px; font-weight: 500; color: var(--text-dim);
-      transition: background .2s, color .2s;
+      padding: 10px 10px; border-left: 2px solid transparent;
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+      transition: color .2s, border-color .2s, padding-left .2s;
     }
-    .side-link:hover { background: rgba(255,255,255,.04); color: var(--text); }
-    .side-link.active { background: rgba(56,225,196,.09); color: var(--teal); }
-    .side-link .material-symbols-outlined { font-size: 19px; }
-    .side-foot { margin-top: auto; padding: 14px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-faint); }
+    .side-link:hover { color: var(--ink); padding-left: 14px; }
+    .side-link.active { border-left-color: var(--route); color: var(--ink); }
+    .side-link.active .material-symbols-outlined { color: var(--route); }
+    .side-link .material-symbols-outlined { font-size: 18px; }
+    .side-foot { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); line-height: 2; }
 
     /* Main */
-    .main { padding: 36px clamp(20px, 4vw, 56px) 80px; max-width: 1080px; width: 100%; }
-    .vhead { margin-bottom: 36px; }
+    .main { padding: 44px clamp(20px, 4vw, 60px) 96px; max-width: 1060px; width: 100%; background: var(--paper); }
+    .vhead { margin-bottom: 40px; padding-top: 14px; border-top: 1px solid var(--ink); }
+    .vhead .tag { margin-bottom: 4px; }
+    .vhead h1 { margin: 12px 0 8px !important; }
 
     /* Assessment options */
-    .asm-opts { display: flex; flex-direction: column; gap: 10px; }
+    .asm-opts { display: flex; flex-direction: column; }
     .asm-opt {
-      display: flex; align-items: center; gap: 13px; text-align: left;
-      padding: 14px 16px; border-radius: 13px; font-size: 14.5px; color: var(--text);
-      background: rgba(255,255,255,.03); border: 1px solid var(--line);
-      transition: border-color .2s, background .2s, transform .2s;
+      display: flex; align-items: center; gap: 14px; text-align: left;
+      padding: 15px 6px; font-size: 15px; color: var(--ink);
+      background: none; border: none; border-top: 1px solid var(--line);
+      transition: padding-left .25s cubic-bezier(.22,1,.36,1), color .2s;
     }
-    .asm-opt:hover { border-color: var(--teal); background: rgba(56,225,196,.06); transform: translateX(4px); }
-    .asm-radio { width: 17px; height: 17px; border-radius: 50%; border: 2px solid var(--line-2); flex-shrink: 0; transition: border-color .2s; }
-    .asm-opt:hover .asm-radio { border-color: var(--teal); }
+    .asm-opt:last-child { border-bottom: 1px solid var(--line); }
+    .asm-opt:hover { padding-left: 16px; color: var(--route); }
+    .asm-radio { width: 15px; height: 15px; border-radius: 50%; border: 1.4px solid var(--line-2); flex-shrink: 0; transition: border-color .2s, background .2s; }
+    .asm-opt:hover .asm-radio { border-color: var(--route); background: rgba(194,64,28,.12); }
 
     /* Timeline */
-    .timeline { position: relative; padding-left: 30px; max-width: 760px; }
-    .timeline::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px;
-      background: linear-gradient(180deg, var(--teal), var(--violet), var(--gold), var(--rose), var(--teal)); opacity: .35; }
-    .tl-phase { position: relative; margin-bottom: 26px; }
+    .timeline { position: relative; padding-left: 34px; max-width: 760px; }
+    .timeline::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 0; border-left: 1px dashed var(--route); opacity: .55; }
+    .tl-phase { position: relative; margin-bottom: 22px; }
     .tl-node {
-      position: absolute; left: -30px; top: 22px; width: 28px; height: 28px; border-radius: 50%;
+      position: absolute; left: -34px; top: 24px; width: 27px; height: 27px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; background: var(--surface); border: 2px solid;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      background: var(--paper); border: 1.4px solid var(--ink); color: var(--ink);
     }
-    .tl-teal   { border-color: var(--teal);   color: var(--teal);   box-shadow: 0 0 14px rgba(56,225,196,.35); }
-    .tl-violet { border-color: var(--violet); color: #B0A6FB;       box-shadow: 0 0 14px rgba(139,124,248,.35); }
-    .tl-gold   { border-color: var(--gold);   color: var(--gold);   box-shadow: 0 0 14px rgba(242,200,121,.3); }
-    .tl-rose   { border-color: var(--rose);   color: var(--rose);   box-shadow: 0 0 14px rgba(248,124,155,.3); }
-    .tl-card { margin-left: 16px; }
-    .tl-list { margin: 14px 0 0 2px; list-style: none; }
-    .tl-list li { position: relative; padding: 5px 0 5px 24px; font-size: 13.5px; color: var(--text-dim); }
-    .tl-list li::before { content: ''; position: absolute; left: 4px; top: 13px; width: 7px; height: 7px;
-      border-radius: 2px; background: var(--grad-brand); opacity: .8; }
+    .tl-teal, .tl-violet, .tl-gold, .tl-rose { border-color: var(--ink); }
+    .tl-card { margin-left: 14px; }
+    .tl-list { margin: 14px 0 0; list-style: none; }
+    .tl-list li { position: relative; padding: 6px 0 6px 22px; font-size: 14px; color: var(--ink-soft); border-top: 1px solid var(--line-soft); }
+    .tl-list li::before { content: '—'; position: absolute; left: 0; color: var(--route); }
 
     /* Explorer */
     .chip-filter {
-      padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
-      background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--text-dim);
+      padding: 7px 13px; border-radius: 2px;
+      font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+      letter-spacing: .08em; text-transform: uppercase;
+      background: none; border: 1px solid var(--line); color: var(--ink-faint);
       transition: all .2s;
     }
-    .chip-filter:hover { border-color: var(--line-2); color: var(--text); }
-    .chip-filter.active { background: rgba(56,225,196,.1); border-color: rgba(56,225,196,.4); color: var(--teal); }
+    .chip-filter:hover { border-color: var(--ink); color: var(--ink); }
+    .chip-filter.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
     .lab-row {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      padding: 14px 16px; border-radius: 12px; margin-top: 10px;
-      background: rgba(255,255,255,.025); border: 1px solid var(--line);
+      padding: 15px 2px; margin-top: 0;
+      background: none; border: none; border-top: 1px solid var(--line);
     }
-    .save-btn.saved { border-color: rgba(56,225,196,.45); color: var(--teal); }
+    .save-btn.saved { border-color: var(--pine); color: var(--pine); }
 
     .visa-row { display: flex; gap: 16px; align-items: flex-start; padding: 18px 0; border-bottom: 1px solid var(--line); }
 
     .tpl-preview {
-      background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 11px;
-      padding: 14px; font-size: 11.5px; line-height: 1.55; color: var(--text-dim);
-      max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-family: ui-monospace, monospace;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 2px;
+      padding: 16px; font-size: 11px; line-height: 1.65; color: var(--ink-soft);
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-family: var(--font-mono);
       scrollbar-width: thin;
     }
 
     @media (max-width: 880px) {
       .shell { grid-template-columns: 1fr; }
       .side { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; z-index: 100;
-        flex-direction: row; padding: 8px 10px; border-right: none; border-top: 1px solid var(--line);
-        justify-content: space-around; background: rgba(7,9,15,.92); backdrop-filter: blur(16px); }
+        flex-direction: row; padding: 6px 8px; border-right: none; border-top: 1px solid var(--ink);
+        justify-content: space-around; background: rgba(244,241,234,.95); backdrop-filter: blur(12px); }
       .side .logo, .side-foot, .side-link span.lbl { display: none; }
-      .side-link { flex-direction: column; gap: 3px; font-size: 10px; padding: 8px 10px; }
-      .main { padding-bottom: 120px; }
+      .side-link { flex-direction: column; gap: 3px; padding: 8px 9px; border-left: none; border-top: 2px solid transparent; }
+      .side-link.active { border-top-color: var(--route); }
+      .main { padding-bottom: 130px; }
       .app-form { grid-template-columns: 1fr !important; }
     }
   </style>
@@ -109,17 +112,14 @@
 
 <div class="shell">
   <aside class="side">
-    <a class="logo" href="index.html">
-      <span class="logo-mark">P</span>
-      <span>PathFinder</span>
-    </a>
-    <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">space_dashboard</span><span class="lbl">Dashboard</span></a>
-    <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">quiz</span><span class="lbl">Assessment</span></a>
+    <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span></a>
+    <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">explore</span><span class="lbl">Dashboard</span></a>
+    <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">my_location</span><span class="lbl">Assessment</span></a>
     <a class="side-link" data-view="roadmap"    href="#roadmap"><span class="material-symbols-outlined">route</span><span class="lbl">Roadmap</span></a>
-    <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">science</span><span class="lbl">Lab Explorer</span></a>
-    <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">payments</span><span class="lbl">Funding & Visa</span></a>
-    <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">package_2</span><span class="lbl">Starter Kit</span></a>
-    <div class="side-foot">PathFinder · Sri Lanka → Aotearoa<br>Data stored locally on your device.</div>
+    <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">travel_explore</span><span class="lbl">Territory</span></a>
+    <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">request_quote</span><span class="lbl">Ledger</span></a>
+    <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">history_edu</span><span class="lbl">Papers</span></a>
+    <div class="side-foot">CMB → AKL<br>Data stays on device</div>
   </aside>
 
   <main class="main">
