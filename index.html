@@ -151,12 +151,19 @@
       .actions .btn { flex: 1; justify-content: center; }
     }
 
-    /* ════════ INDEX STRIP — the legend ════════ */
-    .legend-strip { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); padding: 18px 0; }
+    /* ════════ INDEX STRIP — the legend (dark, extends hero) ════════ */
+    .legend-strip { background: var(--night-2); border-top: none; border-bottom: 1px solid rgba(244,241,234,.07); padding: 20px 0; }
     .legend-list { display: flex; flex-wrap: wrap; gap: 10px 36px; }
-    .legend-list .li { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
-    .legend-list .li b { color: var(--ink); font-weight: 600; }
-    .legend-list .li i { font-style: normal; color: var(--ink-faint); margin-left: 8px; }
+    .legend-list .li { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(244,241,234,.38); white-space: nowrap; }
+    .legend-list .li b { color: rgba(244,241,234,.62); font-weight: 600; }
+    .legend-list .li i { font-style: normal; color: rgba(244,241,234,.24); margin-left: 8px; }
+
+    /* gradient fade: night → paper */
+    .dark-to-paper { height: 72px; background: linear-gradient(to bottom, var(--night-2), var(--paper)); pointer-events: none; }
+    /* gradient fade: paper → night (before section 04) */
+    .paper-to-night { height: 64px; background: linear-gradient(to bottom, var(--paper), var(--night)); pointer-events: none; margin-bottom: -1px; }
+    /* gradient fade: night → paper (after section 04) */
+    .night-to-paper { height: 64px; background: linear-gradient(to top, var(--paper), var(--night)); pointer-events: none; margin-top: -1px; }
 
     /* ════════ CHAPTER 01 — assessment widget ════════ */
     .split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
@@ -276,13 +283,22 @@
       .email-row .btn { border-left: none; border-top: 1px solid var(--ink); justify-content: center; }
     }
 
-    /* ════════ FOOTER colophon ════════ */
-    .colophon { border-top: 1px solid var(--ink); padding: var(--s6) 0 var(--s4); }
+    /* ════════ FOOTER colophon (dark — bookends the hero) ════════ */
+    .pre-colophon { height: 64px; background: linear-gradient(to bottom, var(--paper-2), var(--night)); pointer-events: none; }
+    .colophon { background: var(--night); color: rgba(244,241,234,.75); border-top: none; padding: var(--s6) 0 var(--s4); }
     .colophon .big {
       font-family: var(--font-display); font-weight: 480; letter-spacing: -.03em;
-      font-size: clamp(3.4rem, 11vw, 9rem); line-height: .95; color: var(--ink);
+      font-size: clamp(3.4rem, 11vw, 9rem); line-height: .95; color: rgba(244,241,234,.9);
     }
-    .colophon .big i { font-style: italic; color: var(--route); }
+    .colophon .big i { font-style: italic; color: #E8763F; }
+    .colophon nav a { color: rgba(244,241,234,.5); }
+    .colophon nav a:hover { color: #E8763F; }
+    .colophon .tlink { color: rgba(244,241,234,.5); }
+    .colophon .tlink:hover { color: #E8763F; }
+    .colophon .tlink::after { background: #E8763F; }
+    .colophon .mono { color: rgba(244,241,234,.35); }
+    .colophon .mono .tick { color: #E8763F; }
+    .colophon hr-line { border-color: rgba(244,241,234,.1); }
   </style>
 </head>
 <body>
@@ -533,6 +549,7 @@ if (renderer) {
   }
 
   let sp = 0, spT = 0;                            // scroll progress (smoothed / target)
+  let mobileE = 0;                                 // mobile auto-dolly (time-driven)
   const canDolly = () => !reduced && innerWidth > 980;
   function readScroll() {
     if (!canDolly()) { spT = 0; return; }
@@ -555,8 +572,22 @@ if (renderer) {
     // smooth inputs
     smx += (mx - smx) * .05;
     smy += (my - smy) * .05;
-    sp  += (spT - sp) * .09;
-    const e = sp * sp * (3 - 2 * sp);             // smoothstep
+
+    let e;
+    if (canDolly()) {
+      // desktop: scroll-driven dolly + copy/veil fade
+      sp += (spT - sp) * .09;
+      e = sp * sp * (3 - 2 * sp);                 // smoothstep
+      copy.style.opacity = Math.max(0, 1 - e * 1.9);
+      copy.style.transform = `translateY(${e * -40}px)`;
+      veil.style.opacity = Math.max(0, (e - .8) / .2);
+    } else {
+      // mobile: camera auto-dollies toward the threshold over ~9s then holds;
+      // copy and veil are untouched so text stays readable
+      const target = Math.min(t / 9.0, 0.22);
+      mobileE += (target - mobileE) * 0.012;
+      e = mobileE * mobileE * (3 - 2 * mobileE);  // smoothstep on mobile progress
+    }
 
     // dolly: from establishing shot to the threshold
     const z = 10.2 - e * 7.6;
@@ -582,11 +613,6 @@ if (renderer) {
       if (p[i*3+1] > FLOOR_Y + 5.6) p[i*3+1] = FLOOR_Y + .05;
     }
     dustGeo.attributes.position.needsUpdate = true;
-
-    // copy falls away, veil hands off to the paper site
-    copy.style.opacity = Math.max(0, 1 - e * 1.9);
-    copy.style.transform = `translateY(${e * -40}px)`;
-    veil.style.opacity = Math.max(0, (e - .8) / .2);
 
     renderer.render(scene, camera);
   }
@@ -616,6 +642,7 @@ navMode();
 <div class="legend-strip">
   <div class="wrap legend-list" id="legend"></div>
 </div>
+<div class="dark-to-paper" aria-hidden="true"></div>
 
 <!-- ══════════ 01 · ASSESSMENT (preview) ══════════ -->
 <section class="sec" id="method">
@@ -698,7 +725,8 @@ navMode();
 </section>
 
 <!-- ══════════ 04 · TRACKING ══════════ -->
-<section class="sec night">
+<div class="paper-to-night" aria-hidden="true"></div>
+<section class="sec night" style="padding-top:calc(var(--s7) - 32px)">
   <div class="wrap">
     <div class="chapter" data-reveal>
       <span class="no" style="color:var(--route)">04</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
@@ -724,12 +752,13 @@ navMode();
     </div>
   </div>
 </section>
+<div class="night-to-paper" aria-hidden="true"></div>
 
 <!-- ══════════ 05 · THE PAPERS (starter kit) ══════════ -->
 <section class="sec" id="kit">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">05</span><span class="ttl">Templates</span><span class="end">Four documents that work</span>
+      <span class="no">05</span><span class="ttl">Templates</span><span class="end">19 templates · 4 categories</span>
     </div>
     <div class="split">
       <div class="paper-stack" data-reveal aria-hidden="true">
@@ -752,14 +781,19 @@ navMode();
       <div>
         <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:18px">The difference between<br><em>read</em> and <em>deleted.</em></h2>
         <p class="muted" data-reveal style="max-width:46ch;margin-bottom:34px">
-          Supervisors skim hundreds of cold emails a term. The Starter Kit gives you the four
-          documents that get read — each one annotated with why it works.
+          From the first cold email to the pre-departure checklist — 19 templates across every stage of your application journey. Each one annotated with why it works.
         </p>
         <div class="kit-list" data-reveal>
           <div class="kit-row"><span class="no">i.</span><strong>Supervisor first-contact email</strong><span class="mono">20–30% reply rate</span></div>
-          <div class="kit-row"><span class="no">ii.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
-          <div class="kit-row"><span class="no">iii.</span><strong>Academic CV skeleton</strong><span class="mono">2 pp. max</span></div>
-          <div class="kit-row"><span class="no">iv.</span><strong>Statement of purpose framework</strong><span class="mono">1,000 words</span></div>
+          <div class="kit-row"><span class="no">ii.</span><strong>Follow-up after no reply</strong><span class="mono">One attempt only</span></div>
+          <div class="kit-row"><span class="no">iii.</span><strong>Reference request email</strong><span class="mono">4–6 weeks lead</span></div>
+          <div class="kit-row"><span class="no">iv.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
+          <div class="kit-row"><span class="no">v.</span><strong>Statement of purpose framework</strong><span class="mono">1,000 words</span></div>
+          <div class="kit-row"><span class="no">vi.</span><strong>Scholarship personal statement</strong><span class="mono">600–800 words</span></div>
+          <div class="kit-row"><span class="no">vii.</span><strong>PhD interview preparation guide</strong><span class="mono">Checklist + scripts</span></div>
+          <div class="kit-row"><span class="no">viii.</span><strong>3-year research plan</strong><span class="mono">Month-by-month</span></div>
+          <div class="kit-row"><span class="no">ix.</span><strong>NZ student visa checklist</strong><span class="mono">Every document</span></div>
+          <div class="kit-row" style="color:var(--ink-faint)"><span class="no" style="color:var(--ink-faint)">+10</span><strong style="font-weight:400">more in the full kit</strong><span class="mono">Open to browse →</span></div>
         </div>
         <div style="margin-top:30px">
           <a class="btn btn-ghost" href="app.html#kit">Open the kit <span class="material-symbols-outlined" style="font-size:16px">east</span></a>
@@ -813,6 +847,7 @@ navMode();
 </section>
 
 <!-- ══════════ COLOPHON ══════════ -->
+<div class="pre-colophon" aria-hidden="true"></div>
 <footer class="colophon">
   <div class="wrap">
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:40px">
@@ -826,7 +861,7 @@ navMode();
       <span class="mono">Made for Sri Lankan students <span class="tick">·</span> New Zealand</span>
     </div>
     <div class="big">Path<i>finder</i></div>
-    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:36px;padding-top:20px;border-top:1px solid var(--line)">
+    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:36px;padding-top:20px;border-top:1px solid rgba(244,241,234,.1)">
       <span class="mono" style="font-size:10px">© 2026 PathFinder</span>
       <span class="mono" style="font-size:10px">Verify all figures with universities &amp; Immigration NZ</span>
     </div>
