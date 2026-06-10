@@ -95,16 +95,85 @@
       scrollbar-width: thin;
     }
 
+    /* ── Visa Hub ── */
+    .vh-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;
+      background: none; border: none; text-align: left; padding: 0; cursor: pointer;
+    }
+    .vh-head h3 { font-size: 1.1rem; margin-right: auto; }
+    .vh-caret { font-size: 20px; color: var(--ink-faint); transition: transform .25s; }
+    .vh-stage.open .vh-caret { transform: rotate(180deg); }
+    .vh-stage.done { border-color: var(--pine); }
+    .vh-count { font-size: 10.5px; color: var(--ink-faint); }
+    .vh-stage.done .vh-count { color: var(--pine); }
+    .vh-body { margin-top: 4px; }
+
+    /* custom checklist */
+    .ck-list { list-style: none; margin: 16px 0 0; }
+    .ck-item label { display: flex; align-items: flex-start; gap: 12px; padding: 10px 2px; cursor: pointer; border-top: 1px solid var(--line-soft); font-size: 14px; }
+    .ck-item input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .ck-box {
+      flex-shrink: 0; width: 17px; height: 17px; margin-top: 2px; border-radius: 2px;
+      border: 1.4px solid var(--line-2); display: flex; align-items: center; justify-content: center;
+      transition: background .2s, border-color .2s; font-size: 12px; color: transparent;
+    }
+    .ck-item input:checked + .ck-box { background: var(--pine); border-color: var(--pine); color: #fff; }
+    .ck-item input:focus-visible + .ck-box { outline: 2px solid var(--route); outline-offset: 2px; }
+    .ck-item.done .ck-t { color: var(--ink-faint); text-decoration: line-through; }
+    .ck-item em { display: block; font-style: normal; font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+
+    /* consultation hook — quiet by design */
+    .consult-hook {
+      margin-top: 18px; padding-top: 13px; border-top: 1px dashed var(--line);
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-faint);
+    }
+    .consult-hook a { color: var(--ochre); transition: color .2s; }
+    .consult-hook a:hover { color: var(--route); }
+
+    /* mentor cards */
+    .m-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+    .m-initials {
+      flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%;
+      background: var(--paper-2); border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-size: 17px; font-weight: 560; color: var(--route);
+    }
+    .m-pkgs { width: 100%; border-collapse: collapse; margin: 14px 0 4px; }
+    .m-pkgs td { padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 13.5px; }
+    .m-pkgs td:last-child { text-align: right; font-family: var(--font-mono); font-size: 11.5px; color: var(--pine); white-space: nowrap; }
+    .m-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+
+    /* cost calculator */
+    .cc-results { display: flex; gap: 32px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .cc-results strong { display: block; font-family: var(--font-display); font-size: 1.9rem; font-weight: 520; margin-top: 2px; }
+    .cc-results .mono { font-size: 10px; }
+
+    /* partner placements — clearly labelled */
+    .partner-row {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-2); border-radius: 3px;
+      background: var(--gold-soft);
+    }
+    .partner-row p { flex: 1; min-width: 200px; font-size: 13px; color: var(--ink-soft); margin: 0; }
+
+    /* auth / sync */
+    #auth-slot { margin-top: 14px; padding: 0 8px; }
+    #auth-slot .btn { width: 100%; justify-content: center; }
+
     @media (max-width: 880px) {
       .shell { grid-template-columns: 1fr; }
       .side { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; z-index: 100;
         flex-direction: row; padding: 6px 8px; border-right: none; border-top: 1px solid var(--ink);
-        justify-content: space-around; background: rgba(244,241,234,.95); backdrop-filter: blur(12px); }
-      .side .logo, .side-foot, .side-link span.lbl { display: none; }
-      .side-link { flex-direction: column; gap: 3px; padding: 8px 9px; border-left: none; border-top: 2px solid transparent; }
+        justify-content: flex-start; background: rgba(244,241,234,.95); backdrop-filter: blur(12px);
+        overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+      .side::-webkit-scrollbar { display: none; }
+      .side .logo, .side-foot, .side-link span.lbl, #auth-slot { display: none; }
+      .side-link { flex-direction: column; gap: 3px; padding: 8px 11px; border-left: none; border-top: 2px solid transparent; flex-shrink: 0; scroll-snap-align: center; }
       .side-link.active { border-top-color: var(--route); }
       .main { padding-bottom: 130px; }
       .app-form { grid-template-columns: 1fr !important; }
+      .cc-results { gap: 20px; }
     }
   </style>
 </head>
@@ -118,8 +187,12 @@
     <a class="side-link" data-view="roadmap"    href="#roadmap"><span class="material-symbols-outlined">route</span><span class="lbl">Roadmap</span></a>
     <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">travel_explore</span><span class="lbl">Explore</span></a>
     <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">request_quote</span><span class="lbl">Funding</span></a>
+    <a class="side-link" data-view="visa"       href="#visa"><span class="material-symbols-outlined">flight_takeoff</span><span class="lbl">Visa Hub</span></a>
+    <a class="side-link" data-view="settlement" href="#settlement"><span class="material-symbols-outlined">luggage</span><span class="lbl">Settle In</span></a>
+    <a class="side-link" data-view="mentors"    href="#mentors"><span class="material-symbols-outlined">support_agent</span><span class="lbl">Mentors</span></a>
     <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">history_edu</span><span class="lbl">Templates</span></a>
-    <div class="side-foot">PathFinder<br>Data stays on device</div>
+    <div id="auth-slot"></div>
+    <div class="side-foot">PathFinder<br><span id="sync-state">Data stays on device</span></div>
   </aside>
 
   <main class="main">
@@ -131,6 +204,8 @@
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/store.js"></script>
+<script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
+<script type="module" src="assets/js/firebase.js"></script>
 </body>
 </html>

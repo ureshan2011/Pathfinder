@@ -295,6 +295,7 @@
       <a href="#method">Assessment</a>
       <a href="#funding">Funding</a>
       <a href="#labs">Labs</a>
+      <a href="#crossing">Visa&nbsp;&amp;&nbsp;Arrival</a>
       <a href="#kit">Starter&nbsp;Kit</a>
     </nav>
     <div style="display:flex;gap:10px;align-items:center">
@@ -697,11 +698,44 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 04 · TRACKING ══════════ -->
-<section class="sec night">
+<!-- ══════════ 04 · THE CROSSING (visa · arrival · mentors) ══════════ -->
+<section class="sec" id="crossing" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no" style="color:var(--route)">04</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
+      <span class="no">04</span><span class="ttl">The Crossing</span><span class="end">Visa · Arrival · Mentors</span>
+    </div>
+    <div class="split">
+      <div>
+        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:22px">The offer is the easy part.<br><em>Then you move countries.</em></h2>
+        <p class="muted" data-reveal style="max-width:44ch;margin-bottom:18px">
+          Police clearance in Colombo, eMedical, funds evidence, the eVisa file — then a city
+          you've never seen. The Visa Hub walks every stage with a checklist that remembers
+          your progress, and the Settle In guide covers banks, buses, flats, and family.
+        </p>
+        <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch;margin-bottom:30px">
+          And when a step gets confusing, mentors — Sri Lankan PhD students already in
+          New Zealand — are one message away.
+        </p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap" data-reveal>
+          <a class="btn btn-primary" href="app.html#visa">Open the Visa Hub</a>
+          <a class="tlink" href="app.html#settlement">Settle In guide</a>
+          <a class="tlink" href="app.html#mentors">Meet the mentors</a>
+        </div>
+      </div>
+      <div data-reveal style="transition-delay:120ms">
+        <div class="kit-list" id="visa-route"></div>
+        <p class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">Seven stages · click any to open the hub ↗</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 05 · TRACKING ══════════ -->
+<div class="paper-to-night" aria-hidden="true"></div>
+<section class="sec night" style="padding-top:calc(var(--s7) - 32px)">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no" style="color:var(--route)">05</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
     </div>
     <div class="split" style="align-items:end">
       <div>
@@ -725,11 +759,11 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 05 · THE PAPERS (starter kit) ══════════ -->
+<!-- ══════════ 06 · THE PAPERS (starter kit) ══════════ -->
 <section class="sec" id="kit">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">05</span><span class="ttl">Templates</span><span class="end">Four documents that work</span>
+      <span class="no">06</span><span class="ttl">Templates</span><span class="end">19 templates · 4 categories</span>
     </div>
     <div class="split">
       <div class="paper-stack" data-reveal aria-hidden="true">
@@ -773,7 +807,7 @@ navMode();
 <section class="sec" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">06</span><span class="ttl">From Students</span><span class="end">Three accounts*</span>
+      <span class="no">07</span><span class="ttl">From Students</span><span class="end">Three accounts*</span>
     </div>
     <div class="notes">
       <div class="note" data-reveal>
@@ -816,11 +850,14 @@ navMode();
 <footer class="colophon">
   <div class="wrap">
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:40px">
-      <nav style="display:flex;gap:26px" class="mono">
+      <nav style="display:flex;gap:26px;flex-wrap:wrap" class="mono">
         <a class="tlink" style="font-size:11px" href="app.html#assessment">Assessment</a>
         <a class="tlink" style="font-size:11px" href="app.html#roadmap">Roadmap</a>
         <a class="tlink" style="font-size:11px" href="app.html#explore">Labs</a>
         <a class="tlink" style="font-size:11px" href="app.html#funding">Funding</a>
+        <a class="tlink" style="font-size:11px" href="app.html#visa">Visa</a>
+        <a class="tlink" style="font-size:11px" href="app.html#settlement">Settle&nbsp;In</a>
+        <a class="tlink" style="font-size:11px" href="app.html#mentors">Mentors</a>
         <a class="tlink" style="font-size:11px" href="app.html#kit">Kit</a>
       </nav>
       <span class="mono">Made for Sri Lankan students <span class="tick">·</span> New Zealand</span>
@@ -837,6 +874,8 @@ navMode();
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/store.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script type="module" src="assets/js/firebase.js"></script>
 <script>
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -864,6 +903,16 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
 (() => {
   document.getElementById('legend').innerHTML = PF_UNIVERSITIES.map(u =>
     `<span class="li"><b>${u.name.replace('University of ','U. ').replace(' University','')}</b><i>${u.city.split(' /')[0]}</i></span>`).join('');
+})();
+
+/* ── The Crossing: 7-stage visa route index ── */
+(() => {
+  const ROMAN = ['i.','ii.','iii.','iv.','v.','vi.','vii.'];
+  document.getElementById('visa-route').innerHTML = PF_VISA_STAGES.map((s, i) =>
+    `<a class="kit-row" href="app.html#visa" style="cursor:pointer">
+      <span class="no">${ROMAN[i]}</span><strong>${s.title}</strong>
+      <span class="mono">${s.dur}${s.cost !== 'Free' ? ' · ' + s.cost.split('(')[0].trim() : ''}</span>
+    </a>`).join('');
 })();
 
 /* ── Assessment preview (Q1, live) ── */
