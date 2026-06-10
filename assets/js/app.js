@@ -207,7 +207,7 @@ function renderRoadmap(main) {
   const phases = buildRoadmap(r);
   main.innerHTML = viewHead('route', 'Interactive Roadmap', r ? `Your roadmap to a PhD in ${r.field}` : 'Your PhD roadmap',
     r ? `Personalized for the <strong>${r.pathway}</strong> pathway, ${({'6m':'starting within 6 months','1y':'starting in about a year','2y':'starting in 1–2 years','explore':'exploration'})[r.timeline] || ''}.`
-      : 'This is the generic NZ PhD route. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.') +
+      : 'This is the standard NZ PhD timeline. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.') +
     `<div class="timeline">${phases.map((p, i) => `
       <div class="tl-phase" data-reveal style="transition-delay:${i * 90}ms">
         <div class="tl-node tl-${p.color}"><span>${i + 1}</span></div>
