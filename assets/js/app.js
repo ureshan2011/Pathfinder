@@ -24,18 +24,46 @@ const ROUTES = {
   funding:    renderFunding,
   dashboard:  renderDashboard,
   kit:        renderKit,
+  visa:       renderVisa,
+  settlement: renderSettlement,
+  mentors:    renderMentors,
 };
 
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   const fn = ROUTES[view] || renderDashboard;
   $$('.side-link').forEach(a => a.classList.toggle('active', a.dataset.view === view));
+  $('.side-link.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
   window.scrollTo(0, 0);
+}
+
+/* "#mentors?topic=visa-medical" → { topic:'visa-medical' } */
+function hashQuery() {
+  return Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
+}
+
+/* contextual mentor hook — quiet, helpful, pre-fills the topic */
+function consultCTA(topic) {
+  return `<div class="consult-hook">
+    <span class="material-symbols-outlined" style="font-size:15px">support_agent</span>
+    <span>Stuck at this step? <a href="#mentors?topic=${topic}">Talk to someone who's done it →</a></span>
+  </div>`;
+}
+
+/* clearly-labelled affiliate placement */
+function partnerRow(placement) {
+  const p = PF_PARTNERS.find(x => x.placement === placement);
+  if (!p) return '';
+  return `<div class="partner-row">
+    <span class="chip chip-gold">Partner</span>
+    <p><strong>${p.name}</strong> — ${p.blurb}</p>
+    <a class="btn btn-ghost btn-sm" href="${p.url}" target="_blank" rel="noopener sponsored">${p.cta}</a>
+  </div>`;
 }
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', route);
@@ -165,6 +193,7 @@ function resultCard(r) {
       <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched labs</div><strong>${r.labs.length}</strong></div>
       <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Eligible scholarships</div><strong>${r.schols.length}</strong></div>
     </div>
+    ${r.english < 3 ? partnerRow('ielts') : ''}
   </div>`;
 }
 
@@ -176,24 +205,24 @@ function buildRoadmap(r) {
     'Finalize your research area and read 10–15 recent papers in it',
     'Polish your academic CV using the Starter Kit template',
   ]});
-  phases.push({ when: 'Months 2–4', title: 'Supervisor Discovery', color: 'violet', items: [
+  phases.push({ when: 'Months 2–4', title: 'Supervisor Discovery', color: 'violet', consult: 'roadmap-supervisor', items: [
     r ? `Shortlist 8–10 supervisors in ${r.field} across your ${r.unis.length} matched universities` : 'Shortlist 8–10 supervisors across NZ universities',
     'Send personalized first-contact emails (template in Starter Kit) — expect a 20–30% reply rate',
     'Track every contact in your Application Dashboard',
   ]});
-  phases.push({ when: 'Months 3–6', title: 'Proposal & Application', color: 'gold', items: [
+  phases.push({ when: 'Months 3–6', title: 'Proposal & Application', color: 'gold', consult: 'roadmap-proposal', items: [
     'Draft a 4–6 page research proposal with your interested supervisor’s feedback',
     'Gather transcripts (certified), 2–3 referee letters, and degree certificates',
     'Submit university applications (free at most NZ universities for PhD)',
     r && r.funding !== 'self' ? 'Apply for doctoral scholarships in the same cycle — most are automatic with admission' : 'Prepare evidence of funds (~NZ$20,000/yr living costs + fees)',
   ]});
-  phases.push({ when: 'Months 6–9', title: 'Offer & Visa', color: 'rose', items: [
+  phases.push({ when: 'Months 6–9', title: 'Offer & Visa', color: 'rose', consult: 'visa-evisa', link: { href: '#visa', label: 'Open the Visa Hub →' }, items: [
     'Receive offer of place (+ scholarship outcome)',
     'Apply for the Student Visa via Immigration NZ eVisa — allow 6–8 weeks',
     'Medical & chest X-ray at an INZ-approved panel physician in Colombo',
     'Book flights, arrange first-month accommodation through your university',
   ]});
-  phases.push({ when: 'Month 9+', title: 'Arrival & Enrollment', color: 'teal', items: [
+  phases.push({ when: 'Month 9+', title: 'Arrival & Enrollment', color: 'teal', consult: 'settle-arrival', link: { href: '#settlement', label: 'Open the Settle In guide →' }, items: [
     'IRD number, NZ bank account, SIM card in week one',
     'Complete PhD provisional registration; agree supervision plan & milestones',
     'Confirmation (full registration) review at ~12 months — your first big milestone',
@@ -217,6 +246,8 @@ function renderRoadmap(main) {
             <span class="chip chip-${p.color}">${p.when}</span>
           </div>
           <ul class="tl-list">${p.items.map(it => `<li>${it}</li>`).join('')}</ul>
+          ${p.link ? `<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="${p.link.href}">${p.link.label}</a></div>` : ''}
+          ${p.consult ? consultCTA(p.consult) : ''}
         </div>
       </div>`).join('')}
     </div>`;
@@ -319,6 +350,8 @@ function renderDashboard(main) {
   const saved = PFStore.getSaved();
   const apps = PFStore.getApps();
   const ST = PFStore.APP_STATUSES;
+  const vp = visaProgress();
+  const consults = PFStore.getConsults();
 
   const savedHtml = saved.length ? saved.map(s => {
     let title = '', sub = '', href = '#explore';
@@ -341,7 +374,9 @@ function renderDashboard(main) {
       ${[['quiz', a ? a.result.readiness + '%' : '—', 'Readiness score', '#assessment'],
          ['bookmark', saved.length, 'Saved opportunities', '#explore'],
          ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
-         ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard']]
+         ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard'],
+         ['flight_takeoff', vp.done + '/' + vp.total, 'Visa steps done', '#visa'],
+         ['support_agent', consults.length, 'Consultations', '#mentors']]
         .map(([ic, n, l, href]) => `<a class="card" href="${href}" style="display:block">
           <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
           <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
@@ -363,8 +398,30 @@ function renderDashboard(main) {
     <div id="app-list">${apps.length ? apps.map(appRow).join('') :
       '<p class="muted" style="font-size:14px">No applications yet. Add your first one above — every supervisor email counts as “Contacted Supervisor”.</p>'}</div>
 
+    <h2 style="font-size:1.3rem;margin:48px 0 16px">Consultation requests</h2>
+    <div id="con-list">${consults.length ? consults.map(conRow).join('') :
+      `<p class="muted" style="font-size:14px">No requests yet — when a step gets confusing, <a href="#mentors" style="color:var(--route)">a mentor who has done it</a> is one message away.</p>`}</div>
+
     <h2 style="font-size:1.3rem;margin:48px 0 16px">Saved opportunities</h2>
     <div class="card">${savedHtml}</div>`;
+
+  function conRow(c) {
+    const CS = PFStore.CONSULT_STATUSES;
+    const m = PF_MENTORS.find(x => x.id === c.mentorId);
+    return `<div class="card" style="margin-bottom:12px" data-con="${c.id}">
+      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
+        <div style="flex:1;min-width:200px">
+          <strong style="font-size:14.5px">${m ? m.name : 'Mentor'}</strong>
+          <div class="faint" style="font-size:12.5px">${PF_CONSULT_TOPICS[c.topic] || 'General'} · ${new Date(c.at).toLocaleDateString()}</div>
+          ${c.note ? `<div class="muted" style="font-size:13px;margin-top:4px">${esc(c.note)}</div>` : ''}
+        </div>
+        <select class="field con-status-sel" style="width:auto;padding:8px 36px 8px 12px;font-size:13px">
+          ${CS.map(s => `<option ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost btn-sm con-del" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+      </div>
+    </div>`;
+  }
 
   function appRow(app) {
     const pct = Math.round(((ST.indexOf(app.status) + 1) / ST.length) * 100);
@@ -408,6 +465,19 @@ function renderDashboard(main) {
     toast('Application removed');
     route();
   });
+  $('#con-list').addEventListener('change', e => {
+    const sel = e.target.closest('.con-status-sel');
+    if (!sel) return;
+    PFStore.updateConsult(sel.closest('[data-con]').dataset.con, { status: sel.value });
+    toast('Status updated');
+  });
+  $('#con-list').addEventListener('click', e => {
+    const d = e.target.closest('.con-del');
+    if (!d) return;
+    PFStore.deleteConsult(d.closest('[data-con]').dataset.con);
+    toast('Request removed');
+    route();
+  });
 }
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
@@ -434,6 +504,310 @@ function renderKit(main) {
     </div>`;
 
 }
+
+/* ── 7 · Visa Hub ───────────────────────────────────────── */
+function visaProgress() {
+  const all = PF_VISA_STAGES.flatMap(s => s.steps.map(st => st.id));
+  const done = all.filter(id => PFStore.isChecked('visa', id)).length;
+  return { done, total: all.length };
+}
+
+function renderVisa(main) {
+  const { done, total } = visaProgress();
+  const firstOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
+
+  main.innerHTML = viewHead('flight_takeoff', 'NZ Student Visa Hub', 'The visa, stage by stage',
+    'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to consult, what it costs, and a checklist that remembers your progress.') +
+    `<div class="card" style="max-width:760px;margin-bottom:32px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <strong>Your visa progress</strong>
+        <span class="mono" id="visa-pct">${done} / ${total} steps</span>
+      </div>
+      <div class="bar" style="margin-top:12px"><span id="visa-bar" style="width:${total ? Math.round(done / total * 100) : 0}%"></span></div>
+    </div>
+    <div class="timeline">${PF_VISA_STAGES.map((s, i) => {
+      const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
+      const open = firstOpen && firstOpen.id === s.id;
+      return `
+      <div class="tl-phase">
+        <div class="tl-node tl-${s.color}"><span>${i + 1}</span></div>
+        <div class="card tl-card vh-stage ${sDone === s.steps.length ? 'done' : ''} ${open ? 'open' : ''}" data-stage="${s.id}">
+          <button class="vh-head" data-vh-toggle="${s.id}" aria-expanded="${open}">
+            <h3>${s.title}</h3>
+            <span class="chip chip-${s.color}">${s.dur}</span>
+            <span class="chip chip-dim">${s.cost}</span>
+            <span class="mono vh-count">${sDone}/${s.steps.length}</span>
+            <span class="material-symbols-outlined vh-caret">expand_more</span>
+          </button>
+          <p class="muted" style="font-size:13.5px;margin-top:10px">${s.summary}</p>
+          <div class="vh-body ${open ? '' : 'hidden'}">
+            ${s.where.map(w => `
+              <div class="visa-row" style="padding:14px 0">
+                <span class="material-symbols-outlined" style="font-size:18px;color:var(--sea);flex-shrink:0;margin-top:2px">location_on</span>
+                <div><strong style="font-size:13.5px">${w.name}</strong>
+                  <p class="muted" style="font-size:13px;margin-top:3px">${w.detail}</p></div>
+              </div>`).join('')}
+            <ul class="ck-list">${s.steps.map(st => {
+              const c = PFStore.isChecked('visa', st.id);
+              return `<li class="ck-item ${c ? 'done' : ''}">
+                <label><input type="checkbox" data-ck="visa" data-id="${st.id}" ${c ? 'checked' : ''}>
+                  <span class="ck-box"><span class="material-symbols-outlined" style="font-size:13px">check</span></span>
+                  <span class="ck-t">${st.t}${st.note ? `<em>${st.note}</em>` : ''}</span></label>
+              </li>`;
+            }).join('')}</ul>
+            ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
+            ${consultCTA(s.consult)}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+    </div>
+    <p class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:8px">
+      Figures are estimates — verify with immigration.govt.nz before relying on them.
+    </p>`;
+}
+
+/* checklist + stage toggle — delegated once; progress updates IN PLACE so the
+   open stage never collapses on a re-render */
+document.addEventListener('change', e => {
+  const ck = e.target.closest('[data-ck]');
+  if (!ck) return;
+  PFStore.setChecklistItem(ck.dataset.ck, ck.dataset.id, ck.checked);
+  ck.closest('.ck-item').classList.toggle('done', ck.checked);
+  const stage = ck.closest('.vh-stage');
+  if (stage) {
+    const s = PF_VISA_STAGES.find(x => x.id === stage.dataset.stage);
+    const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
+    stage.querySelector('.vh-count').textContent = `${sDone}/${s.steps.length}`;
+    stage.classList.toggle('done', sDone === s.steps.length);
+    const { done, total } = visaProgress();
+    const pct = $('#visa-pct'), bar = $('#visa-bar');
+    if (pct) pct.textContent = `${done} / ${total} steps`;
+    if (bar) bar.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+  }
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-vh-toggle]');
+  if (!t) return;
+  const stage = t.closest('.vh-stage');
+  const body = stage.querySelector('.vh-body');
+  const open = body.classList.toggle('hidden');
+  stage.classList.toggle('open', !open);
+  t.setAttribute('aria-expanded', String(!open));
+});
+
+/* ── 8 · Settle In ──────────────────────────────────────── */
+function renderSettlement(main) {
+  main.innerHTML = viewHead('luggage', 'Settle In', 'Your first months in New Zealand',
+    'Arrival, banking, transport, housing, family — and a cost calculator so you know exactly how much to bring.') +
+    `<div id="set-tabs" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px">
+      ${PF_SETTLEMENT_CATS.map((c, i) => `<button class="chip-filter ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}
+      <button class="chip-filter" data-cat="calc">Cost calculator</button>
+    </div>
+    <div id="set-body"></div>`;
+
+  function paintCards(cat) {
+    $('#set-body').innerHTML = `<div class="grid-2">${PF_SETTLEMENT.filter(s => s.cat === cat).map(s => `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:40px;height:40px;border-radius:11px;background:var(--violet-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span class="material-symbols-outlined" style="color:var(--sea);font-size:20px">${s.icon}</span>
+          </div>
+          <strong style="font-size:15px">${s.title}</strong>
+        </div>
+        <p class="muted" style="font-size:13.5px">${s.body}</p>
+        ${s.tips ? `<ul class="tl-list" style="margin-top:12px">${s.tips.map(t => `<li style="font-size:13.5px">${t}</li>`).join('')}</ul>` : ''}
+        ${s.perCity ? `<table class="ledger" style="margin-top:14px"><tbody>
+          ${Object.entries(s.perCity).map(([city, how]) => `
+            <tr><td style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;width:1%">${city}</td>
+                <td style="font-size:13px">${how}</td></tr>`).join('')}
+        </tbody></table>` : ''}
+        ${consultCTA(s.consult)}
+      </div>`).join('')}
+    </div>`;
+  }
+
+  function paintCalc() {
+    const prefs = PFStore.getCalcPrefs() || {};
+    const cityId = prefs.city || 'akl';
+    const status = prefs.status || 'single';
+    $('#set-body').innerHTML = `
+      <div class="card" style="max-width:760px">
+        <div class="grid-2" style="margin-bottom:20px">
+          <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">City</label>
+            <select class="field" id="cc-city" style="margin-top:5px">
+              ${PF_CITY_COSTS.map(c => `<option value="${c.id}" ${c.id === cityId ? 'selected' : ''}>${c.city}</option>`).join('')}
+            </select></div>
+          <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Who's coming</label>
+            <select class="field" id="cc-status" style="margin-top:5px">
+              <option value="single" ${status === 'single' ? 'selected' : ''}>Just me</option>
+              <option value="couple" ${status === 'couple' ? 'selected' : ''}>Me + partner</option>
+              <option value="family" ${status === 'family' ? 'selected' : ''}>Family with children</option>
+            </select></div>
+        </div>
+        <p class="faint" style="font-size:12px;margin-bottom:14px">Defaults are typical student costs — every figure below is editable.</p>
+        <div class="grid-3" id="cc-assumptions"></div>
+        <div class="cc-results">
+          <div><span class="mono">Monthly living</span><strong id="cc-monthly">—</strong></div>
+          <div><span class="mono">One-off setup</span><strong id="cc-setup">—</strong></div>
+        </div>
+        <div class="bar" style="margin-top:16px"><span id="cc-stipend-bar" style="width:0%"></span></div>
+        <p class="faint" id="cc-verdict" style="font-size:12.5px;margin-top:8px"></p>
+        <p class="faint" id="cc-note" style="font-size:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft)"></p>
+        ${partnerRow('forex')}
+      </div>`;
+
+    const FIELDS = [
+      ['rent', 'Rent · NZ$/week'], ['food', 'Food · NZ$/mo'], ['transport', 'Transport · NZ$/mo'],
+      ['utilities', 'Utilities · NZ$/mo'], ['phone', 'Phone · NZ$/mo'], ['other', 'Other · NZ$/mo'],
+    ];
+
+    function defaults(c, st) {
+      const m = PF_COST_MULT[st];
+      return {
+        rent: c.rentWeekly[st],
+        food: Math.round(c.monthly.food * m),
+        transport: c.monthly.transport,
+        utilities: Math.round(c.monthly.utilities * (st === 'single' ? 1 : 1.25)),
+        phone: c.monthly.phone,
+        other: Math.round(c.monthly.other * m),
+      };
+    }
+
+    function fill(vals) {
+      $('#cc-assumptions').innerHTML = FIELDS.map(([k, lbl]) => `
+        <div><label class="faint" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em">${lbl}</label>
+          <input type="number" min="0" class="field" data-cc="${k}" value="${vals[k]}" style="margin-top:5px"></div>`).join('');
+    }
+
+    function compute() {
+      const v = {};
+      $$('#cc-assumptions [data-cc]').forEach(i => v[i.dataset.cc] = +i.value || 0);
+      const c = PF_CITY_COSTS.find(x => x.id === $('#cc-city').value);
+      const monthly = Math.round((v.rent * 52 / 12 + v.food + v.transport + v.utilities + v.phone + v.other) / 10) * 10;
+      const setup = Math.round((c.setup.bondWeeks * v.rent + c.setup.furnishings + c.setup.misc) / 10) * 10;
+      $('#cc-monthly').textContent = 'NZ$' + monthly.toLocaleString();
+      $('#cc-setup').textContent = 'NZ$' + setup.toLocaleString();
+      const STIPEND_HI = 2750; // NZ$33k/yr ÷ 12
+      const over = monthly > STIPEND_HI;
+      const bar = $('#cc-stipend-bar');
+      bar.style.width = Math.min(100, Math.round(monthly / STIPEND_HI * 100)) + '%';
+      bar.style.background = over ? 'var(--route)' : 'var(--pine)';
+      $('#cc-verdict').textContent = over
+        ? `Above the top doctoral stipend (NZ$28–33k/yr ≈ NZ$2,330–2,750/mo) — you'd need NZ$${(monthly - STIPEND_HI).toLocaleString()}/mo extra income (partner work, part-time) or lower rent.`
+        : `Fits inside a typical doctoral stipend (NZ$28–33k/yr ≈ NZ$2,330–2,750/mo) with NZ$${(STIPEND_HI - monthly).toLocaleString()}/mo headroom at the top of the band.`;
+      $('#cc-note').textContent = c.note + ' First flight + visa costs are not included here — see the Visa Hub.';
+      PFStore.setCalcPrefs({ city: c.id, status: $('#cc-status').value, overrides: v });
+    }
+
+    function reset() {
+      const c = PF_CITY_COSTS.find(x => x.id === $('#cc-city').value);
+      fill(defaults(c, $('#cc-status').value));
+      compute();
+    }
+
+    $('#cc-city').onchange = reset;
+    $('#cc-status').onchange = reset;
+    $('#cc-assumptions').addEventListener('input', compute);
+
+    // restore saved assumptions when city+status match; else fresh defaults
+    const c0 = PF_CITY_COSTS.find(x => x.id === cityId);
+    if (prefs.overrides && prefs.city === cityId && prefs.status === status) {
+      fill({ ...defaults(c0, status), ...prefs.overrides });
+    } else {
+      fill(defaults(c0, status));
+    }
+    compute();
+  }
+
+  $('#set-tabs').addEventListener('click', e => {
+    const b = e.target.closest('.chip-filter');
+    if (!b) return;
+    $$('#set-tabs .chip-filter').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    b.dataset.cat === 'calc' ? paintCalc() : paintCards(b.dataset.cat);
+  });
+  paintCards(PF_SETTLEMENT_CATS[0].id);
+}
+
+/* ── 9 · Mentors ────────────────────────────────────────── */
+function renderMentors(main) {
+  const topic = hashQuery().topic || '';
+  const matched = topic ? PF_MENTORS.filter(m => m.tags.includes(topic)) : PF_MENTORS;
+  const list = matched.length ? matched : PF_MENTORS;
+  const topicLabel = PF_CONSULT_TOPICS[topic];
+
+  main.innerHTML = viewHead('support_agent', 'Mentors', 'Talk to someone who has done it',
+    'Sri Lankan PhD students and graduates already in New Zealand. A 15-minute intro call is free — paid sessions cover visa files, proposals, flat-hunting, and family logistics.') +
+    (topicLabel ? `<div class="card" style="border-color:var(--route);margin-bottom:24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 20px">
+      <span style="font-size:14px">Showing mentors for: <strong>${topicLabel}</strong>${matched.length ? '' : ' — no exact match, showing everyone'}</span>
+      <a class="btn btn-ghost btn-sm" href="#mentors" style="margin-left:auto">Clear</a>
+    </div>` : '') +
+    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px">
+      <a class="chip-filter ${!topic ? 'active' : ''}" href="#mentors">All topics</a>
+      ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
+        `<a class="chip-filter ${slug === topic ? 'active' : ''}" href="#mentors?topic=${slug}">${lbl}</a>`).join('')}
+    </div>
+    <div class="grid-2">${list.map(m => `
+      <div class="card mentor-card" data-mentor="${m.id}">
+        <div class="m-head">
+          <div class="m-initials">${m.name.split(' ').map(w => w[0]).slice(0, 2).join('')}</div>
+          <div><strong style="font-size:15px">${m.name}</strong>
+            <div class="faint" style="font-size:12.5px">${uniById(m.uni).name} · ${m.city}</div></div>
+        </div>
+        <p class="muted" style="font-size:13.5px">${m.bio}</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+          ${m.tags.map(t => `<span class="chip ${t === topic ? 'chip-rose' : 'chip-dim'}">${PF_CONSULT_TOPICS[t]}</span>`).join('')}
+        </div>
+        <table class="m-pkgs"><tbody>
+          ${m.packages.map(p => `<tr><td>${p.name}</td><td>${p.price}</td></tr>`).join('')}
+        </tbody></table>
+        <div class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;margin:8px 0 14px">${m.langs} · ${m.availability}</div>
+        <button class="btn btn-primary btn-sm m-request">Request a consultation</button>
+        <div class="m-form hidden">
+          <input class="field m-name" placeholder="Your name">
+          <input class="field m-contact" placeholder="Your email or WhatsApp number">
+          <textarea class="field m-note" rows="3" placeholder="One or two lines about where you're stuck (optional)"></textarea>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm m-send" data-mentor="${m.id}" data-topic="${topic}">Send request</button>
+            ${m.calendly ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="${m.calendly}">Book on Calendly</a>` : ''}
+            ${m.whatsapp ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://wa.me/${m.whatsapp.replace(/\D/g, '')}">WhatsApp</a>` : ''}
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="card" style="margin-top:28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <span class="material-symbols-outlined" style="color:var(--route)">volunteer_activism</span>
+      <p class="muted" style="flex:1;min-width:220px;font-size:13.5px;margin:0">Already doing your PhD in New Zealand? Mentor the next batch — set your own topics, availability, and rates.</p>
+      <a class="btn btn-ghost btn-sm" href="mailto:${PF_CONFIG.contactEmail}?subject=${encodeURIComponent('PathFinder — become a mentor')}">Become a mentor</a>
+    </div>`;
+}
+
+/* mentor request flow — delegated once */
+document.addEventListener('click', e => {
+  const req = e.target.closest('.m-request');
+  if (req) {
+    const form = req.closest('.mentor-card').querySelector('.m-form');
+    form.classList.toggle('hidden');
+    return;
+  }
+  const send = e.target.closest('.m-send');
+  if (!send) return;
+  const card = send.closest('.mentor-card');
+  const mentor = PF_MENTORS.find(m => m.id === send.dataset.mentor);
+  const name = card.querySelector('.m-name').value.trim();
+  const contact = card.querySelector('.m-contact').value.trim();
+  const note = card.querySelector('.m-note').value.trim();
+  if (!name || !contact) return toast('Add your name and a way to reach you');
+  const topic = send.dataset.topic || mentor.tags[0];
+  PFStore.addConsultation({ mentorId: mentor.id, topic, note, name, contact });
+  const topicLabel = PF_CONSULT_TOPICS[topic] || 'General guidance';
+  const body = [`Mentor: ${mentor.name} (${mentor.city})`, `Topic: ${topicLabel}`,
+                `Student: ${name}`, `Contact: ${contact}`, '', note,
+                '', '— sent from the PathFinder app'].join('\n');
+  location.href = `mailto:${PF_CONFIG.contactEmail}?subject=${encodeURIComponent(`PathFinder consultation — ${mentor.name} — ${topicLabel}`)}&body=${encodeURIComponent(body)}`;
+  toast('Request saved — track it on your dashboard');
+});
 
 /* Template download/copy — delegated once so re-renders don't stack handlers */
 document.addEventListener('click', e => {
