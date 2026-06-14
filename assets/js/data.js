@@ -884,9 +884,21 @@ const PF_CONSULT_TOPICS = {
   'roadmap-proposal':  'Research proposal',
 };
 
-/* NOTE: placeholder profiles — swap in real mentors here.
-   Each field maps 1:1 to what renders on the mentor card;
-   email/whatsapp/calendly are optional (buttons appear only when set). */
+/* ════════════════════════════════════════════════════════════
+   PF_MENTORS — LOCAL-ONLY FALLBACK / DEMO SEED DATA.
+
+   The live marketplace no longer lists named individual mentors to
+   students: mentor identities now live in the Firestore `mentors/{uid}`
+   collection (created via the "Become a mentor" sign-up flow) and are
+   only revealed to a student AFTER a request is claimed. See README →
+   "Mentorship marketplace".
+
+   This array is kept ONLY so the app still demonstrates sensibly with
+   zero Firebase configuration — it powers the aggregate "X mentors active
+   across Y fields" stat on the public #mentors view when Firebase is off,
+   and lets the admin/legacy code resolve a mentorId to a name. It is NOT
+   the source of truth in the live flow. Do not re-introduce it into the
+   public student-facing directory. */
 const PF_MENTORS = [
   { id:'m1', name:'Kasun Jayawardena', city:'Dunedin', uni:'uoo', field:'Health & Medicine',
     tags:['visa-medical','visa-evisa','settle-arrival','settle-housing'],
@@ -954,6 +966,25 @@ const PF_MENTORS = [
 const PF_CONFIG = {
   contactEmail: 'consult@pathfinder.example',   // TODO: replace with the real inbox
   fallbackWhatsapp: '',                          // optional platform WhatsApp line
+
+  /* ── Mentorship marketplace ──────────────────────────────────────
+     Every request opens with a free intro slot; paid follow-on sessions
+     are billed through PayHere (see assets/js/payhere.js). */
+  freeIntroMinutes: 15,
+
+  // PayHere merchant config — PUBLIC values only. merchant_id is not a
+  // secret (it ships in the checkout form); the merchant SECRET must
+  // never appear in client code — it lives only in the Tier-2 Cloud
+  // Function (functions/payhere-notify.js) that verifies the webhook.
+  payhere: {
+    merchantId: '',          // TODO: set before launch (PayHere dashboard)
+    sandbox: true,           // flip to false for live LKR payments
+    currency: 'LKR',
+  },
+
+  // Suggested follow-on session price (LKR), editable by the mentor per
+  // request from their dashboard before generating the payment link.
+  defaultSessionPriceLKR: 5000,
 
   /* ── Settlement & cost-of-living benchmarks (re-verify periodically) ──
      These change with policy and the market — confirm the dates below. */

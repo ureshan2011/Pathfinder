@@ -135,8 +135,21 @@
       display: flex; align-items: center; gap: 8px;
       font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-faint);
     }
+    .consult-hook { flex-wrap: wrap; }
     .consult-hook a { color: var(--ochre); transition: color .2s; }
     .consult-hook a:hover { color: var(--route); }
+    /* inline "Ask a mentor" toggle styled like the old link */
+    .consult-hook-toggle {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em;
+      color: var(--ochre); transition: color .2s;
+    }
+    .consult-hook-toggle:hover { color: var(--route); }
+    .consult-hook-form {
+      flex-basis: 100%; width: 100%; margin-top: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .consult-hook-form .field { font-size: 13px; }
 
     /* mentor cards */
     .m-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
@@ -191,6 +204,7 @@
     <a class="side-link" data-view="visa"       href="#visa"><span class="material-symbols-outlined">flight_takeoff</span><span class="lbl">Visa Hub</span></a>
     <a class="side-link" data-view="settlement" href="#settlement"><span class="material-symbols-outlined">luggage</span><span class="lbl">Settle In</span></a>
     <a class="side-link" data-view="mentors"    href="#mentors"><span class="material-symbols-outlined">support_agent</span><span class="lbl">Mentors</span></a>
+    <a class="side-link hidden" id="mentor-link" data-view="mentor" href="#mentor"><span class="material-symbols-outlined">badge</span><span class="lbl">Mentor Dashboard</span></a>
     <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">history_edu</span><span class="lbl">Templates</span></a>
     <div id="auth-slot"></div>
     <div class="side-foot">PathFinder<br><span id="sync-state">Data stays on device</span>
@@ -206,6 +220,7 @@
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/store.js"></script>
+<script src="assets/js/payhere.js"></script>
 <script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
 <!-- Settlement module (Settle In → tools). Classic scripts attaching to
