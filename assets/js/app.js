@@ -828,7 +828,7 @@ document.addEventListener('click', e => {
    Email/Password admin login (see firebase-config.js) — so the data
    reads below are enforced by Firestore rules, not by client JS.
    Shows: overview analytics · leads · consultations · user records. */
-let adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, error: '' };
+let adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, loaded: false, error: '' };
 
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
@@ -865,7 +865,7 @@ function adminLogin(main) {
     go.disabled = true; msg.textContent = 'Checking…';
     try {
       await PFCloud.signInAdmin(val);
-      adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, error: '' };
+      adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, loaded: false, error: '' };
       route();
     } catch (e) {
       go.disabled = false;
@@ -880,17 +880,26 @@ function adminLogin(main) {
 async function adminLoad() {
   if (adminState.loading) return;
   adminState.loading = true; adminState.error = '';
-  try {
-    const [leads, consults, users] = await Promise.all([
-      PFCloud.fetchLeads(), PFCloud.fetchConsultations(), PFCloud.fetchUsers(),
-    ]);
-    adminState.leads = leads; adminState.consults = consults; adminState.users = users;
-  } catch (e) {
-    adminState.error = 'Could not load data. Check that firestore.rules are deployed and the admin email matches.';
-    console.warn('PathFinder admin load failed', e);
-  } finally {
-    adminState.loading = false;
+  // Each section loads independently — one failing read (e.g. a rules
+  // gap) must not blank the others, and must never re-trigger a reload.
+  const [l, c, u] = await Promise.allSettled([
+    PFCloud.fetchLeads(), PFCloud.fetchConsultations(), PFCloud.fetchUsers(),
+  ]);
+  adminState.leads    = l.status === 'fulfilled' ? l.value : null;
+  adminState.consults = c.status === 'fulfilled' ? c.value : null;
+  adminState.users    = u.status === 'fulfilled' ? u.value : null;
+  const failed = [l, c, u].filter(x => x.status === 'rejected');
+  if (failed.length) console.warn('PathFinder admin: some reads failed —', failed.map(f => f.reason && f.reason.message));
+  if (l.status === 'rejected' && c.status === 'rejected' && u.status === 'rejected') {
+    adminState.error = 'Could not load data. Make sure firestore.rules are deployed and the admin email matches.';
   }
+  adminState.loading = false;
+  adminState.loaded = true;     // load attempted — stops the render loop
+}
+
+function admErrCard(what) {
+  return `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">
+    Couldn't load ${what} — your account may lack permission, or the rules need redeploying.</p></div>`;
 }
 
 function adminDashboard(main) {
@@ -914,7 +923,6 @@ function adminDashboard(main) {
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
-    if (adminState.leads === null) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     ({ overview: admOverview, leads: admLeads, consults: admConsults, users: admUsers })[adminState.tab](body);
   }
 
@@ -924,8 +932,11 @@ function adminDashboard(main) {
     paint();
   });
   $('#adm-refresh').onclick = async () => {
+    adminState.loaded = false;
     adminState.leads = adminState.consults = adminState.users = null;
-    paint(); await adminLoad(); route();
+    body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
+    await adminLoad();
+    route();
   };
 
   // consultation status changes — delegated once per render (body is
@@ -944,9 +955,10 @@ function adminDashboard(main) {
     sel.disabled = false;
   });
 
-  // first paint / first load
-  if (adminState.leads === null && !adminState.loading) {
-    paint();                       // show "Loading…"
+  // first paint / first load — guarded by `loaded` so a failed load can
+  // never re-trigger itself (that was the infinite reload loop)
+  if (!adminState.loaded && !adminState.loading) {
+    body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
     adminLoad().then(() => route());
   } else {
     paint();
@@ -993,7 +1005,8 @@ function admOverview(body) {
 }
 
 function admLeads(body) {
-  const leads = adminState.leads || [];
+  if (adminState.leads === null) { body.innerHTML = admErrCard('leads'); return; }
+  const leads = adminState.leads;
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${leads.length} lead${leads.length === 1 ? '' : 's'}</p>
@@ -1012,7 +1025,8 @@ function admLeads(body) {
 }
 
 function admConsults(body) {
-  const cons = adminState.consults || [];
+  if (adminState.consults === null) { body.innerHTML = admErrCard('consultations'); return; }
+  const cons = adminState.consults;
   const CS = PFStore.CONSULT_STATUSES;
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
@@ -1044,7 +1058,8 @@ function admConsults(body) {
 }
 
 function admUsers(body) {
-  const users = adminState.users || [];
+  if (adminState.users === null) { body.innerHTML = admErrCard('user records'); return; }
+  const users = adminState.users;
   body.innerHTML = `
     <p class="faint" style="font-size:12.5px;margin:0 0 14px">${users.length} synced user${users.length === 1 ? '' : 's'} · most recently active first</p>
     ${users.length ? users.map(u => {
