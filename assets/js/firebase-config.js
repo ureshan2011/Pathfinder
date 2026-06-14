@@ -12,18 +12,14 @@
      · Hosting          (deploy with `firebase deploy`)
    ════════════════════════════════════════════════════════════ */
 
-window.PF_FIREBASE_CONFIG = null;
-
-/* Example:
 window.PF_FIREBASE_CONFIG = {
-  apiKey: "AIza...",
-  authDomain: "pathfinder-xxxxx.firebaseapp.com",
-  projectId: "pathfinder-xxxxx",
-  storageBucket: "pathfinder-xxxxx.appspot.com",
-  messagingSenderId: "...",
-  appId: "1:...:web:..."
+  apiKey: "AIzaSyB3N85Ezou0KmklXfeU2Gs3gMSdIFQ92p8",
+  authDomain: "pathfinder-b3fde.firebaseapp.com",
+  projectId: "pathfinder-b3fde",
+  storageBucket: "pathfinder-b3fde.firebasestorage.app",
+  messagingSenderId: "883950276586",
+  appId: "1:883950276586:web:0409366ea0d2ad6880ec93"
 };
-*/
 
 /* ── Admin account ───────────────────────────────────────────
    The in-app admin panel (app.html#admin) is opened with a single
