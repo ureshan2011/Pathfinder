@@ -27,6 +27,7 @@ const ROUTES = {
   visa:       renderVisa,
   settlement: renderSettlement,
   mentors:    renderMentors,
+  admin:      renderAdmin,
 };
 
 function route() {
@@ -67,6 +68,19 @@ function partnerRow(placement) {
 }
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', route);
+
+/* re-render the admin view whenever admin auth state flips (e.g. sign
+   out) — PFCloud is exposed by the deferred firebase.js module, so wait
+   for it before subscribing. No-op when Firebase isn't configured. */
+(function hookAdminAuth(tries = 0) {
+  if (window.PFCloud) {
+    window.PFCloud.onAdminState(() => {
+      if ((location.hash || '').slice(1).split('?')[0] === 'admin') route();
+    });
+  } else if (tries < 40 && (window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey)) {
+    setTimeout(() => hookAdminAuth(tries + 1), 100);
+  }
+})();
 
 function viewHead(icon, kicker, title, sub) {
   return `<div class="vhead">
@@ -808,6 +822,266 @@ document.addEventListener('click', e => {
   location.href = `mailto:${PF_CONFIG.contactEmail}?subject=${encodeURIComponent(`PathFinder consultation — ${mentor.name} — ${topicLabel}`)}&body=${encodeURIComponent(body)}`;
   toast('Request saved — track it on your dashboard');
 });
+
+/* ── 10 · Admin panel (#admin) ──────────────────────────────
+   Opened with a single password box. The password is the Firebase
+   Email/Password admin login (see firebase-config.js) — so the data
+   reads below are enforced by Firestore rules, not by client JS.
+   Shows: overview analytics · leads · consultations · user records. */
+let adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, error: '' };
+
+function renderAdmin(main) {
+  // Firebase off entirely → nothing to administer.
+  if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
+    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Admin panel unavailable',
+      'Firebase is not configured. Paste your project config into <code>assets/js/firebase-config.js</code> and deploy <code>firestore.rules</code> to enable leads, consultations and user records here.');
+    return;
+  }
+  // Sync layer still loading (deferred module) → wait, then re-render.
+  if (!window.PFCloud) {
+    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Connecting…', 'Loading the Firebase admin layer.');
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 400);
+    return;
+  }
+
+  if (!PFCloud.isAdmin()) return adminLogin(main);
+  adminDashboard(main);
+}
+
+function adminLogin(main) {
+  main.innerHTML = viewHead('lock', 'Admin', 'Admin sign-in',
+    'Enter the admin password to view leads, consultation requests and user records.') +
+    `<div class="card" style="max-width:420px">
+      <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Password</label>
+      <input class="field" id="adm-pw" type="password" autocomplete="current-password" placeholder="••••••••" style="margin-top:6px">
+      <p class="faint" id="adm-msg" style="font-size:12.5px;margin-top:10px;min-height:16px"></p>
+      <button class="btn btn-primary" id="adm-go" style="margin-top:4px;width:100%;justify-content:center">Sign in</button>
+    </div>`;
+
+  const pw = $('#adm-pw'), msg = $('#adm-msg'), go = $('#adm-go');
+  async function submit() {
+    const val = pw.value;
+    if (!val) { msg.textContent = 'Enter the password.'; return; }
+    go.disabled = true; msg.textContent = 'Checking…';
+    try {
+      await PFCloud.signInAdmin(val);
+      adminState = { tab: 'overview', leads: null, consults: null, users: null, loading: false, error: '' };
+      route();
+    } catch (e) {
+      go.disabled = false;
+      msg.textContent = 'Incorrect password (or the admin account is not set up in Firebase yet).';
+    }
+  }
+  go.onclick = submit;
+  pw.onkeydown = e => { if (e.key === 'Enter') submit(); };
+  pw.focus();
+}
+
+async function adminLoad() {
+  if (adminState.loading) return;
+  adminState.loading = true; adminState.error = '';
+  try {
+    const [leads, consults, users] = await Promise.all([
+      PFCloud.fetchLeads(), PFCloud.fetchConsultations(), PFCloud.fetchUsers(),
+    ]);
+    adminState.leads = leads; adminState.consults = consults; adminState.users = users;
+  } catch (e) {
+    adminState.error = 'Could not load data. Check that firestore.rules are deployed and the admin email matches.';
+    console.warn('PathFinder admin load failed', e);
+  } finally {
+    adminState.loading = false;
+  }
+}
+
+function adminDashboard(main) {
+  const TABS = [['overview', 'Overview'], ['leads', 'Leads'], ['consults', 'Consultations'], ['users', 'User records']];
+  const counts = {
+    leads: adminState.leads ? adminState.leads.length : '·',
+    consults: adminState.consults ? adminState.consults.length : '·',
+    users: adminState.users ? adminState.users.length : '·',
+  };
+
+  main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Platform admin',
+    'Live data from Firestore. Visible only to the admin account — ordinary visitors are blocked by security rules.') +
+    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="adm-tabs">
+      ${TABS.map(([id, lbl]) => `<button class="chip-filter ${adminState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="mono" style="opacity:.6">${counts[id]}</span>` : ''}</button>`).join('')}
+      <button class="chip-filter" id="adm-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
+    </div>
+    <div id="adm-body"></div>`;
+
+  const body = $('#adm-body');
+
+  function paint() {
+    if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
+    if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
+    if (adminState.leads === null) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
+    ({ overview: admOverview, leads: admLeads, consults: admConsults, users: admUsers })[adminState.tab](body);
+  }
+
+  $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
+    adminState.tab = b.dataset.tab;
+    $$('#adm-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    paint();
+  });
+  $('#adm-refresh').onclick = async () => {
+    adminState.leads = adminState.consults = adminState.users = null;
+    paint(); await adminLoad(); route();
+  };
+
+  // consultation status changes — delegated once per render (body is
+  // rebuilt by route(), so handlers never stack across tab switches)
+  body.addEventListener('change', async e => {
+    const sel = e.target.closest('.adm-cstatus');
+    if (!sel) return;
+    const id = sel.closest('[data-cdoc]').dataset.cdoc;
+    sel.disabled = true;
+    try {
+      await PFCloud.updateConsultStatus(id, sel.value);
+      const c = (adminState.consults || []).find(x => x.id === id);
+      if (c) c.status = sel.value;
+      toast('Status updated');
+    } catch { toast('Update failed'); }
+    sel.disabled = false;
+  });
+
+  // first paint / first load
+  if (adminState.leads === null && !adminState.loading) {
+    paint();                       // show "Loading…"
+    adminLoad().then(() => route());
+  } else {
+    paint();
+  }
+}
+
+function admMetric(ic, n, label) {
+  return `<div class="card" style="display:block">
+    <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
+    <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
+    <div class="faint" style="font-size:12.5px">${label}</div></div>`;
+}
+
+function admOverview(body) {
+  const users = adminState.users || [];
+  const assessments = users.filter(u => u.data.assessment).length;
+  const totalApps = users.reduce((n, u) => n + (Array.isArray(u.data.applications) ? u.data.applications.length : 0), 0);
+  const offers = users.reduce((n, u) => n + (Array.isArray(u.data.applications) ? u.data.applications.filter(a => ['Offer', 'Enrolled'].includes(a.status)).length : 0), 0);
+  const open = (adminState.consults || []).filter(c => c.status === 'Requested').length;
+
+  // field distribution from completed assessments
+  const fields = {};
+  users.forEach(u => { const f = u.data.assessment?.result?.field; if (f) fields[f] = (fields[f] || 0) + 1; });
+  const fieldRows = Object.entries(fields).sort((a, b) => b[1] - a[1]);
+
+  body.innerHTML = `
+    <div class="grid-4" style="margin-bottom:28px">
+      ${admMetric('mark_email_read', (adminState.leads || []).length, 'Email leads')}
+      ${admMetric('support_agent', (adminState.consults || []).length, 'Consultation requests')}
+      ${admMetric('hourglass_top', open, 'Open (Requested)')}
+      ${admMetric('group', users.length, 'Synced users')}
+      ${admMetric('quiz', assessments, 'Assessments completed')}
+      ${admMetric('folder_managed', totalApps, 'Applications tracked')}
+      ${admMetric('workspace_premium', offers, 'Offers / enrolled')}
+    </div>
+    <div class="card">
+      <h3 style="font-size:1.05rem;margin-bottom:14px">Interest by field <span class="faint" style="font-size:12px">(from completed assessments)</span></h3>
+      ${fieldRows.length ? `<table class="ledger"><tbody>${fieldRows.map(([f, n]) => `
+        <tr><td style="font-size:13px">${esc(f)}</td>
+            <td style="width:50%"><div class="bar"><span style="width:${Math.round(n / assessments * 100)}%"></span></div></td>
+            <td class="mono" style="width:1%;text-align:right">${n}</td></tr>`).join('')}</tbody></table>`
+        : `<p class="muted" style="font-size:13.5px">No completed assessments synced yet.</p>`}
+    </div>`;
+}
+
+function admLeads(body) {
+  const leads = adminState.leads || [];
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <p class="faint" style="font-size:12.5px;margin:0">${leads.length} lead${leads.length === 1 ? '' : 's'}</p>
+      ${leads.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-leads"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+    </div>
+    <div class="card">${leads.length ? `<table class="ledger"><tbody>
+      ${leads.map(l => `<tr>
+        <td style="font-size:13.5px"><a href="mailto:${esc(l.email)}" style="color:var(--route)">${esc(l.email)}</a></td>
+        <td class="faint" style="font-size:12px">${esc(l.source || '')}</td>
+        <td class="faint mono" style="font-size:11.5px;text-align:right;white-space:nowrap">${l.at ? new Date(l.at).toLocaleDateString() : ''}</td>
+      </tr>`).join('')}
+    </tbody></table>` : `<p class="muted" style="font-size:14px">No leads captured yet.</p>`}</div>`;
+
+  const dl = $('#adm-dl-leads', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-leads.csv', ['email', 'source', 'at'], leads);
+}
+
+function admConsults(body) {
+  const cons = adminState.consults || [];
+  const CS = PFStore.CONSULT_STATUSES;
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <p class="faint" style="font-size:12.5px;margin:0">${cons.length} request${cons.length === 1 ? '' : 's'}</p>
+      ${cons.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-cons"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+    </div>
+    ${cons.length ? cons.map(c => {
+      const m = PF_MENTORS.find(x => x.id === c.mentorId);
+      return `<div class="card" style="margin-bottom:12px" data-cdoc="${c.id}">
+        <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1;min-width:220px">
+            <strong style="font-size:14.5px">${esc(c.name || 'Unknown')}</strong>
+            <span class="faint" style="font-size:12.5px"> · ${esc(c.contact || 'no contact')}</span>
+            <div class="faint" style="font-size:12.5px;margin-top:2px">
+              ${m ? esc(m.name) : 'Mentor'} · ${PF_CONSULT_TOPICS[c.topic] || 'General'} · ${c.at ? new Date(c.at).toLocaleDateString() : ''}
+            </div>
+            ${c.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(c.note)}</div>` : ''}
+          </div>
+          <select class="field adm-cstatus" style="width:auto;padding:8px 36px 8px 12px;font-size:13px">
+            ${CS.map(s => `<option ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No consultation requests yet.</p></div>`}`;
+
+  const dl = $('#adm-dl-cons', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-consultations.csv',
+    ['name', 'contact', 'mentorId', 'topic', 'status', 'note', 'at'], cons);
+}
+
+function admUsers(body) {
+  const users = adminState.users || [];
+  body.innerHTML = `
+    <p class="faint" style="font-size:12.5px;margin:0 0 14px">${users.length} synced user${users.length === 1 ? '' : 's'} · most recently active first</p>
+    ${users.length ? users.map(u => {
+      const a = u.data.assessment?.result;
+      const apps = Array.isArray(u.data.applications) ? u.data.applications : [];
+      const saved = Array.isArray(u.data.saved) ? u.data.saved : [];
+      return `<div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+          <strong class="mono" style="font-size:12.5px">${esc(u.uid.slice(0, 12))}…</strong>
+          <span class="faint" style="font-size:11.5px">${u.updatedAt ? 'active ' + new Date(u.updatedAt).toLocaleDateString() : ''}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          ${a ? `<span class="chip chip-teal">${a.readiness}% ready</span><span class="chip chip-dim">${esc(a.field)}</span>` : `<span class="chip chip-dim">No assessment</span>`}
+          <span class="chip chip-dim">${apps.length} application${apps.length === 1 ? '' : 's'}</span>
+          <span class="chip chip-dim">${saved.length} saved</span>
+        </div>
+        ${apps.length ? `<table class="ledger" style="margin-top:12px"><tbody>
+          ${apps.map(ap => `<tr><td style="font-size:13px">${esc(ap.uni || '')}</td>
+            <td class="faint" style="font-size:12px">${esc(ap.supervisor || '')}</td>
+            <td class="mono" style="font-size:11.5px;text-align:right;white-space:nowrap">${esc(ap.status || '')}</td></tr>`).join('')}
+        </tbody></table>` : ''}
+      </div>`;
+    }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No users have signed in to sync yet. Records appear here once students sign in with Google.</p></div>`}`;
+}
+
+/* tiny CSV exporter for the admin tables */
+function csvDownload(filename, cols, rows) {
+  const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => q(r[c])).join(','))].join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+    download: filename,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported ' + filename);
+}
 
 /* Template download/copy — delegated once so re-renders don't stack handlers */
 document.addEventListener('click', e => {
