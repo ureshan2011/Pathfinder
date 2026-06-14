@@ -100,26 +100,56 @@ const PFStore = (() => {
   }
   const isChecked = (key, id) => !!getChecklist(key)[id];
 
-  // consultation requests — Firebase: users/{uid}/kv/consultations + a
-  // create-only top-level `consultations` collection for the platform inbox
-  const CONSULT_STATUSES = ['Requested', 'Replied', 'Scheduled', 'Completed'];
-  const getConsults = () => get('consultations', []);
-  function addConsultation({ mentorId, topic, note, name, contact }) {
-    const list = getConsults();
-    const c = { id: 'c_' + Date.now(), mentorId, topic: topic || '', note: note || '',
-                name: name || '', contact: contact || '', status: 'Requested',
-                at: new Date().toISOString() };
-    list.push(c);
-    set('consultations', list);
-    return c;
+  // ── Mentor requests (the new marketplace queue) ────────────────────
+  // The student's own LOCAL copy of every "Ask a mentor" request, mirrored
+  // to users/{uid}/kv/mentorRequests (cross-device) AND pushed once to the
+  // create-only top-level `mentor_requests` collection (the shared queue
+  // mentors claim from). Replaces the old `consultations` / inbox flow.
+  //
+  // Lifecycle (also enforced in firestore.rules):
+  //   open → claimed → intro_done → awaiting_payment → paid → completed
+  //   (cancelled is reachable at any point before paid)
+  const MENTOR_REQUEST_STATUSES = ['open', 'claimed', 'intro_done',
+    'awaiting_payment', 'paid', 'completed', 'cancelled'];
+
+  const getMentorRequests = () => get('mentorRequests', []);
+  function addMentorRequest({ topic, note, name, contact }) {
+    const list = getMentorRequests();
+    const r = {
+      id: 'mr_' + Date.now(),
+      topic: topic || '', note: note || '',
+      name: name || '', contact: contact || '',
+      studentUid: null,             // set to the real uid by the sync layer
+      status: 'open',
+      mentorId: null,
+      introDoneAt: null,
+      payment: null,                // { amountLKR, payhereLink, paymentStatus, paidAt }
+      at: new Date().toISOString(), // kept for sorting parity with old inbox
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    list.push(r);
+    set('mentorRequests', list);
+    return r;
   }
-  function updateConsult(id, patch) {
-    const list = getConsults();
-    const c = list.find(x => x.id === id);
-    if (c) { Object.assign(c, patch); set('consultations', list); }
-    return c;
+  function updateMentorRequest(id, patch) {
+    const list = getMentorRequests();
+    const r = list.find(x => x.id === id);
+    if (r) { Object.assign(r, patch, { updatedAt: Date.now() }); set('mentorRequests', list); }
+    return r;
   }
-  function deleteConsult(id) { set('consultations', getConsults().filter(c => c.id !== id)); }
+  function deleteMentorRequest(id) { set('mentorRequests', getMentorRequests().filter(r => r.id !== id)); }
+
+  /* Deprecated alias — kept so any stray caller still works. The old
+     "consultations" flow is superseded by mentor requests; mentorId is no
+     longer meaningful at request time (no named directory), so it is dropped. */
+  const CONSULT_STATUSES = MENTOR_REQUEST_STATUSES;
+  const getConsults = getMentorRequests;
+  function addConsultation({ topic, note, name, contact }) {
+    return addMentorRequest({ topic, note, name, contact });
+  }
+  const updateConsult = updateMentorRequest;
+  const deleteConsult = deleteMentorRequest;
 
   // settlement cost-calculator preferences: { city, status, overrides,
   //   weekly, partner:{ on, rate, hours } }
@@ -148,6 +178,8 @@ const PFStore = (() => {
            getAssessment, setAssessment, getSaved, toggleSaved, isSaved,
            APP_STATUSES, getApps, upsertApp, deleteApp, addLead,
            getChecklist, setChecklistItem, isChecked,
+           MENTOR_REQUEST_STATUSES, getMentorRequests, addMentorRequest,
+           updateMentorRequest, deleteMentorRequest,
            CONSULT_STATUSES, getConsults, addConsultation, updateConsult, deleteConsult,
            getCalcPrefs, setCalcPrefs,
            getFirstMonthsProgress, setFirstMonthsProgress,

@@ -11,6 +11,14 @@ service cloud.firestore {
         && request.auth.token.email == 'admin@pathfinder.app';
     }
 
+    // An approved mentor account. Mirrors PFCloud.isMentor() in the client.
+    // Used to gate reads of the shared request queue and claim/update writes.
+    function isApprovedMentor() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/mentors/$(request.auth.uid))
+        && get(/databases/$(database)/documents/mentors/$(request.auth.uid)).data.approved == true;
+    }
+
     // Each user reads/writes only their own synced data; the admin may
     // read (not write) everyone's, for the Users tab in the admin panel.
     // The {uid} wildcard also satisfies the collectionGroup('kv') query
@@ -39,21 +47,72 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Mentor consultation requests: create-only for visitors; the admin
-    // may read and update the status field (Requested → Replied → …).
-    match /inbox_consultations/{id} {
+    // ── Mentor profiles ────────────────────────────────────────────────
+    // A user creates their own profile on sign-up with approved:false;
+    // only the admin may flip approved/active. Mentors may edit their own
+    // descriptive fields. `read` is open to any signed-in user because the
+    // isApprovedMentor() helper above does a get() on this doc.
+    match /mentors/{uid} {
       allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.approved == false
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() < 120;
+      allow read: if request.auth != null;
+      allow update: if isAdmin()
+        || (request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['displayName','fields','city','bio','langs','availability','active']));
+      allow delete: if isAdmin();
+    }
+
+    // ── Mentor requests (the shared claim queue) ───────────────────────
+    // Replaces inbox_consultations. Anyone authenticated (incl. anonymous)
+    // may create an `open`, unclaimed request. Reads are limited to the
+    // admin, any approved mentor (the queue), or the owning student.
+    match /mentor_requests/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.status == 'open'
+        && request.resource.data.mentorId == null
         && request.resource.data.name is string
-        && request.resource.data.contact is string
         && request.resource.data.name.size() < 200
+        && request.resource.data.contact is string
         && request.resource.data.contact.size() < 200
         && request.resource.data.note is string
         && request.resource.data.note.size() < 2000;
-      allow read: if isAdmin();
-      // admin may only change `status`, nothing else.
+
+      allow read: if isAdmin()
+        || isApprovedMentor()
+        || (request.auth != null && resource.data.studentUid == request.auth.uid);
+
+      // Claim (open → claimed, taking mentorId atomically) OR a mentor
+      // updating a request they already own (status transitions, intro,
+      // payment fields). Admin may update anything. The first-claim race is
+      // closed by requiring the prior state to still be `open`/unclaimed.
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        || (isApprovedMentor() && (
+              (resource.data.status == 'open'
+               && resource.data.mentorId == null
+               && request.resource.data.status == 'claimed'
+               && request.resource.data.mentorId == request.auth.uid)
+           || (resource.data.mentorId == request.auth.uid
+               && request.resource.data.mentorId == request.auth.uid)
+           ))
+        // A student may cancel their own request before it is paid.
+        || (request.auth != null
+            && resource.data.studentUid == request.auth.uid
+            && request.resource.data.status == 'cancelled'
+            && resource.data.status != 'paid'
+            && resource.data.status != 'completed');
+
       allow delete: if false;
+    }
+
+    // Legacy mentor consultation inbox (pre-marketplace). Kept read-only for
+    // the admin so historical requests remain visible; no new writes.
+    match /inbox_consultations/{id} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     match /{document=**} {

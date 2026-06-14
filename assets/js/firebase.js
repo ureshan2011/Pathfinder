@@ -28,9 +28,10 @@ const ADMIN_EMAIL = window.PF_ADMIN_EMAIL || 'admin@pathfinder.app';
 if (cfg && cfg.apiKey) {
   const [{ initializeApp },
          { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+           createUserWithEmailAndPassword,
            signInAnonymously, onAuthStateChanged, signOut },
          { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection,
-           collectionGroup, addDoc, serverTimestamp }] = await Promise.all([
+           collectionGroup, addDoc, serverTimestamp, query, where, runTransaction }] = await Promise.all([
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'),
@@ -43,8 +44,24 @@ if (cfg && cfg.apiKey) {
   const isAdminUser = (u) => !!u && u.email === ADMIN_EMAIL;
 
   let user = null;
+  let mentorProfile = null;         // mentors/{uid} doc data, or null
+  const mentorListeners = [];
   const dirty = new Map();          // key → value, awaiting flush
   let flushTimer = null;
+
+  function notifyMentorState() {
+    mentorListeners.forEach(fn => { try { fn(mentorProfile); } catch {} });
+  }
+
+  // Load (or clear) the signed-in user's mentor profile and notify the UI.
+  async function refreshMentorProfile() {
+    if (!user || user.isAnonymous) { mentorProfile = null; notifyMentorState(); return; }
+    try {
+      const snap = await getDoc(doc(db, 'mentors', user.uid));
+      mentorProfile = snap.exists() ? { uid: user.uid, ...snap.data() } : null;
+    } catch { mentorProfile = null; }
+    notifyMentorState();
+  }
 
   /* ── inbox: leads + consultation requests (create-only) ── */
   const SYNCED_KEY = 'pathfinder.v1.__inboxSynced';
@@ -68,6 +85,26 @@ if (cfg && cfg.apiKey) {
         await addDoc(collection(db, col), { ...item, uid: u.uid, ts: serverTimestamp() });
         markSynced(id);
       } catch (e) { console.warn('PathFinder sync: inbox push failed', e); }
+    }
+  }
+
+  /* Mentor requests land in the shared `mentor_requests` queue. Unlike the
+     old inbox, each doc is created at its LOCAL id (mr_*) so mentors and the
+     student can later read/update the same record. studentUid is stamped
+     with the real (or anonymous) uid so the owner can read it back. */
+  async function pushMentorRequests(items) {
+    const seen = syncedIds();
+    const pending = items.filter(r => !seen.has('mreq:' + r.id) && r.status === 'open');
+    if (!pending.length) return;
+    const u = await ensureAuth();
+    if (!u) return;
+    for (const r of pending) {
+      try {
+        const { id, ...rest } = r;
+        await setDoc(doc(db, 'mentor_requests', id),
+          { ...rest, studentUid: u.uid, ts: serverTimestamp() });
+        markSynced('mreq:' + id);
+      } catch (e) { console.warn('PathFinder sync: mentor request push failed', e); }
     }
   }
 
@@ -118,7 +155,7 @@ if (cfg && cfg.apiKey) {
     if (key.startsWith('__')) return;
     if (isAdminUser(user)) return;     // admin session never mirrors device data
     if (key === 'leads' && Array.isArray(value)) pushInbox('inbox_leads', value, l => l.email + '|' + l.at);
-    if (key === 'consultations' && Array.isArray(value)) pushInbox('inbox_consultations', value, c => c.id);
+    if (key === 'mentorRequests' && Array.isArray(value)) pushMentorRequests(value);
     dirty.set(key, value);
     scheduleFlush();
   });
@@ -208,18 +245,126 @@ if (cfg && cfg.apiKey) {
       });
       return [...byUser.values()].sort((a, b) => b.updatedAt - a.updatedAt);
     },
+
+    /* ── Mentor accounts & dashboard ─────────────────────────────────── */
+    // Identity helpers — mirror isAdmin(). isMentor() is true only for an
+    // APPROVED mentor; hasMentorProfile() is true the moment they apply.
+    isMentor: () => !!(mentorProfile && mentorProfile.approved),
+    hasMentorProfile: () => !!mentorProfile,
+    getMentorProfile: () => mentorProfile,
+    isSignedIn: () => !!(auth.currentUser && !auth.currentUser.isAnonymous),
+    currentEmail: () => auth.currentUser && auth.currentUser.email,
+    onMentorState: (fn) => { mentorListeners.push(fn); fn(mentorProfile); },
+
+    async signUpEmail(email, password) { await createUserWithEmailAndPassword(auth, email, password); },
+    async signInEmail(email, password) { await signInWithEmailAndPassword(auth, email, password); },
+    async signInGoogle() { await signInWithPopup(auth, new GoogleAuthProvider()); },
+    signOutUser: () => signOut(auth),
+
+    // Create the mentors/{uid} profile (approved:false → pending review).
+    async applyAsMentor(profile) {
+      const u = auth.currentUser;
+      if (!u || u.isAnonymous) throw new Error('Sign in before applying');
+      await setDoc(doc(db, 'mentors', u.uid), {
+        displayName: profile.displayName || (u.displayName || u.email || 'Mentor'),
+        fields: Array.isArray(profile.fields) ? profile.fields : [],
+        city: profile.city || '',
+        bio: profile.bio || '',
+        langs: profile.langs || '',
+        availability: profile.availability || '',
+        approved: false,
+        active: true,
+        createdAt: serverTimestamp(),
+      });
+      await refreshMentorProfile();
+      return mentorProfile;
+    },
+    // Mentor edits their own descriptive fields / availability toggle.
+    async saveMentorProfile(patch) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Not signed in');
+      const allowed = {};
+      ['displayName','fields','city','bio','langs','availability','active']
+        .forEach(k => { if (k in patch) allowed[k] = patch[k]; });
+      await updateDoc(doc(db, 'mentors', u.uid), allowed);
+      await refreshMentorProfile();
+      return mentorProfile;
+    },
+
+    // The open queue any approved+active mentor can claim from.
+    async fetchOpenRequests() {
+      const snap = await getDocs(query(collection(db, 'mentor_requests'), where('status', '==', 'open')));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+    // The requests this mentor has already claimed (any status).
+    async fetchMyClaimedRequests() {
+      const u = auth.currentUser; if (!u) return [];
+      const snap = await getDocs(query(collection(db, 'mentor_requests'), where('mentorId', '==', u.uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    },
+    // Atomic claim — only succeeds while the request is still open/unclaimed,
+    // so two mentors can never claim the same request (first-come wins).
+    async claimRequest(id) {
+      const u = auth.currentUser; if (!u) throw new Error('Not signed in');
+      const ref = doc(db, 'mentor_requests', id);
+      await runTransaction(db, async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error('Request no longer exists');
+        const d = snap.data();
+        if (d.status !== 'open' || d.mentorId) throw new Error('Already claimed');
+        tx.update(ref, { status: 'claimed', mentorId: u.uid, updatedAt: Date.now() });
+      });
+    },
+    // Mentor updates a request they own (status, intro, payment fields).
+    async updateRequest(id, patch) {
+      await updateDoc(doc(db, 'mentor_requests', id), { ...patch, updatedAt: Date.now() });
+    },
+    // A signed-in student's own requests (for the "My requests" tab).
+    async fetchMyRequests() {
+      const u = auth.currentUser; if (!u) return [];
+      const snap = await getDocs(query(collection(db, 'mentor_requests'), where('studentUid', '==', u.uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+
+    /* ── Admin: mentor approval + all requests ───────────────────────── */
+    async fetchMentors() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'mentors'));
+      return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    },
+    async setMentorFlag(uid, patch) {
+      requireAdmin();
+      const allowed = {};
+      if ('approved' in patch) allowed.approved = patch.approved;
+      if ('active' in patch) allowed.active = patch.active;
+      await updateDoc(doc(db, 'mentors', uid), allowed);
+    },
+    async fetchAllRequests() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'mentor_requests'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+    async updateRequestAdmin(id, patch) {
+      requireAdmin();
+      await updateDoc(doc(db, 'mentor_requests', id), { ...patch, updatedAt: Date.now() });
+    },
   };
 
   onAuthStateChanged(auth, u => {
     user = u;
     paintAuth();
     adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
+    refreshMentorProfile();          // updates the Mentor Dashboard sidebar link
     if (u && !u.isAnonymous && !isAdminUser(u)) pullAndMerge();
   });
 
   paintAuth();
 
-  // catch any leads/consultations queued before this module loaded
+  // catch any leads/requests queued before this module loaded
   pushInbox('inbox_leads', PFStore.get('leads', []), l => l.email + '|' + l.at);
-  pushInbox('inbox_consultations', PFStore.get('consultations', []), c => c.id);
+  pushMentorRequests(PFStore.get('mentorRequests', []));
 }
