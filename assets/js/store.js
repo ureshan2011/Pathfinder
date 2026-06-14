@@ -121,14 +121,35 @@ const PFStore = (() => {
   }
   function deleteConsult(id) { set('consultations', getConsults().filter(c => c.id !== id)); }
 
-  // settlement cost-calculator preferences: { city, status, overrides }
+  // settlement cost-calculator preferences: { city, status, overrides,
+  //   weekly, partner:{ on, rate, hours } }
   const getCalcPrefs = () => get('calcPrefs', null);
   const setCalcPrefs = (p) => set('calcPrefs', p);
+
+  // First-Months simulator progress: { day } (0–90)
+  const getFirstMonthsProgress = () => get('firstMonths', null);
+  const setFirstMonthsProgress = (p) => set('firstMonths', p);
+
+  // Saved funds-planner scenarios: array of
+  //   { id, name, cityId, status, overrides, weekly, partner, createdAt }
+  // Mirrors the applications/consultations shape so it syncs the same way.
+  const getFundsPlans = () => get('fundsPlans', []);
+  function saveFundsPlan(plan) {
+    const list = getFundsPlans();
+    const i = list.findIndex(p => p.id === plan.id);
+    if (i >= 0) list[i] = { ...list[i], ...plan };
+    else { plan.id = plan.id || ('plan_' + Date.now()); plan.createdAt = Date.now(); list.push(plan); }
+    set('fundsPlans', list);
+    return plan;
+  }
+  function deleteFundsPlan(id) { set('fundsPlans', getFundsPlans().filter(p => p.id !== id)); }
 
   return { get, set, remove, onChange, applyRemote, getMeta,
            getAssessment, setAssessment, getSaved, toggleSaved, isSaved,
            APP_STATUSES, getApps, upsertApp, deleteApp, addLead,
            getChecklist, setChecklistItem, isChecked,
            CONSULT_STATUSES, getConsults, addConsultation, updateConsult, deleteConsult,
-           getCalcPrefs, setCalcPrefs };
+           getCalcPrefs, setCalcPrefs,
+           getFirstMonthsProgress, setFirstMonthsProgress,
+           getFundsPlans, saveFundsPlan, deleteFundsPlan };
 })();
