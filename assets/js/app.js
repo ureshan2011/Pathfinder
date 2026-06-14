@@ -610,13 +610,31 @@ document.addEventListener('click', e => {
   t.setAttribute('aria-expanded', String(!open));
 });
 
-/* ── 8 · Settle In ──────────────────────────────────────── */
+/* ── 8 · Settle In ──────────────────────────────────────────
+   The Settlement & Cost-of-Living tools (first-months / funds-planner /
+   buying-power / scene3d) live in assets/js/settlement/*.js, loaded as
+   additional CLASSIC <script> tags in app.html that attach to the global
+   scope (window.PFFirstMonths etc.) — matching the global-function style
+   of this file rather than introducing ES modules app-wide. Three.js is
+   the one exception: it's pulled in on demand via dynamic import()
+   resolved through the importmap in app.html. Every 3D scene is torn down
+   via PFScene3D.disposeAll() on each settlement (re)render and on
+   hashchange, because the router clears main.innerHTML on every route. */
 function renderSettlement(main) {
+  if (window.PFScene3D) PFScene3D.disposeAll();
+
+  const TOOLS = [
+    { id: 'first-months',  label: 'Your first months' },
+    { id: 'funds-planner', label: 'Funds planner' },
+    { id: 'buying-power',  label: 'What NZ$20 buys' },
+  ];
+
   main.innerHTML = viewHead('luggage', 'Settle In', 'Your first months in New Zealand',
-    'Arrival, banking, transport, housing, family — and a cost calculator so you know exactly how much to bring.') +
-    `<div id="set-tabs" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px">
+    'Arrival, banking, transport, housing, family — plus a funds planner, a 90-day cost simulator, and a reality check on what NZ money actually buys.') +
+    `<div id="set-tabs" class="set-tabs">
       ${PF_SETTLEMENT_CATS.map((c, i) => `<button class="chip-filter ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}
-      <button class="chip-filter" data-cat="calc">Cost calculator</button>
+      <span class="set-tab-sep" aria-hidden="true"></span>
+      ${TOOLS.map(t => `<button class="chip-filter set-tool" data-cat="${t.id}">${t.label}</button>`).join('')}
     </div>
     <div id="set-body"></div>`;
 
@@ -641,108 +659,34 @@ function renderSettlement(main) {
     </div>`;
   }
 
-  function paintCalc() {
-    const prefs = PFStore.getCalcPrefs() || {};
-    const cityId = prefs.city || 'akl';
-    const status = prefs.status || 'single';
-    $('#set-body').innerHTML = `
-      <div class="card" style="max-width:760px">
-        <div class="grid-2" style="margin-bottom:20px">
-          <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">City</label>
-            <select class="field" id="cc-city" style="margin-top:5px">
-              ${PF_CITY_COSTS.map(c => `<option value="${c.id}" ${c.id === cityId ? 'selected' : ''}>${c.city}</option>`).join('')}
-            </select></div>
-          <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Who's coming</label>
-            <select class="field" id="cc-status" style="margin-top:5px">
-              <option value="single" ${status === 'single' ? 'selected' : ''}>Just me</option>
-              <option value="couple" ${status === 'couple' ? 'selected' : ''}>Me + partner</option>
-              <option value="family" ${status === 'family' ? 'selected' : ''}>Family with children</option>
-            </select></div>
-        </div>
-        <p class="faint" style="font-size:12px;margin-bottom:14px">Defaults are typical student costs — every figure below is editable.</p>
-        <div class="grid-3" id="cc-assumptions"></div>
-        <div class="cc-results">
-          <div><span class="mono">Monthly living</span><strong id="cc-monthly">—</strong></div>
-          <div><span class="mono">One-off setup</span><strong id="cc-setup">—</strong></div>
-        </div>
-        <div class="bar" style="margin-top:16px"><span id="cc-stipend-bar" style="width:0%"></span></div>
-        <p class="faint" id="cc-verdict" style="font-size:12.5px;margin-top:8px"></p>
-        <p class="faint" id="cc-note" style="font-size:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft)"></p>
-        ${partnerRow('forex')}
-      </div>`;
-
-    const FIELDS = [
-      ['rent', 'Rent · NZ$/week'], ['food', 'Food · NZ$/mo'], ['transport', 'Transport · NZ$/mo'],
-      ['utilities', 'Utilities · NZ$/mo'], ['phone', 'Phone · NZ$/mo'], ['other', 'Other · NZ$/mo'],
-    ];
-
-    function defaults(c, st) {
-      const m = PF_COST_MULT[st];
-      return {
-        rent: c.rentWeekly[st],
-        food: Math.round(c.monthly.food * m),
-        transport: c.monthly.transport,
-        utilities: Math.round(c.monthly.utilities * (st === 'single' ? 1 : 1.25)),
-        phone: c.monthly.phone,
-        other: Math.round(c.monthly.other * m),
-      };
-    }
-
-    function fill(vals) {
-      $('#cc-assumptions').innerHTML = FIELDS.map(([k, lbl]) => `
-        <div><label class="faint" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em">${lbl}</label>
-          <input type="number" min="0" class="field" data-cc="${k}" value="${vals[k]}" style="margin-top:5px"></div>`).join('');
-    }
-
-    function compute() {
-      const v = {};
-      $$('#cc-assumptions [data-cc]').forEach(i => v[i.dataset.cc] = +i.value || 0);
-      const c = PF_CITY_COSTS.find(x => x.id === $('#cc-city').value);
-      const monthly = Math.round((v.rent * 52 / 12 + v.food + v.transport + v.utilities + v.phone + v.other) / 10) * 10;
-      const setup = Math.round((c.setup.bondWeeks * v.rent + c.setup.furnishings + c.setup.misc) / 10) * 10;
-      $('#cc-monthly').textContent = 'NZ$' + monthly.toLocaleString();
-      $('#cc-setup').textContent = 'NZ$' + setup.toLocaleString();
-      const STIPEND_HI = 2750; // NZ$33k/yr ÷ 12
-      const over = monthly > STIPEND_HI;
-      const bar = $('#cc-stipend-bar');
-      bar.style.width = Math.min(100, Math.round(monthly / STIPEND_HI * 100)) + '%';
-      bar.style.background = over ? 'var(--route)' : 'var(--pine)';
-      $('#cc-verdict').textContent = over
-        ? `Above the top doctoral stipend (NZ$28–33k/yr ≈ NZ$2,330–2,750/mo) — you'd need NZ$${(monthly - STIPEND_HI).toLocaleString()}/mo extra income (partner work, part-time) or lower rent.`
-        : `Fits inside a typical doctoral stipend (NZ$28–33k/yr ≈ NZ$2,330–2,750/mo) with NZ$${(STIPEND_HI - monthly).toLocaleString()}/mo headroom at the top of the band.`;
-      $('#cc-note').textContent = c.note + ' First flight + visa costs are not included here — see the Visa Hub.';
-      PFStore.setCalcPrefs({ city: c.id, status: $('#cc-status').value, overrides: v });
-    }
-
-    function reset() {
-      const c = PF_CITY_COSTS.find(x => x.id === $('#cc-city').value);
-      fill(defaults(c, $('#cc-status').value));
-      compute();
-    }
-
-    $('#cc-city').onchange = reset;
-    $('#cc-status').onchange = reset;
-    $('#cc-assumptions').addEventListener('input', compute);
-
-    // restore saved assumptions when city+status match; else fresh defaults
-    const c0 = PF_CITY_COSTS.find(x => x.id === cityId);
-    if (prefs.overrides && prefs.city === cityId && prefs.status === status) {
-      fill({ ...defaults(c0, status), ...prefs.overrides });
-    } else {
-      fill(defaults(c0, status));
-    }
-    compute();
+  function open(cat) {
+    if (window.PFScene3D) PFScene3D.disposeAll();
+    const body = $('#set-body');
+    if (cat === 'first-months')  return PFFirstMonths.render(body);
+    if (cat === 'funds-planner') return PFFunds.render(body);
+    if (cat === 'buying-power')   return PFBuying.render(body);
+    paintCards(cat);
   }
+
+  function selectTab(cat) {
+    $$('#set-tabs .chip-filter').forEach(x => x.classList.toggle('active', x.dataset.cat === cat));
+    $('.set-tab-sep')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+    open(cat);
+  }
+  // first-months links can ask to jump straight to the planner tab — set
+  // fresh each render so handlers never stack across navigations
+  window.PFOpenSettleTab = selectTab;
 
   $('#set-tabs').addEventListener('click', e => {
     const b = e.target.closest('.chip-filter');
-    if (!b) return;
-    $$('#set-tabs .chip-filter').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    b.dataset.cat === 'calc' ? paintCalc() : paintCards(b.dataset.cat);
+    if (b) selectTab(b.dataset.cat);
   });
   paintCards(PF_SETTLEMENT_CATS[0].id);
 }
+
+/* dispose any live Settlement 3D scenes when leaving the view — the
+   router clears main.innerHTML but won't free WebGL contexts/rAF loops */
+window.addEventListener('hashchange', () => { if (window.PFScene3D) PFScene3D.disposeAll(); });
 
 /* ── 9 · Mentors ────────────────────────────────────────── */
 function renderMentors(main) {

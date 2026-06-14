@@ -18,7 +18,7 @@ PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand �
 - `#explore` — all 8 NZ universities, 12 flagship research labs, named supervisors, field filters
 - `#funding` — doctoral scholarships (value, deadlines, eligibility) + immigration/visa updates
 - `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
-- `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus an editable per-city cost-of-living calculator
+- `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
 - `#mentors` — **Mentors**: Sri Lankan PhD students already in NZ; consultation request flow (form → stored + emailed), topic filtering via `#mentors?topic=<slug>`
 - `#dashboard` — saved opportunities, application tracker, visa progress, and consultation requests
 - `#kit` — PhD Starter Kit: 19 templates across emails, application documents, research & career, and logistics
@@ -33,12 +33,19 @@ firebase.json              Firebase Hosting + Firestore deploy config
 firestore.rules            security rules (per-user data, create-only inboxes)
 assets/
   css/site.css             design tokens + shared components
+  css/settlement.css       Settle In tools styling (extends site.css tokens only)
   js/data.js               static dataset (universities, labs, scholarships, visa stages,
-                           settlement guide, city costs, mentors, partners, templates, questions)
+                           settlement guide, city costs, price reference, mentors,
+                           partners, templates, questions; PF_CONFIG benchmarks)
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/firebase-config.js    paste your Firebase web config here (null = pure local mode)
   js/firebase.js           optional sync layer (Auth + Firestore mirror + inboxes)
   js/app.js                router + view renderers
+  js/settlement/           Settle In tools (classic scripts, global scope):
+    scene3d.js             shared Three.js helpers (lazy import) + 2D-fallback gating + dispose registry
+    funds-planner.js       Part B — computePlan() model, benchmarks, saved scenarios
+    buying-power.js        Part C — "What can NZ$20 buy?" explorer
+    first-months.js        Part A — 90-day simulator, reads the planner's plan
 ```
 
 ## Firebase (free Spark plan) — setup
@@ -140,6 +147,12 @@ Static reference data (`PF_UNIVERSITIES`, `PF_LABS`, `PF_SCHOLARSHIPS`, `PF_VISA
 - [ ] Replace `PF_PARTNERS` placeholder `url:'#'` entries with real affiliate links (or remove the rows)
 - [ ] Paste Firebase config into `assets/js/firebase-config.js`, deploy `firestore.rules`
 - [ ] Verify all costs/figures (visa fees, rents, stipends) are current
+- [ ] **Re-verify the Settle In benchmarks periodically** — all live in `PF_CONFIG` (`data.js`) with source notes:
+  - `visaFundsPerYear`/`visaFundsPerMonth` — INZ minimum living-cost requirement (NZ$20,000/yr as of 2026; confirm on immigration.govt.nz, it changes periodically)
+  - `minWageHourly` — NZ adult minimum wage (NZ$23.95/hr from 1 Apr 2026; reviewed every April on employment.govt.nz)
+  - `stipendLo`/`stipendHi` — doctoral stipend band (NZ$28k–33k/yr)
+  - `nzdToLkr` — indicative FX rate (hand-maintained, not a live feed)
+  - `PF_CITY_COSTS[*].rentWeekly`/`monthly` + `lastVerified` — per-city rents/living costs; `PF_PRICE_REFERENCE` everyday prices. Bump `PF_CONFIG.dataVerified` after each review.
 
 ## Disclaimer
 

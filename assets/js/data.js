@@ -813,39 +813,60 @@ const PF_SETTLEMENT = [
            'Google Maps offline maps of your city — for day one' ]},
 ];
 
-/* ── Cost of living: per-city baselines for the calculator ── */
+/* ── Cost of living: per-city baselines for the calculator ──
+   Rent/living figures reviewed Jun 2026 against Tenancy Services bond
+   data, the Trade Me Rental Price Index and Numbeo. `lastVerified`
+   stamps each entry so future audits are quick. Figures are indicative
+   flat-share/whole-flat costs — always confirm with the university.
+   See PF_CONFIG.dataVerified for the module-wide disclaimer date. */
 const PF_COST_MULT = { single:1, couple:1.65, family:2.2 };
 const PF_CITY_COSTS = [
-  { id:'akl', city:'Auckland', unis:['uoa','aut','massey'],
-    rentWeekly:{ single:300, couple:430, family:580 },
-    monthly:{ food:480, transport:170, utilities:160, phone:30, other:180 },
+  { id:'akl', city:'Auckland', unis:['uoa','aut','massey'], lastVerified:'2026-06',
+    rentWeekly:{ single:320, couple:450, family:620 },
+    monthly:{ food:500, transport:175, utilities:170, phone:30, other:190 },
     setup:{ bondWeeks:4, furnishings:1200, misc:500 },
     note:'Most expensive city. Many PhD students flat-share in Sandringham, Mt Roskill, or near Symonds St.' },
-  { id:'wlg', city:'Wellington', unis:['vuw'],
-    rentWeekly:{ single:250, couple:380, family:520 },
-    monthly:{ food:460, transport:90, utilities:170, phone:30, other:170 },
+  { id:'wlg', city:'Wellington', unis:['vuw'], lastVerified:'2026-06',
+    rentWeekly:{ single:270, couple:400, family:560 },
+    monthly:{ food:470, transport:90, utilities:175, phone:30, other:175 },
     setup:{ bondWeeks:4, furnishings:1000, misc:450 },
     note:'Compact and walkable — many students skip transport costs entirely. Budget for a serious raincoat.' },
-  { id:'chc', city:'Christchurch', unis:['uc'],
-    rentWeekly:{ single:220, couple:340, family:470 },
-    monthly:{ food:450, transport:80, utilities:180, phone:30, other:160 },
+  { id:'chc', city:'Christchurch', unis:['uc'], lastVerified:'2026-06',
+    rentWeekly:{ single:230, couple:350, family:490 },
+    monthly:{ food:455, transport:80, utilities:185, phone:30, other:160 },
     setup:{ bondWeeks:4, furnishings:950, misc:400 },
     note:'Flat city, great for cycling. Riccarton and Ilam are the student suburbs next to UC.' },
-  { id:'dud', city:'Dunedin', unis:['uoo'],
-    rentWeekly:{ single:180, couple:300, family:420 },
-    monthly:{ food:440, transport:60, utilities:200, phone:30, other:160 },
+  { id:'dud', city:'Dunedin', unis:['uoo'], lastVerified:'2026-06',
+    rentWeekly:{ single:190, couple:310, family:440 },
+    monthly:{ food:445, transport:60, utilities:205, phone:30, other:160 },
     setup:{ bondWeeks:4, furnishings:900, misc:400 },
     note:'Cheapest rents in the country; budget extra for heating — the housing stock is old and the winters are real.' },
-  { id:'ham', city:'Hamilton', unis:['waikato'],
-    rentWeekly:{ single:200, couple:320, family:450 },
-    monthly:{ food:440, transport:70, utilities:170, phone:30, other:150 },
+  { id:'ham', city:'Hamilton', unis:['waikato'], lastVerified:'2026-06',
+    rentWeekly:{ single:210, couple:330, family:470 },
+    monthly:{ food:445, transport:70, utilities:175, phone:30, other:150 },
     setup:{ bondWeeks:4, furnishings:900, misc:400 },
     note:'Affordable and close to Auckland (2 hrs). Hillcrest and Hamilton East are walking distance to Waikato.' },
-  { id:'pn', city:'Palmerston North', unis:['massey'],
-    rentWeekly:{ single:175, couple:290, family:410 },
-    monthly:{ food:430, transport:60, utilities:170, phone:30, other:150 },
+  { id:'pn', city:'Palmerston North', unis:['massey'], lastVerified:'2026-06',
+    rentWeekly:{ single:185, couple:300, family:420 },
+    monthly:{ food:435, transport:60, utilities:175, phone:30, other:150 },
     setup:{ bondWeeks:4, furnishings:850, misc:380 },
     note:'One of the cheapest university cities; a Massey stipend goes a long way here.' },
+];
+
+/* ── Everyday price reference for "What can NZD$20 buy?" ──
+   Short, dated list of typical 2026 NZ retail prices. `perCity` overrides
+   the value where it varies (e.g. student bus fares). Always indicative —
+   see PF_CONFIG.dataVerified. // TODO: verify each figure annually. */
+const PF_PRICE_REFERENCE = [
+  { id:'coffee',    label:'Café flat white',                 icon:'local_cafe',          nzd:5.5,  note:'Standard café price nationwide' },
+  { id:'lunch',     label:'Supermarket lunch (meal deal)',   icon:'lunch_dining',        nzd:8,    note:'Sandwich + drink combo' },
+  { id:'bus',       label:'Bus ride (student concession)',   icon:'directions_bus',      nzd:2.5,  note:'Tertiary concession fare',
+    perCity:{ akl:2.65, wlg:2.41, chc:2.00, dud:2.00, ham:2.42, pn:2.42 } },
+  { id:'bread',     label:'Loaf of bread',                   icon:'bakery_dining',       nzd:3,    note:'Mid-range supermarket loaf' },
+  { id:'milk',      label:'2L milk',                         icon:'water_full',          nzd:4.6,  note:'Standard supermarket price' },
+  { id:'data',      label:'1GB mobile data top-up',          icon:'signal_cellular_alt', nzd:5,    note:'Prepay add-on (Skinny/2degrees)' },
+  { id:'groceries', label:'A day of self-catered groceries', icon:'shopping_cart',       nzd:15,   note:'Cooking for one' },
+  { id:'movie',     label:'Student cinema ticket',           icon:'movie',               nzd:14,   note:'Weekday student price' },
 ];
 
 /* ── Mentors & consultations ── */
@@ -933,6 +954,31 @@ const PF_MENTORS = [
 const PF_CONFIG = {
   contactEmail: 'consult@pathfinder.example',   // TODO: replace with the real inbox
   fallbackWhatsapp: '',                          // optional platform WhatsApp line
+
+  /* ── Settlement & cost-of-living benchmarks (re-verify periodically) ──
+     These change with policy and the market — confirm the dates below. */
+
+  // Immigration NZ minimum living-cost requirement for student visas.
+  // Raised from $15,000 to $20,000/yr for 2-year+ tertiary study.
+  // VERIFY on immigration.govt.nz — INZ adjusts this periodically.
+  visaFundsPerYear: 20000,
+  visaFundsPerMonth: 1667,           // 20000 ÷ 12, rounded
+
+  // Typical NZ doctoral scholarship stipend band (NZ$/month).
+  // ~NZ$28k–33k per year across the eight universities.
+  stipendLo: 2333,                   // 28,000 ÷ 12
+  stipendHi: 2750,                   // 33,000 ÷ 12
+
+  // NZ adult minimum wage from 1 April 2026 (NZ$/hour).
+  // VERIFY on employment.govt.nz — reviewed every April.
+  minWageHourly: 23.95,
+
+  // Indicative LKR per 1 NZD for home-currency anchoring. NOT a live rate —
+  // update by hand. Always check a transfer service for the real rate.
+  nzdToLkr: 185,                     // indicative — rates move daily
+
+  // Stamp shown in the "data last verified" disclaimer across the module.
+  dataVerified: 'June 2026',
 };
 
 /* ── Partner placements (affiliate) — clearly labelled in the UI ── */
