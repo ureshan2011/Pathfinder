@@ -11,16 +11,26 @@
      platform owner receives them in the Firebase console even
      from users who never sign in (anonymous auth).
 
-   If firebase-config.js exports null, this module does nothing
-   and the site runs purely on localStorage.
+   It also exposes window.PFCloud — the read API the in-app admin
+   panel (app.html#admin) uses to view leads, consultations and
+   user records. Those reads are gated by Firestore rules to the
+   single admin email in firebase-config.js, so ordinary visitors
+   can never read them.
+
+   If firebase-config.js exports null, this module does nothing,
+   window.PFCloud stays undefined, and the site runs purely on
+   localStorage.
    ════════════════════════════════════════════════════════════ */
 
 const cfg = window.PF_FIREBASE_CONFIG;
+const ADMIN_EMAIL = window.PF_ADMIN_EMAIL || 'admin@pathfinder.app';
 
 if (cfg && cfg.apiKey) {
   const [{ initializeApp },
-         { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, onAuthStateChanged, signOut },
-         { getFirestore, doc, setDoc, getDocs, collection, addDoc, serverTimestamp }] = await Promise.all([
+         { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+           signInAnonymously, onAuthStateChanged, signOut },
+         { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection,
+           collectionGroup, addDoc, serverTimestamp }] = await Promise.all([
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
     import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'),
@@ -29,6 +39,8 @@ if (cfg && cfg.apiKey) {
   const app  = initializeApp(cfg);
   const auth = getAuth(app);
   const db   = getFirestore(app);
+
+  const isAdminUser = (u) => !!u && u.email === ADMIN_EMAIL;
 
   let user = null;
   const dirty = new Map();          // key → value, awaiting flush
@@ -45,12 +57,13 @@ if (cfg && cfg.apiKey) {
   }
 
   async function pushInbox(col, items, idOf) {
+    const seen = syncedIds();
+    const pending = items.filter(item => !seen.has(idOf(item)));
+    if (!pending.length) return;        // nothing new → don't even authenticate
     const u = await ensureAuth();
     if (!u) return;
-    const seen = syncedIds();
-    for (const item of items) {
+    for (const item of pending) {
       const id = idOf(item);
-      if (seen.has(id)) continue;
       try {
         await addDoc(collection(db, col), { ...item, uid: u.uid, ts: serverTimestamp() });
         markSynced(id);
@@ -65,7 +78,7 @@ if (cfg && cfg.apiKey) {
   }
 
   async function flush() {
-    if (!user || user.isAnonymous || !dirty.size) return;
+    if (!user || user.isAnonymous || isAdminUser(user) || !dirty.size) return;
     const meta = PFStore.getMeta();
     for (const [key, value] of dirty) {
       try {
@@ -78,7 +91,7 @@ if (cfg && cfg.apiKey) {
   }
 
   async function pullAndMerge() {
-    if (!user || user.isAnonymous) return;
+    if (!user || user.isAnonymous || isAdminUser(user)) return;
     try {
       const snap = await getDocs(collection(db, 'users', user.uid, 'kv'));
       const meta = PFStore.getMeta();
@@ -103,6 +116,7 @@ if (cfg && cfg.apiKey) {
   /* ── subscribe to local writes ── */
   PFStore.onChange((key, value) => {
     if (key.startsWith('__')) return;
+    if (isAdminUser(user)) return;     // admin session never mirrors device data
     if (key === 'leads' && Array.isArray(value)) pushInbox('inbox_leads', value, l => l.email + '|' + l.at);
     if (key === 'consultations' && Array.isArray(value)) pushInbox('inbox_consultations', value, c => c.id);
     dirty.set(key, value);
@@ -114,12 +128,17 @@ if (cfg && cfg.apiKey) {
   const stateEl = document.getElementById('sync-state');
 
   function setSyncState() {
-    if (stateEl) stateEl.textContent = (user && !user.isAnonymous) ? 'Synced to cloud' : 'Data stays on device';
+    if (stateEl) stateEl.textContent = (user && !user.isAnonymous && !isAdminUser(user)) ? 'Synced to cloud' : 'Data stays on device';
   }
 
   function paintAuth() {
     if (!slot) return;
-    if (user && !user.isAnonymous) {
+    if (isAdminUser(user)) {
+      slot.innerHTML = `
+        <div class="faint" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;margin-bottom:8px">ADMIN SESSION</div>
+        <button class="btn btn-ghost btn-sm" id="pf-signout">Sign out</button>`;
+      slot.querySelector('#pf-signout').onclick = () => signOut(auth);
+    } else if (user && !user.isAnonymous) {
       slot.innerHTML = `
         <div class="faint" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${user.email || ''}">
           ${user.displayName || user.email || 'Signed in'}</div>
@@ -136,10 +155,66 @@ if (cfg && cfg.apiKey) {
     setSyncState();
   }
 
+  /* ── admin read API consumed by app.js (#admin view) ── */
+  const adminListeners = [];
+  function requireAdmin() {
+    if (!isAdminUser(auth.currentUser)) throw new Error('Not signed in as admin');
+  }
+
+  window.PFCloud = {
+    ready: true,
+    adminEmail: ADMIN_EMAIL,
+    isAdmin: () => isAdminUser(auth.currentUser),
+    onAdminState: (fn) => { adminListeners.push(fn); fn(isAdminUser(auth.currentUser)); },
+
+    async signInAdmin(password) {
+      // The "client-side password gate": the typed password IS the
+      // Firebase password, so reads are enforced by rules, not JS.
+      await signInWithEmailAndPassword(auth, ADMIN_EMAIL, password);
+      return true;
+    },
+    signOutAdmin: () => signOut(auth),
+
+    async fetchLeads() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'inbox_leads'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+    async fetchConsultations() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'inbox_consultations'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+    async updateConsultStatus(docId, status) {
+      requireAdmin();
+      await updateDoc(doc(db, 'inbox_consultations', docId), { status });
+    },
+    async fetchUsers() {
+      requireAdmin();
+      // One collectionGroup query returns every user's kv docs; we
+      // regroup them by owner uid client-side. Reads = total kv docs,
+      // incurred only when an admin actually opens the Users tab.
+      const snap = await getDocs(collectionGroup(db, 'kv'));
+      const byUser = new Map();
+      snap.forEach(d => {
+        const uid = d.ref.parent.parent.id;
+        if (!byUser.has(uid)) byUser.set(uid, { uid, data: {}, updatedAt: 0 });
+        const rec = byUser.get(uid);
+        const { v, t } = d.data();
+        try { rec.data[d.id] = JSON.parse(v); } catch { rec.data[d.id] = v; }
+        if (t > rec.updatedAt) rec.updatedAt = t;
+      });
+      return [...byUser.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+  };
+
   onAuthStateChanged(auth, u => {
     user = u;
     paintAuth();
-    if (u && !u.isAnonymous) pullAndMerge();
+    adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
+    if (u && !u.isAnonymous && !isAdminUser(u)) pullAndMerge();
   });
 
   paintAuth();

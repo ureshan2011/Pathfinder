@@ -22,6 +22,7 @@ PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand �
 - `#mentors` — **Mentors**: Sri Lankan PhD students already in NZ; consultation request flow (form → stored + emailed), topic filtering via `#mentors?topic=<slug>`
 - `#dashboard` — saved opportunities, application tracker, visa progress, and consultation requests
 - `#kit` — PhD Starter Kit: 19 templates across emails, application documents, research & career, and logistics
+- `#admin` — **Admin panel** (password-gated): overview analytics, email leads, consultation requests (with status updates + CSV export), and synced user records. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
 
 ## Architecture
 
@@ -48,19 +49,32 @@ The site is **local-first**: localStorage is always the synchronous source of tr
 
 | Service | Used for | Spark-plan limit (ample for launch) |
 |---|---|---|
-| Authentication | Google sign-in (cross-device sync) + anonymous (inbox writes) | Unlimited Google sign-ins |
+| Authentication | Google sign-in (cross-device sync) + anonymous (inbox writes) + one Email/Password admin | Unlimited sign-ins |
 | Cloud Firestore | `users/{uid}/kv/*` data sync · `inbox_leads` · `inbox_consultations` | 1 GiB storage, 50k reads / 20k writes per day |
 | Hosting | Deploying the site | 10 GB storage, 360 MB/day transfer |
+
+### Staying inside the free tier
+
+The design keeps reads/writes far below the daily caps:
+
+- **Local-first reads.** The UI always reads from localStorage, never Firestore, so browsing the app costs **zero reads**.
+- **Debounced writes.** Edits to user data are coalesced (1.5 s) and only flushed for signed-in (non-anonymous, non-admin) users — typing in the tracker is a handful of writes, not one per keystroke.
+- **Deduplicated inbox.** Each lead / consultation is written **once** (tracked in `__inboxSynced`); anonymous auth is only triggered when there's genuinely something new to push.
+- **One pull per sign-in.** Google sign-in does a single `getDocs` to merge remote keys (newer-wins), then mirrors incrementally.
+- **Admin reads are on-demand.** Leads, consultations and user records are fetched only when *you* open the admin panel and press Refresh — never on a normal visitor's page load.
 
 Cloud Functions require the paid (Blaze) plan, so there is **no server-side email sending** — consultation requests land in Firestore (read them in the console) *and* open a pre-filled `mailto:` as a fallback channel.
 
 ### Steps
 
 1. [console.firebase.google.com](https://console.firebase.google.com) → Add project (Analytics optional).
-2. **Build → Authentication → Sign-in method**: enable **Google** and **Anonymous**.
-3. **Build → Firestore Database**: create database (production mode).
-4. **Project settings → Your apps → Web app** (`</>`): register, copy the config object into `assets/js/firebase-config.js`.
-5. Deploy rules + site:
+2. **Build → Authentication → Sign-in method**: enable **Google**, **Anonymous**, and **Email/Password**.
+3. **Build → Authentication → Users → Add user** — create the admin account:
+   - **Email**: must match `window.PF_ADMIN_EMAIL` in `assets/js/firebase-config.js` (default `admin@pathfinder.app`) **and** the `isAdmin()` email in `firestore.rules`.
+   - **Password**: `adminadmin` to start — **change it** here after your first login (the in-app gate just signs into this account).
+4. **Build → Firestore Database**: create database (production mode).
+5. **Project settings → Your apps → Web app** (`</>`): register, copy the config object into `assets/js/firebase-config.js`.
+6. Deploy rules + site:
    ```bash
    npm i -g firebase-tools
    firebase login
@@ -68,22 +82,31 @@ Cloud Functions require the paid (Blaze) plan, so there is **no server-side emai
    firebase deploy            # deploys hosting + firestore.rules
    ```
    (Or keep hosting on GitHub Pages and run only `firebase deploy --only firestore:rules` — just add your Pages domain under Authentication → Settings → Authorized domains.)
-6. Set `PF_CONFIG.contactEmail` in `assets/js/data.js` to the real consultation inbox.
+7. Set `PF_CONFIG.contactEmail` in `assets/js/data.js` to the real consultation inbox.
+
+### Admin panel
+
+Open `app.html#admin` (or the **Admin** link in the sidebar footer) and enter the admin password. The password box signs into the Firebase **Email/Password** admin account from step 3 — so the leads, consultation requests, and user records you see are released by Firestore rules **only** to that account. Nothing sensitive is stored in the client JS; the password is typed at runtime.
+
+> ⚠️ **Security note.** A purely client-side password (a string compared in JavaScript) cannot protect Firestore data — to read leads/users a client-side gate would force the rules open to *every* visitor, exposing all students' emails and contacts. That's why the gate authenticates against a real Firebase account instead. To change who is admin, update the email in **both** `firebase-config.js` and `firestore.rules`, then redeploy the rules.
+
+To rotate the admin password: Firebase console → Authentication → Users → ⋮ → Reset password (or delete and recreate the user).
 
 ### How the sync works
 
 - `store.js` fires a change event on every write and keeps a per-key timestamp map (`__meta`).
 - `firebase.js` subscribes: writes are debounced into `users/{uid}/kv/{key}` docs (`{v: json, t: timestamp}`).
 - On Google sign-in it pulls the remote keys and merges **newer-wins per key**, then re-renders.
-- Leads and consultation requests are *also* pushed (deduplicated) to top-level `inbox_leads` / `inbox_consultations` collections under anonymous auth, with **create-only** security rules — the platform owner reads them in the Firebase console; clients can never read them back.
+- Leads and consultation requests are *also* pushed (deduplicated) to top-level `inbox_leads` / `inbox_consultations` collections under anonymous auth, with **create-only** rules for visitors — only the admin account can read them back (in the Firebase console *or* the in-app admin panel).
+- The admin panel reads via `window.PFCloud` (exposed by `firebase.js`): `inbox_leads`, `inbox_consultations`, and a `collectionGroup('kv')` query across all users for the Users tab — every read gated to the admin email by the rules.
 
 ## Data model (Firestore)
 
 ```
 users/{uid}/kv/{key}        mirrored PFStore keys: assessment, saved, applications,
                             checklist.visa, consultations, calcPrefs, leads
-inbox_leads/{id}            { email, source, at, uid, ts }          create-only
-inbox_consultations/{id}    { mentorId, topic, note, name, contact, status, at, uid, ts }   create-only
+inbox_leads/{id}            { email, source, at, uid, ts }          create (visitors) · read (admin)
+inbox_consultations/{id}    { mentorId, topic, note, name, contact, status, at, uid, ts }   create (visitors) · read + status-update (admin)
 ```
 
 Static reference data (`PF_UNIVERSITIES`, `PF_LABS`, `PF_SCHOLARSHIPS`, `PF_VISA_STAGES`, `PF_SETTLEMENT`, `PF_CITY_COSTS`, `PF_MENTORS`, `PF_PARTNERS`, `PF_TEMPLATES`) ships in `data.js`; each constant maps 1:1 to a future Firestore collection if you later want to edit content without redeploying.

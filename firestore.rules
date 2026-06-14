@@ -2,23 +2,37 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Each user reads/writes only their own synced data.
+    // The single platform admin. Must match PF_ADMIN_EMAIL in
+    // assets/js/firebase-config.js. Reads of leads, consultations and
+    // user records are granted ONLY to this signed-in account, so the
+    // in-app admin panel can show them while ordinary visitors cannot.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'admin@pathfinder.app';
+    }
+
+    // Each user reads/writes only their own synced data; the admin may
+    // read (not write) everyone's, for the Users tab in the admin panel.
+    // The {uid} wildcard also satisfies the collectionGroup('kv') query
+    // the admin panel runs, since isAdmin() does not depend on uid.
     match /users/{uid}/kv/{key} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read:  if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // Email-capture inbox: anyone authenticated (incl. anonymous) may
-    // create; nobody may read/update/delete from the client. Read these
-    // in the Firebase console or an admin tool.
+    // create; only the admin may read. Update/delete stay closed.
     match /inbox_leads/{id} {
       allow create: if request.auth != null
         && request.resource.data.email is string
         && request.resource.data.email.size() > 4
         && request.resource.data.email.size() < 200;
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
-    // Mentor consultation requests: same create-only pattern.
+    // Mentor consultation requests: create-only for visitors; the admin
+    // may read and update the status field (Requested → Replied → …).
     match /inbox_consultations/{id} {
       allow create: if request.auth != null
         && request.resource.data.name is string
@@ -27,7 +41,11 @@ service cloud.firestore {
         && request.resource.data.contact.size() < 200
         && request.resource.data.note is string
         && request.resource.data.note.size() < 2000;
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      // admin may only change `status`, nothing else.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
     }
 
     match /{document=**} {
