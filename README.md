@@ -2,7 +2,7 @@
 
 PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand — compare pathways, find supervisors and scholarships, generate a personalized roadmap, walk the visa process step by step, plan the move, and track applications from first email to enrollment.
 
-**Fully static. Zero build step. Runs 100% locally — or syncs to Firebase (free Spark plan) when configured.**
+**Fully static. Zero build step. Cloud-first on Firebase (free Spark plan) — or runs 100% locally when Firebase is left unconfigured.**
 
 ## Pages
 
@@ -54,7 +54,7 @@ functions/                 OPTIONAL Tier-2 Cloud Functions (require Blaze plan):
 
 ## Firebase (free Spark plan) — setup
 
-The site is **local-first**: localStorage is always the synchronous source of truth the UI reads, and Firebase mirrors it in the background. With `firebase-config.js` left as `null`, no Firebase code runs at all.
+The site is **cloud-first**: on load, every visitor without a session is signed in **anonymously** (a persistent uid), so all their data is saved to Firestore — not just the device. `localStorage` is kept **only as a synchronous read cache** (instant reads, offline support); Firestore is the durable system of record. When a student later signs in with Google/email, their anonymous account is **linked in place**, so their data carries over instead of being orphaned. With `firebase-config.js` left as `null`, no Firebase code runs at all and the app falls back to pure localStorage.
 
 ### What the free tier gives you here
 
@@ -66,13 +66,14 @@ The site is **local-first**: localStorage is always the synchronous source of tr
 
 ### Staying inside the free tier
 
-The design keeps reads/writes far below the daily caps:
+The design keeps reads/writes far below the daily caps (50k reads / 20k writes / day):
 
-- **Local-first reads.** The UI always reads from localStorage, never Firestore, so browsing the app costs **zero reads**.
-- **Debounced writes.** Edits to user data are coalesced (1.5 s) and only flushed for signed-in (non-anonymous, non-admin) users — typing in the tracker is a handful of writes, not one per keystroke.
-- **Deduplicated inbox.** Each lead / consultation is written **once** (tracked in `__inboxSynced`); anonymous auth is only triggered when there's genuinely something new to push.
-- **One pull per sign-in.** Google sign-in does a single `getDocs` to merge remote keys (newer-wins), then mirrors incrementally.
-- **Admin reads are on-demand.** Leads, consultations and user records are fetched only when *you* open the admin panel and press Refresh — never on a normal visitor's page load.
+- **Cache-served reads.** The UI reads from the localStorage cache, never Firestore, so navigating the app costs **zero reads** beyond the one pull below.
+- **One pull per session.** Each load does a single `getDocs` of the user's `kv` to merge remote keys (newer-wins) — not one per view. Daily reads ≈ visitors × kv-docs-per-user (single digits), comfortably under the cap.
+- **Debounced writes.** Edits to user data are coalesced (1.5 s) and flushed for every signed-in visitor *except the admin session* — typing in the tracker is a handful of writes, not one per keystroke.
+- **Deduplicated inbox.** Each lead / consultation is written **once** (tracked in `__inboxSynced`).
+- **Admin reads are on-demand.** Leads, mentors, requests and user records are fetched only when *you* open the admin panel and press Refresh — never on a normal visitor's page load.
+- **No live listeners.** All reads are one-shot `getDocs` behind explicit actions; nothing uses `onSnapshot` (which would bill continuous reads).
 
 Cloud Functions require the paid (Blaze) plan, so the core marketplace is built **Tier 1** (no server code): the claim race is enforced purely by Firestore rules + an atomic `runTransaction`, and payment confirmation is a manual mentor/admin click. The **optional Tier-2** webhook (`functions/payhere-notify.js`) automates payment confirmation if you upgrade to Blaze — the app runs correctly with or without it.
 
@@ -105,10 +106,12 @@ To rotate the admin password: Firebase console → Authentication → Users → 
 
 ### How the sync works
 
+- On load, `firebase.js` ensures a session: it reuses the restored uid, or mints a **persistent anonymous** one if there's none. Every visitor therefore has a uid and syncs.
 - `store.js` fires a change event on every write and keeps a per-key timestamp map (`__meta`).
-- `firebase.js` subscribes: writes are debounced into `users/{uid}/kv/{key}` docs (`{v: json, t: timestamp}`).
-- On Google sign-in it pulls the remote keys and merges **newer-wins per key**, then re-renders.
-- Leads and consultation requests are *also* pushed (deduplicated) to top-level `inbox_leads` / `inbox_consultations` collections under anonymous auth, with **create-only** rules for visitors — only the admin account can read them back (in the Firebase console *or* the in-app admin panel).
+- `firebase.js` subscribes: writes are debounced into `users/{uid}/kv/{key}` docs (`{v: json, t: timestamp}`) for every visitor except the admin session.
+- Once per session it pulls the remote keys and merges **newer-wins per key**, then re-renders.
+- Signing in with Google/email **links** the anonymous account in place (`linkWithPopup` / `linkWithCredential`), keeping the same uid and its data; it falls back to a plain sign-in only if that credential already belongs to another account.
+- Leads and consultation requests are *also* pushed (deduplicated) to top-level `inbox_leads` / `inbox_consultations` collections, with **create-only** rules for visitors — only the admin account can read them back (in the Firebase console *or* the in-app admin panel).
 - The admin panel reads via `window.PFCloud` (exposed by `firebase.js`): `inbox_leads`, `inbox_consultations`, and a `collectionGroup('kv')` query across all users for the Users tab — every read gated to the admin email by the rules.
 
 ## Mentorship marketplace
@@ -152,7 +155,8 @@ Configure `PF_CONFIG.payhere` (`data.js`): `merchantId` (public — safe in clie
 
 ```
 users/{uid}/kv/{key}        mirrored PFStore keys: assessment, saved, applications,
-                            checklist.visa, mentorRequests, calcPrefs, leads
+                            checklist.visa, mentorRequests, calcPrefs, firstMonths,
+                            fundsPlans, leads
 inbox_leads/{id}            { email, source, at, uid, ts }          create (visitors) · read (admin)
 mentors/{uid}               { displayName, fields[], city, bio, langs, availability,
                               approved, active, createdAt }

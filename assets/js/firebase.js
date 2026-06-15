@@ -1,15 +1,20 @@
 /* ════════════════════════════════════════════════════════════
    PathFinder — Firebase sync layer (free Spark plan)
 
-   Local-first: localStorage (PFStore) stays the synchronous
-   source of truth the UI reads. This module mirrors it:
+   Cloud-first for EVERY visitor. On load, anyone without a session
+   is signed in anonymously (a persistent uid), so their data lives
+   in Firestore — not just on the device. localStorage (PFStore)
+   remains only as a synchronous read cache so the UI stays instant
+   and works offline; Firestore is the durable system of record.
 
    · Every PFStore write  →  users/{uid}/kv/{key}   (debounced)
-   · On sign-in           →  pull remote keys, merge "newer wins"
+   · On load / sign-in    →  pull remote keys, merge "newer wins"
+   · Anonymous → named     →  the anon account is LINKED in place on
+     Google / email sign-in, so a student's data is upgraded, never
+     orphaned, when they decide to sign in across devices.
    · Leads & consultation requests additionally go to create-only
      inbox collections (inbox_leads / inbox_consultations) so the
-     platform owner receives them in the Firebase console even
-     from users who never sign in (anonymous auth).
+     platform owner receives them in the Firebase console.
 
    It also exposes window.PFCloud — the read API the in-app admin
    panel (app.html#admin) uses to view leads, consultations and
@@ -27,8 +32,8 @@ const ADMIN_EMAIL = window.PF_ADMIN_EMAIL || 'admin@pathfinder.app';
 
 if (cfg && cfg.apiKey) {
   const [{ initializeApp },
-         { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
-           createUserWithEmailAndPassword,
+         { getAuth, GoogleAuthProvider, EmailAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+           createUserWithEmailAndPassword, linkWithPopup, linkWithCredential,
            signInAnonymously, onAuthStateChanged, signOut },
          { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection,
            collectionGroup, addDoc, serverTimestamp, query, where, runTransaction }] = await Promise.all([
@@ -115,7 +120,9 @@ if (cfg && cfg.apiKey) {
   }
 
   async function flush() {
-    if (!user || user.isAnonymous || isAdminUser(user) || !dirty.size) return;
+    // Sync for every signed-in visitor (incl. anonymous); only the admin
+    // session is excluded so it never mirrors a device's student data.
+    if (!user || isAdminUser(user) || !dirty.size) return;
     const meta = PFStore.getMeta();
     for (const [key, value] of dirty) {
       try {
@@ -128,7 +135,7 @@ if (cfg && cfg.apiKey) {
   }
 
   async function pullAndMerge() {
-    if (!user || user.isAnonymous || isAdminUser(user)) return;
+    if (!user || isAdminUser(user)) return;
     try {
       const snap = await getDocs(collection(db, 'users', user.uid, 'kv'));
       const meta = PFStore.getMeta();
@@ -165,7 +172,43 @@ if (cfg && cfg.apiKey) {
   const stateEl = document.getElementById('sync-state');
 
   function setSyncState() {
-    if (stateEl) stateEl.textContent = (user && !user.isAnonymous && !isAdminUser(user)) ? 'Synced to cloud' : 'Data stays on device';
+    if (!stateEl) return;
+    if (isAdminUser(user))           stateEl.textContent = 'Admin session';
+    else if (user && !user.isAnonymous) stateEl.textContent = 'Synced to cloud';
+    else if (user)                   stateEl.textContent = 'Saved to cloud';
+    else                             stateEl.textContent = 'Connecting…';
+  }
+
+  /* Sign in with Google, upgrading the current anonymous account in place
+     when there is one — so the visitor's already-synced data carries over
+     to the named account instead of being orphaned under the anon uid. */
+  async function googleSignIn() {
+    const provider = new GoogleAuthProvider();
+    const cur = auth.currentUser;
+    if (cur && cur.isAnonymous) {
+      try { return await linkWithPopup(cur, provider); }
+      catch (e) {
+        // Credential already belongs to an existing account → just sign in.
+        if (e.code === 'auth/credential-already-in-use' || e.code === 'auth/email-already-in-use')
+          return await signInWithPopup(auth, provider);
+        throw e;
+      }
+    }
+    return await signInWithPopup(auth, provider);
+  }
+
+  /* Email sign-up, likewise linking an anonymous session in place. */
+  async function emailSignUp(email, password) {
+    const cur = auth.currentUser;
+    if (cur && cur.isAnonymous) {
+      try { return await linkWithCredential(cur, EmailAuthProvider.credential(email, password)); }
+      catch (e) {
+        if (e.code === 'auth/email-already-in-use' || e.code === 'auth/credential-already-in-use')
+          return await signInWithEmailAndPassword(auth, email, password);
+        throw e;
+      }
+    }
+    return await createUserWithEmailAndPassword(auth, email, password);
   }
 
   function paintAuth() {
@@ -185,7 +228,7 @@ if (cfg && cfg.apiKey) {
       slot.innerHTML = `<button class="btn btn-ghost btn-sm" id="pf-signin">
         <span class="material-symbols-outlined" style="font-size:15px">cloud_sync</span> Sign in to sync</button>`;
       slot.querySelector('#pf-signin').onclick = async () => {
-        try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+        try { await googleSignIn(); }
         catch (e) { console.warn('PathFinder: sign-in cancelled/failed', e); }
       };
     }
@@ -253,12 +296,15 @@ if (cfg && cfg.apiKey) {
     hasMentorProfile: () => !!mentorProfile,
     getMentorProfile: () => mentorProfile,
     isSignedIn: () => !!(auth.currentUser && !auth.currentUser.isAnonymous),
+    // True once any session exists (incl. the anonymous one minted on load) —
+    // i.e. when reads/writes keyed on the current uid will succeed.
+    hasUser: () => !!auth.currentUser,
     currentEmail: () => auth.currentUser && auth.currentUser.email,
     onMentorState: (fn) => { mentorListeners.push(fn); fn(mentorProfile); },
 
-    async signUpEmail(email, password) { await createUserWithEmailAndPassword(auth, email, password); },
+    async signUpEmail(email, password) { await emailSignUp(email, password); },
     async signInEmail(email, password) { await signInWithEmailAndPassword(auth, email, password); },
-    async signInGoogle() { await signInWithPopup(auth, new GoogleAuthProvider()); },
+    async signInGoogle() { await googleSignIn(); },
     signOutUser: () => signOut(auth),
 
     // Create the mentors/{uid} profile (approved:false → pending review).
@@ -354,12 +400,21 @@ if (cfg && cfg.apiKey) {
     },
   };
 
+  let authInitialised = false;
   onAuthStateChanged(auth, u => {
     user = u;
     paintAuth();
     adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
     refreshMentorProfile();          // updates the Mentor Dashboard sidebar link
-    if (u && !u.isAnonymous && !isAdminUser(u)) pullAndMerge();
+    if (u && !isAdminUser(u)) pullAndMerge();   // students (incl. anonymous) sync
+    // First callback after init carries the RESTORED session (or null). Only
+    // when there's genuinely no session do we mint a persistent anonymous one
+    // — checking here (not eagerly) avoids creating a duplicate account on
+    // every reload before Firebase has rehydrated the stored uid.
+    if (!authInitialised) {
+      authInitialised = true;
+      if (!u) signInAnonymously(auth).catch(e => console.warn('PathFinder: anon sign-in failed', e));
+    }
   });
 
   paintAuth();

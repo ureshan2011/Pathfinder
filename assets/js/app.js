@@ -829,7 +829,10 @@ function renderMentors(main) {
     // Local copy is the synchronous source of truth; if signed in, refresh
     // from Firestore so mentor-side status/payment updates show through.
     render(PFStore.getMentorRequests().slice().reverse(), false);
-    if (window.PFCloud && PFCloud.isSignedIn()) {
+    // Refresh from Firestore for any visitor with a session — including the
+    // anonymous one minted on load — so mentor-side status/payment updates
+    // show through, not just for signed-in users.
+    if (window.PFCloud && PFCloud.hasUser && PFCloud.hasUser()) {
       PFCloud.fetchMyRequests().then(remote => { if (remote && remote.length) render(remote, true); }).catch(() => {});
     }
   }
