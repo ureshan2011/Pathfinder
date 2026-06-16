@@ -889,9 +889,9 @@ const PF_CONSULT_TOPICS = {
 
    The live marketplace no longer lists named individual mentors to
    students: mentor identities now live in the Firestore `mentors/{uid}`
-   collection (created via the "Become a mentor" sign-up flow) and are
-   only revealed to a student AFTER a request is claimed. See README →
-   "Mentorship marketplace".
+   collection (created via the invite-only mentor sign-up at #mentor, then
+   approved by an admin) and are only revealed to a student AFTER a request
+   is claimed. See README → "Mentorship marketplace".
 
    This array is kept ONLY so the app still demonstrates sensibly with
    zero Firebase configuration — it powers the aggregate "X mentors active

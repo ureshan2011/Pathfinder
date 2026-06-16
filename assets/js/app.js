@@ -28,8 +28,15 @@ const ROUTES = {
   settlement: renderSettlement,
   mentors:    renderMentors,
   mentor:     renderMentor,
+  account:    renderAccount,
   admin:      renderAdmin,
 };
+
+/* The three login roles share two secret codes (see firebase-config.js):
+   creating a mentor account needs ROLE_CODES.mentor; the admin panel asks
+   for ROLE_CODES.admin before the password. Clients/students need none. */
+const ROLE_CODES = () => window.PF_ROLE_CODES || { mentor: 'MNTR', admin: 'ADMN' };
+const norm = s => String(s || '').trim().toUpperCase();
 
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
@@ -128,7 +135,8 @@ window.addEventListener('DOMContentLoaded', route);
 (function hookAdminAuth(tries = 0) {
   if (window.PFCloud) {
     window.PFCloud.onAdminState(() => {
-      if ((location.hash || '').slice(1).split('?')[0] === 'admin') route();
+      const v = (location.hash || '').slice(1).split('?')[0];
+      if (v === 'admin' || v === 'account') route();
     });
   } else if (tries < 40 && (window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey)) {
     setTimeout(() => hookAdminAuth(tries + 1), 100);
@@ -422,6 +430,18 @@ function renderDashboard(main) {
   const vp = visaProgress();
   const reqs = PFStore.getMentorRequests().slice().reverse();
 
+  // ── Derived insights (client/student dashboard) ──
+  const inProg = apps.filter(x => ['Contacted Supervisor', 'Preparing Documents', 'Applied', 'Interview'].includes(x.status)).length;
+  const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
+  const activeReqs = reqs.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const nextAction =
+    !a                    ? ['quiz', 'Take the 5-minute assessment to unlock your roadmap', '#assessment'] :
+    !saved.length         ? ['travel_explore', 'Save a few labs & scholarships that fit your field', '#explore'] :
+    !apps.length          ? ['folder_managed', 'Start tracking your first application', '#dashboard'] :
+    vp.done < vp.total    ? ['flight_takeoff', `Continue your visa checklist — ${vp.total - vp.done} step${vp.total - vp.done === 1 ? '' : 's'} left`, '#visa'] :
+                            ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
+  const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
+
   const savedHtml = saved.length ? saved.map(s => {
     let title = '', sub = '', href = '#explore';
     if (s.kind === 'uni') { const u = uniById(s.id); if (!u) return ''; title = u.name; sub = u.city; }
@@ -450,6 +470,27 @@ function renderDashboard(main) {
           <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
           <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
           <div class="faint" style="font-size:12.5px">${l}</div></a>`).join('')}
+    </div>
+
+    <div class="card" style="margin-bottom:40px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px">
+        <h2 style="font-size:1.15rem;margin:0">Your insights</h2>
+        <span class="chip ${synced ? 'chip-teal' : 'chip-dim'}">${synced ? 'Synced across devices' : 'Saved on this device'}</span>
+      </div>
+      <p class="muted" style="font-size:13.5px;margin:0 0 12px">${a
+        ? `You’re <strong>${a.result.readiness}% PhD-ready</strong> on the <strong>${esc(a.result.pathway)}</strong> pathway in ${esc(a.result.field)}.`
+        : `Complete the <a href="#assessment" style="color:var(--route)">assessment</a> to see personalised insights.`}${synced ? '' : ` <a href="#account" style="color:var(--route)">Create a free account</a> to sync.`}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span class="chip chip-dim">${apps.length} tracked</span>
+        <span class="chip chip-violet">${inProg} in progress</span>
+        <span class="chip chip-teal">${offers} offer${offers === 1 ? '' : 's'}</span>
+        <span class="chip chip-gold">${activeReqs} active mentor request${activeReqs === 1 ? '' : 's'}</span>
+        <span class="chip chip-dim">visa ${vp.done}/${vp.total}</span>
+      </div>
+      <div class="consult-hook" style="margin-top:12px">
+        <span class="material-symbols-outlined" style="font-size:15px">${nextAction[0]}</span>
+        Next step: <a href="${nextAction[2]}" style="color:var(--route)">${nextAction[1]}</a>
+      </div>
     </div>
 
     <h2 style="font-size:1.3rem;margin-bottom:16px">Application tracker</h2>
@@ -798,12 +839,6 @@ function renderMentors(main) {
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${st.fields.map(([f, n]) => `<span class="chip chip-dim">${esc(f)} · ${n}</span>`).join('')}
         </div>
-      </div>
-
-      <div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <span class="material-symbols-outlined" style="color:var(--route)">volunteer_activism</span>
-        <p class="muted" style="flex:1;min-width:220px;font-size:13.5px;margin:0">Already doing your PhD in New Zealand? Mentor the next batch — set your own fields and availability, take requests when you have time.</p>
-        <a class="btn btn-ghost btn-sm" href="#mentor">Become a mentor</a>
       </div>`;
 
     $('#ask-form').addEventListener('submit', e => {
@@ -883,10 +918,118 @@ document.addEventListener('click', e => {
   }
 });
 
+/* ── 9c · Account (#account) — unified front door for all roles ──
+   Login is OPTIONAL for clients/students: anonymous browsing always
+   works and data is saved on-device regardless. This view lets a
+   visitor create or sign into a client account (to sync across
+   devices, no code), points vetted mentors at the invite-only mentor
+   sign-up, and points the admin at the panel. Each role lands on its
+   own dashboard from here. */
+function renderAccount(main) {
+  if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
+    main.innerHTML = viewHead('account_circle', 'Account', 'Accounts need Firebase',
+      'Sign-in and cross-device sync run on Firebase. The app still works fully on this device without it — configure <code>assets/js/firebase-config.js</code> to enable accounts.');
+    return;
+  }
+  if (!window.PFCloud) {
+    main.innerHTML = viewHead('account_circle', 'Account', 'Connecting…', 'Loading the accounts layer.');
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 400);
+    return;
+  }
+  const role = PFCloud.role();
+  if (role === 'anon') return accountAuth(main);
+  return accountStatus(main, role);
+}
+
+/* Signed-in: who you are, your role, and the door to your dashboard. */
+function accountStatus(main, role) {
+  const email = (PFCloud.currentEmail && PFCloud.currentEmail()) || '';
+  const prof = (PFCloud.getMentorProfile && PFCloud.getMentorProfile()) || null;
+  const cfg = {
+    admin:          ['admin_panel_settings', 'Admin', 'chip-rose', 'You are signed in as the platform admin. View leads, mentors, requests and user records.', 'Open Admin panel', '#admin'],
+    mentor:         ['badge', 'Mentor · approved', 'chip-teal', 'Your mentor account is approved. Claim requests from the shared queue and manage your sessions.', 'Open Mentor Dashboard', '#mentor'],
+    mentor_pending: ['hourglass_top', 'Mentor · pending', 'chip-gold', 'Your mentor application is awaiting admin approval. The request queue unlocks once an admin approves you.', 'View status', '#mentor'],
+    client:         ['account_circle', 'Client / Student', 'chip-violet', 'Your roadmap, applications, saved opportunities and mentor requests now sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
+  }[role] || ['account_circle', 'Signed in', 'chip-dim', '', 'Open Dashboard', '#dashboard'];
+
+  main.innerHTML = viewHead('account_circle', 'Account', 'Your account', 'You’re signed in. Manage your session below.') +
+    `<div class="card" style="max-width:560px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="chip ${cfg[2]}"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:4px">${cfg[0]}</span>${cfg[1]}</span>
+      </div>
+      <p style="font-size:14.5px;margin:0 0 2px"><strong>${esc(email || (prof && prof.displayName) || 'Signed in')}</strong></p>
+      <p class="muted" style="font-size:13.5px;margin:8px 0 18px">${cfg[3]}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-primary btn-sm" href="${cfg[5]}">${cfg[4]}</a>
+        <button class="btn btn-ghost btn-sm" id="acc-out">Sign out</button>
+      </div>
+    </div>`;
+  $('#acc-out').onclick = () => (role === 'admin' ? PFCloud.signOutAdmin() : PFCloud.signOutUser());
+}
+
+/* Not signed in: client sign-up / sign-in (no code) + invite-only doors
+   to the mentor and admin flows. */
+function accountAuth(main) {
+  main.innerHTML = viewHead('account_circle', 'Account', 'Sign in or create an account',
+    'Signing in is optional — your data is already saved on this device. Create a free client account to sync it across devices. Mentors and admins use their own doors below.') +
+    `<div class="grid-2" style="gap:18px;align-items:start">
+      <div class="card">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-violet">Client / Student</span></div>
+        <h2 style="font-size:1.15rem;margin-bottom:4px">Create a free account</h2>
+        <p class="muted" style="font-size:13px;margin-bottom:14px">No code needed. Sync your roadmap, applications and saved opportunities across devices.</p>
+        <input class="field" id="ac-email" type="email" autocomplete="email" placeholder="you@example.com" style="margin-bottom:10px">
+        <input class="field" id="ac-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" style="margin-bottom:12px">
+        <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="ac-signup">Create account</button>
+          <button class="btn btn-ghost btn-sm" id="ac-signin">I already have one</button>
+          <button class="btn btn-ghost btn-sm" id="ac-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="card">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-teal">Mentor</span><span class="chip chip-dim">Invite-only</span></div>
+          <h2 style="font-size:1.05rem;margin-bottom:4px">Mentor access</h2>
+          <p class="muted" style="font-size:13px;margin-bottom:14px">Mentoring is invite-only. If you’ve been given an invite code, continue to set up your mentor account — an admin approves it before you take requests.</p>
+          <a class="btn btn-ghost btn-sm" href="#mentor"><span class="material-symbols-outlined" style="font-size:15px">badge</span> Enter mentor sign-up</a>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-rose">Admin</span></div>
+          <h2 style="font-size:1.05rem;margin-bottom:4px">Admin access</h2>
+          <p class="muted" style="font-size:13px;margin-bottom:14px">Platform owners only.</p>
+          <a class="btn btn-ghost btn-sm" href="#admin"><span class="material-symbols-outlined" style="font-size:15px">lock</span> Go to admin sign-in</a>
+        </div>
+      </div>
+    </div>`;
+
+  const email = $('#ac-email'), pass = $('#ac-pass'), msg = $('#ac-msg');
+  const creds = () => ({ e: email.value.trim(), p: pass.value });
+  $('#ac-signup').onclick = async () => {
+    const { e, p } = creds();
+    if (!e || p.length < 6) { msg.textContent = 'Enter an email and a 6+ character password.'; return; }
+    msg.textContent = 'Creating account…';
+    try { await PFCloud.signUpEmail(e, p); toast('Account created — your data now syncs'); location.hash = '#dashboard'; }
+    catch (err) { msg.textContent = humanAuthError(err); }
+  };
+  $('#ac-signin').onclick = async () => {
+    const { e, p } = creds();
+    if (!e || !p) { msg.textContent = 'Enter your email and password.'; return; }
+    msg.textContent = 'Signing in…';
+    try { await PFCloud.signInEmail(e, p); toast('Signed in'); location.hash = '#dashboard'; }
+    catch (err) { msg.textContent = humanAuthError(err); }
+  };
+  $('#ac-google').onclick = async () => {
+    try { await PFCloud.signInGoogle(); toast('Signed in'); location.hash = '#dashboard'; }
+    catch (err) { msg.textContent = humanAuthError(err); }
+  };
+}
+
 /* ── 9b · Mentor Dashboard (#mentor) ─────────────────────────
-   Sign up / apply → pending review → (admin approves) → claim queue.
+   Invite code → sign up → pending review → (admin approves) → claim queue.
    Visually a sibling of #admin: same chip-filter tabs, cards, ledgers. */
 let mentorState = { tab: 'open', open: null, claimed: null, loading: false, loaded: false };
+// Set once the visitor enters the correct mentor invite code this session.
+let mentorInviteOk = false;
 
 function renderMentor(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
@@ -902,13 +1045,43 @@ function renderMentor(main) {
 
   if (PFCloud.isMentor()) return mentorDashboard(main);
   if (PFCloud.hasMentorProfile()) return mentorPending(main);
+  if (!mentorInviteOk) return mentorInviteGate(main);
   return mentorApply(main);
+}
+
+/* Invite-only gate: mentoring is no longer a public self-service sign-up.
+   A vetted person enters the mentor invite code (shared privately by the
+   admin) before they can create a mentor account — and even then the new
+   account is PENDING until an admin approves it. */
+function mentorInviteGate(main) {
+  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Mentoring is invite-only',
+    'PathFinder mentors are vetted Sri Lankan postgrads already in New Zealand. If an admin has given you an invite code, enter it to set up your mentor account — it’s reviewed and approved before you take any requests.') +
+    `<div class="card" style="max-width:440px">
+      <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Mentor invite code</label>
+      <input class="field" id="mt-code" autocomplete="off" placeholder="Enter your invite code" style="margin-top:6px;text-transform:uppercase">
+      <p class="faint" id="mt-code-msg" style="font-size:12.5px;margin-top:10px;min-height:16px"></p>
+      <button class="btn btn-primary" id="mt-code-go" style="margin-top:4px;width:100%;justify-content:center">Continue</button>
+      <p class="faint" style="font-size:12px;margin-top:14px">Not a mentor? <a href="#account" style="color:var(--route)">Back to account</a> · <a href="#mentors" style="color:var(--route)">Ask a mentor instead</a></p>
+    </div>`;
+
+  const code = $('#mt-code'), msg = $('#mt-code-msg'), go = $('#mt-code-go');
+  const submit = () => {
+    if (norm(code.value) !== norm(ROLE_CODES().mentor)) {
+      msg.textContent = 'That invite code isn’t valid. Ask the PathFinder team for a current code.';
+      return;
+    }
+    mentorInviteOk = true;
+    route();
+  };
+  go.onclick = submit;
+  code.onkeydown = e => { if (e.key === 'Enter') submit(); };
+  code.focus();
 }
 
 function mentorApply(main) {
   const signedIn = PFCloud.isSignedIn();
-  main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', 'Become a mentor',
-    'You’ve made the move — help the next batch make it too. Create an account, tell us what you can help with, and we’ll review your application.') +
+  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Set up your mentor account',
+    'Invite confirmed. Create your account, tell us what you can help with, and an admin will review and approve your profile before it goes live.') +
     (signedIn ? '' : `<div class="card" style="max-width:520px;margin-bottom:18px">
       <h2 style="font-size:1.1rem;margin-bottom:4px">1 · Create your mentor account</h2>
       <p class="muted" style="font-size:13px;margin-bottom:14px">Use email and a password, or continue with Google.</p>
@@ -1017,6 +1190,26 @@ async function mentorLoad() {
   mentorState.loaded = true;
 }
 
+/* At-a-glance insights strip for the mentor dashboard, derived from the
+   already-loaded queue + claimed lists (no extra Firestore reads). */
+function mentorInsights() {
+  const open = mentorState.open || [];
+  const claimed = mentorState.claimed || [];
+  const active = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const completed = claimed.filter(r => r.status === 'completed').length;
+  const earned = claimed
+    .filter(r => r.payment && r.payment.paymentStatus === 'paid')
+    .reduce((s, r) => s + (Number(r.payment.amountLKR) || 0), 0);
+  const n = v => (mentorState.loaded ? v : '·');
+  const earnedLbl = mentorState.loaded ? 'LKR ' + earned.toLocaleString() : '·';
+  return `<div class="grid-4" style="margin-bottom:24px">
+    ${admMetric('hourglass_top', n(open.length), 'Open in queue')}
+    ${admMetric('assignment_ind', n(active), 'Active with you')}
+    ${admMetric('task_alt', n(completed), 'Sessions completed')}
+    ${admMetric('payments', earnedLbl, 'Earned (paid)')}
+  </div>`;
+}
+
 function mentorDashboard(main) {
   const p = PFCloud.getMentorProfile() || {};
   const active = p.active !== false;
@@ -1031,6 +1224,7 @@ function mentorDashboard(main) {
       <button class="btn btn-ghost btn-sm" id="mt-toggle">${active ? 'Pause requests' : 'Resume requests'}</button>
       <button class="btn btn-ghost btn-sm" id="mt-out">Sign out</button>
     </div>
+    ${mentorInsights()}
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="mtd-tabs">
       ${TABS.map(([id, lbl]) => `<button class="chip-filter ${mentorState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl} <span class="mono" style="opacity:.6">${counts[id]}</span></button>`).join('')}
       <button class="chip-filter" id="mtd-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
@@ -1171,7 +1365,9 @@ async function mentorCardAction(e) {
   if (window.PFCloud && window.PFCloud.onMentorState) {
     window.PFCloud.onMentorState(() => {
       paintMentorSidebarLink();
-      if ((location.hash || '').slice(1).split('?')[0] === 'mentor') { mentorState.loaded = false; route(); }
+      const v = (location.hash || '').slice(1).split('?')[0];
+      if (v === 'mentor') { mentorState.loaded = false; route(); }
+      else if (v === 'account') route();
     });
   } else if (tries < 40 && (window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey)) {
     setTimeout(() => hookMentorAuth(tries + 1), 100);
@@ -1211,17 +1407,20 @@ function renderAdmin(main) {
 
 function adminLogin(main) {
   main.innerHTML = viewHead('lock', 'Admin', 'Admin sign-in',
-    'Enter the admin password to view leads, mentors, requests and user records.') +
+    'Enter the admin access code and password to view leads, mentors, requests and user records.') +
     `<div class="card" style="max-width:420px">
+      <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Access code</label>
+      <input class="field" id="adm-code" autocomplete="off" placeholder="Admin code" style="margin:6px 0 14px;text-transform:uppercase">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Password</label>
       <input class="field" id="adm-pw" type="password" autocomplete="current-password" placeholder="••••••••" style="margin-top:6px">
       <p class="faint" id="adm-msg" style="font-size:12.5px;margin-top:10px;min-height:16px"></p>
       <button class="btn btn-primary" id="adm-go" style="margin-top:4px;width:100%;justify-content:center">Sign in</button>
     </div>`;
 
-  const pw = $('#adm-pw'), msg = $('#adm-msg'), go = $('#adm-go');
+  const codeEl = $('#adm-code'), pw = $('#adm-pw'), msg = $('#adm-msg'), go = $('#adm-go');
   async function submit() {
     const val = pw.value;
+    if (norm(codeEl.value) !== norm(ROLE_CODES().admin)) { msg.textContent = 'Incorrect admin access code.'; return; }
     if (!val) { msg.textContent = 'Enter the password.'; return; }
     go.disabled = true; msg.textContent = 'Checking…';
     try {
@@ -1234,8 +1433,9 @@ function adminLogin(main) {
     }
   }
   go.onclick = submit;
+  codeEl.onkeydown = e => { if (e.key === 'Enter') pw.focus(); };
   pw.onkeydown = e => { if (e.key === 'Enter') submit(); };
-  pw.focus();
+  codeEl.focus();
 }
 
 async function adminLoad() {
@@ -1377,6 +1577,11 @@ function admOverview(body) {
   const fieldRows = Object.entries(fields).sort((a, b) => b[1] - a[1]);
 
   body.innerHTML = `
+    ${pendingM ? `<a class="card" href="#" id="adm-pending-jump" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px;border-color:var(--ochre)">
+      <span class="material-symbols-outlined" style="color:var(--ochre)">hourglass_top</span>
+      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0"><strong>${pendingM} mentor application${pendingM === 1 ? '' : 's'}</strong> waiting for approval. Review and approve them in the Mentors tab.</p>
+      <span class="btn btn-ghost btn-sm">Review now</span>
+    </a>` : ''}
     <div class="grid-4" style="margin-bottom:28px">
       ${admMetric('mark_email_read', (adminState.leads || []).length, 'Email leads')}
       ${admMetric('support_agent', `${approvedM}/${pendingM}`, 'Mentors approved / pending')}
@@ -1397,6 +1602,9 @@ function admOverview(body) {
             <td class="mono" style="width:1%;text-align:right">${n}</td></tr>`).join('')}</tbody></table>`
         : `<p class="muted" style="font-size:13.5px">No completed assessments synced yet.</p>`}
     </div>`;
+
+  const jump = $('#adm-pending-jump', body);
+  if (jump) jump.onclick = e => { e.preventDefault(); $('#adm-tabs .chip-filter[data-tab="mentors"]')?.click(); };
 }
 
 function admLeads(body) {
