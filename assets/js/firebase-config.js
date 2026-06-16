@@ -41,3 +41,29 @@ window.PF_FIREBASE_CONFIG = {
    gate at runtime, never stored here.
    ──────────────────────────────────────────────────────────── */
 window.PF_ADMIN_EMAIL = 'admin@pathfinder.app';
+
+/* ── Role secret codes ───────────────────────────────────────
+   PathFinder has three login roles:
+
+     · Client / Student — login is OPTIONAL. Anyone can use the app
+       anonymously; creating an account (to sync across devices)
+       needs NO code.
+     · Mentor — invite-only. Creating a mentor account requires the
+       `mentor` code below, AND the new account starts as PENDING:
+       an admin must approve it in the Admin panel before the mentor
+       can claim requests. Two gates: the code, then approval.
+     · Admin — the Admin panel asks for the `admin` code before the
+       Firebase admin password.
+
+   IMPORTANT — these codes are a soft gate only (they ship in client
+   JS, so a determined visitor can read them). They exist to keep
+   casual users out of the mentor/admin flows. The REAL security is
+   enforced server-side by firestore.rules: a mentor can do nothing
+   privileged until an admin sets approved:true, and admin reads are
+   granted only to the admin email's authenticated session. Rotate
+   these codes by editing this file and redeploying.
+   ──────────────────────────────────────────────────────────── */
+window.PF_ROLE_CODES = {
+  mentor: 'MNTR',
+  admin:  'ADMN',
+};

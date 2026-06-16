@@ -296,6 +296,18 @@ if (cfg && cfg.apiKey) {
     hasMentorProfile: () => !!mentorProfile,
     getMentorProfile: () => mentorProfile,
     isSignedIn: () => !!(auth.currentUser && !auth.currentUser.isAnonymous),
+    // The single source of truth for "which dashboard does this session
+    // get?". Mirrors the three login roles plus their in-between states.
+    //   admin · mentor (approved) · mentor_pending · client (named) · anon
+    role: () => {
+      const u = auth.currentUser;
+      if (!u) return 'anon';
+      if (isAdminUser(u)) return 'admin';
+      if (mentorProfile && mentorProfile.approved) return 'mentor';
+      if (mentorProfile) return 'mentor_pending';
+      if (!u.isAnonymous) return 'client';
+      return 'anon';
+    },
     // True once any session exists (incl. the anonymous one minted on load) —
     // i.e. when reads/writes keyed on the current uid will succeed.
     hasUser: () => !!auth.currentUser,
