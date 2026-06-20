@@ -174,6 +174,13 @@ const PFStore = (() => {
   }
   function deleteFundsPlan(id) { set('fundsPlans', getFundsPlans().filter(p => p.id !== id)); }
 
+  // Research Studio: one object { intake, candidates, selected, proposal,
+  //   sources, generatedAt }. Scholarly results are cached inside it so
+  //   reopening #research does NOT re-hit the external API (or Firestore).
+  //   Firebase: users/{uid}/kv/research — one debounced write.
+  const getResearch = () => get('research');
+  const setResearch = (r) => set('research', r);
+
   return { get, set, remove, onChange, applyRemote, getMeta,
            getAssessment, setAssessment, getSaved, toggleSaved, isSaved,
            APP_STATUSES, getApps, upsertApp, deleteApp, addLead,
@@ -183,5 +190,6 @@ const PFStore = (() => {
            CONSULT_STATUSES, getConsults, addConsultation, updateConsult, deleteConsult,
            getCalcPrefs, setCalcPrefs,
            getFirstMonthsProgress, setFirstMonthsProgress,
-           getFundsPlans, saveFundsPlan, deleteFundsPlan };
+           getFundsPlans, saveFundsPlan, deleteFundsPlan,
+           getResearch, setResearch };
 })();
