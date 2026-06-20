@@ -882,6 +882,55 @@ const PF_CONSULT_TOPICS = {
   'settle-family':     'Family & schools',
   'roadmap-supervisor':'Supervisor outreach',
   'roadmap-proposal':  'Research proposal',
+  'research-proposal': 'Research proposal review',
+};
+
+/* ════════════════════════════════════════════════════════════
+   Research Studio (#research) — config for the topic & proposal
+   generator. The "AI" is a free, no-key scholarly-API search
+   (OpenAlex) + a deterministic generator that assembles a proposal
+   from real papers, the student's answers, and the NZ dataset above.
+   No backend, no API key, no paid services — stays inside Spark.
+   ════════════════════════════════════════════════════════════ */
+
+// Methodology choices for the intake step. `blurb` is reusable boilerplate
+// woven into the generated proposal's Methodology section; `methods` seeds
+// the indicative-approach bullets.
+const PF_RESEARCH_METHODS = [
+  { v:'experimental', t:'Experimental / lab study', short:'experimental study',
+    blurb:'a controlled experimental programme — designing studies, collecting primary data under varied conditions, and testing hypotheses against measured outcomes',
+    methods:['Experimental design & controls','Primary data collection','Statistical hypothesis testing'] },
+  { v:'computational', t:'Computational / modelling', short:'computational study',
+    blurb:'computational modelling and simulation — formalising the problem, implementing and validating models, and analysing their behaviour against real or synthetic data',
+    methods:['Mathematical / computational modelling','Simulation & validation','Sensitivity analysis'] },
+  { v:'datadriven', t:'Data-driven / machine learning', short:'machine-learning study',
+    blurb:'a data-driven pipeline — assembling and curating datasets, engineering and training models, and evaluating them with held-out data and ablation studies',
+    methods:['Dataset assembly & curation','Model development & training','Benchmarking & ablation studies'] },
+  { v:'qualitative', t:'Qualitative study', short:'qualitative study',
+    blurb:'a qualitative inquiry — purposive sampling, interviews or case studies, and thematic/grounded analysis to surface patterns and meaning',
+    methods:['Purposive sampling','Interviews / case studies','Thematic or grounded analysis'] },
+  { v:'mixed', t:'Mixed methods', short:'mixed-methods study',
+    blurb:'a mixed-methods design — combining quantitative measurement with qualitative depth so the strands triangulate and explain one another',
+    methods:['Sequential / concurrent design','Quantitative measurement','Qualitative follow-up & triangulation'] },
+  { v:'theoretical', t:'Theoretical / analytical', short:'theoretical analysis',
+    blurb:'a theoretical and analytical programme — formalising definitions, proving properties, and deriving results that advance the conceptual foundations',
+    methods:['Formal problem definition','Analytical derivation / proofs','Comparison with existing theory'] },
+  { v:'applied', t:'Applied / design & build', short:'design-and-build project',
+    blurb:'a design-and-build programme — engineering an artefact or system, then evaluating it against real-world requirements and stakeholder needs',
+    methods:['Requirements & design','Prototype / system build','Evaluation against real use cases'] },
+];
+
+// A few extra search terms per field to sharpen the OpenAlex query when the
+// student's own keywords are sparse. Keyed by PF_FIELDS entries.
+const PF_FIELD_KEYWORDS = {
+  'Computer Science & AI':        ['machine learning','algorithms','artificial intelligence'],
+  'Engineering':                  ['systems','design','optimisation'],
+  'Health & Medicine':            ['clinical','health outcomes','biomedical'],
+  'Business & Economics':         ['economics','policy','markets'],
+  'Environmental Science':        ['climate','sustainability','ecology'],
+  'Agriculture & Food':           ['agriculture','food science','crop'],
+  'Physics & Mathematics':        ['modelling','theory','quantum'],
+  'Social Sciences & Education':  ['education','society','wellbeing'],
 };
 
 /* ════════════════════════════════════════════════════════════

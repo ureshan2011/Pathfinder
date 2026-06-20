@@ -20,6 +20,7 @@ function toast(msg) {
 const ROUTES = {
   assessment: renderAssessment,
   roadmap:    renderRoadmap,
+  research:   renderResearch,
   explore:    renderExplore,
   funding:    renderFunding,
   dashboard:  renderDashboard,
@@ -328,6 +329,540 @@ function renderRoadmap(main) {
     </div>`;
   requestAnimationFrame(() => $$('[data-reveal]', main).forEach(el => el.classList.add('visible')));
 }
+
+/* ── 2b · Research Studio (topic & proposal generator) ───────
+   "AI" = a free, no-key scholarly-API search (OpenAlex) + a
+   deterministic generator that turns real papers + the student's
+   answers + the NZ dataset into candidate directions and a full
+   proposal draft. No backend, no key, works offline (degraded). */
+let researchState = { stage: 'intake', intake: null, results: null,
+  candidates: [], selected: null, proposal: null, loading: false,
+  error: null, started: false };
+
+const rsCap   = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const rsLower = s => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+
+/* Reconstruct plain text from OpenAlex's abstract_inverted_index */
+function reconstructAbstract(inv) {
+  if (!inv) return '';
+  const words = [];
+  Object.entries(inv).forEach(([word, positions]) =>
+    positions.forEach(pos => { words[pos] = word; }));
+  const text = words.filter(Boolean).join(' ').trim();
+  return text.length > 360 ? text.slice(0, 357).trim() + '…' : text;
+}
+
+/* Normalise a raw OpenAlex /works payload into the shape the UI needs */
+function parseWorks(works) {
+  const papers = (works || []).map(w => ({
+    title: w.title || w.display_name || '',
+    year: w.publication_year || null,
+    venue: (w.primary_location && w.primary_location.source && w.primary_location.source.display_name)
+      || (w.host_venue && w.host_venue.display_name) || '',
+    citations: w.cited_by_count || 0,
+    authors: (w.authorships || []).map(a => a.author && a.author.display_name).filter(Boolean),
+    concepts: (w.concepts || []).filter(c => c.level >= 1 && c.score >= 0.3).map(c => c.display_name),
+    abstract: reconstructAbstract(w.abstract_inverted_index),
+    doi: w.doi || '',
+    url: (w.primary_location && w.primary_location.landing_page_url) || w.doi || '',
+  })).filter(p => p.title);
+
+  const authorFreq = {}, conceptFreq = {}, years = {};
+  papers.forEach(p => {
+    p.authors.forEach(a => { authorFreq[a] = (authorFreq[a] || 0) + 1; });
+    p.concepts.forEach(c => { conceptFreq[c] = (conceptFreq[c] || 0) + 1; });
+    if (p.year) years[p.year] = (years[p.year] || 0) + 1;
+  });
+  const rank = obj => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+  return {
+    papers,
+    topAuthors: rank(authorFreq).slice(0, 8).map(([name, count]) => ({ name, count })),
+    topConcepts: rank(conceptFreq).slice(0, 12).map(([name, count]) => ({ name, count })),
+    years,
+  };
+}
+
+/* Free, no-key, CORS-enabled scholarly search. Times out and degrades
+   gracefully — the rest of the feature still works without it. */
+async function openAlexSearch(intake) {
+  const terms = [intake.topic, intake.keywords, (PF_FIELD_KEYWORDS[intake.field] || []).join(' ')]
+    .filter(Boolean).join(' ').trim();
+  const fromYear = new Date().getFullYear() - 6;
+  const params = new URLSearchParams({
+    search: terms || intake.field || 'research',
+    filter: `from_publication_date:${fromYear}-01-01`,
+    sort: 'cited_by_count:desc',
+  });
+  params.set('per-page', '25');
+  const email = (window.PF_CONFIG && PF_CONFIG.contactEmail) || '';
+  if (email && !/example/i.test(email)) params.set('mailto', email);
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const resp = await fetch('https://api.openalex.org/works?' + params.toString(), { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    return { results: parseWorks(data.results) };
+  } catch (e) {
+    return { results: parseWorks([]), error: e.message || 'network' };
+  }
+}
+
+/* Strip JATS/HTML tags Crossref sometimes wraps abstracts in */
+function stripTags(s) { return s ? String(s).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : ''; }
+
+/* When a source has no concept taxonomy (Crossref), derive crude sub-themes
+   from the frequency of meaningful title words across the result set. */
+const RS_STOP = new Set(('the a an of and or for to in on at with using use used based via from into over under between within across study studies ' +
+  'analysis approach approaches method methods novel new towards toward case review research model models data system systems').split(/\s+/));
+function deriveConcepts(papers) {
+  const freq = {};
+  papers.forEach(p => (p.title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/)
+    .forEach(w => { if (w.length > 4 && !RS_STOP.has(w)) freq[w] = (freq[w] || 0) + 1; }));
+  return Object.entries(freq).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1])
+    .slice(0, 12).map(([name, count]) => ({ name, count }));
+}
+
+/* Crossref: genuinely free, polite-pool, no credits — the resilient fallback
+   when OpenAlex is rate-limited/over-budget. No abstracts/concepts guaranteed. */
+function parseCrossRef(items) {
+  const papers = (items || []).map(w => {
+    const ab = stripTags(w.abstract);
+    return {
+      title: (w.title || [])[0] || '',
+      year: (((w.issued || {})['date-parts'] || [[]])[0] || [])[0] || null,
+      venue: (w['container-title'] || [])[0] || '',
+      citations: w['is-referenced-by-count'] || 0,
+      authors: (w.author || []).map(a => [a.given, a.family].filter(Boolean).join(' ')).filter(Boolean),
+      concepts: [],
+      abstract: ab.length > 360 ? ab.slice(0, 357).trim() + '…' : ab,
+      doi: w.DOI ? 'https://doi.org/' + w.DOI : '',
+      url: w.URL || (w.DOI ? 'https://doi.org/' + w.DOI : ''),
+    };
+  }).filter(p => p.title);
+  const authorFreq = {}, years = {};
+  papers.forEach(p => { p.authors.forEach(a => { authorFreq[a] = (authorFreq[a] || 0) + 1; });
+    if (p.year) years[p.year] = (years[p.year] || 0) + 1; });
+  const rank = o => Object.entries(o).sort((a, b) => b[1] - a[1]);
+  return { papers, topAuthors: rank(authorFreq).slice(0, 8).map(([name, count]) => ({ name, count })),
+    topConcepts: deriveConcepts(papers), years };
+}
+
+async function crossRefSearch(intake) {
+  const terms = [intake.topic, intake.keywords, (PF_FIELD_KEYWORDS[intake.field] || []).join(' ')]
+    .filter(Boolean).join(' ').trim();
+  const fromYear = new Date().getFullYear() - 6;
+  const params = new URLSearchParams({ query: terms || intake.field || 'research',
+    rows: '25', sort: 'is-referenced-by-count', order: 'desc' });
+  params.set('filter', `from-pub-date:${fromYear}-01-01`);
+  const email = (window.PF_CONFIG && PF_CONFIG.contactEmail) || '';
+  if (email && !/example/i.test(email)) params.set('mailto', email);
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const resp = await fetch('https://api.crossref.org/works?' + params.toString(), { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    return { results: parseCrossRef(data.message && data.message.items) };
+  } catch (e) {
+    return { results: parseCrossRef([]), error: e.message || 'network' };
+  }
+}
+
+/* Try OpenAlex (richer: abstracts + concepts) then fall back to Crossref,
+   then to a degraded offline scaffold. Returns { results, source, error }. */
+async function runScholarlySearch(intake) {
+  const oa = await openAlexSearch(intake);
+  if (!oa.error && oa.results.papers.length) return { results: oa.results, source: 'OpenAlex' };
+  const cr = await crossRefSearch(intake);
+  if (cr.results.papers.length) return { results: cr.results, source: 'Crossref' };
+  return { results: oa.results, source: null, error: oa.error || cr.error || 'unavailable' };
+}
+
+/* 3–5 candidate directions from the student's input + trending concepts */
+function generateCandidates(intake, results) {
+  const topic = intake.topic.trim().replace(/[.\s]+$/, '');
+  const method = PF_RESEARCH_METHODS.find(m => m.v === intake.method) || PF_RESEARCH_METHODS[1];
+  // Clip very long topic phrases so generated titles stay readable.
+  const tWords = topic.split(/\s+/);
+  const topicShort = tWords.length > 9 ? tWords.slice(0, 9).join(' ') : topic;
+  const lowTopic = topic.toLowerCase();
+  // Drop angle terms already contained in the topic (avoids "...learning using learning").
+  const concepts = (results.topConcepts || []).map(c => c.name)
+    .filter(c => { const cw = c.toLowerCase();
+      return cw !== intake.field.toLowerCase() && !lowTopic.includes(cw); });
+  const angles = concepts.length ? concepts.slice(0, 5)
+    : ['emerging methods', 'real-world data', 'rigorous evaluation', 'reproducibility', 'equitable access'];
+  const templates = [
+    c => `${rsCap(method.short)}: ${rsLower(topicShort)} through the lens of ${rsLower(c)}`,
+    c => `${rsCap(topicShort)} — addressing ${rsLower(c)} in the New Zealand context`,
+    c => `Bridging ${rsLower(c)} and ${rsLower(topicShort)}: an under-explored intersection`,
+    c => `Towards robust ${rsLower(topicShort)}: the role of ${rsLower(c)}`,
+    c => `A ${rsLower(method.short)} of ${rsLower(topicShort)} informed by ${rsLower(c)}`,
+  ];
+  const seen = new Set(), out = [];
+  for (let i = 0; i < templates.length && out.length < 5; i++) {
+    const angle = angles[i % angles.length];
+    const title = templates[i](angle);
+    if (seen.has(title)) continue;
+    seen.add(title);
+    out.push({ id: 'cand_' + i, title, angle,
+      question: `How can a ${rsLower(method.short)} advance ${rsLower(topicShort)} with respect to ${rsLower(angle)}?` });
+  }
+  return out;
+}
+
+/* Score the NZ labs against the topic + discovered concepts */
+function matchLabs(intake, results) {
+  const terms = (intake.topic + ' ' + (intake.keywords || '') + ' ' +
+    (results.topConcepts || []).map(c => c.name).join(' ')).toLowerCase();
+  const pool = PF_LABS.filter(l => l.field === intake.field);
+  const scored = (pool.length ? pool : PF_LABS).map(l => {
+    let score = l.field === intake.field ? 2 : 0;
+    l.topics.forEach(t => {
+      if (terms.includes(t.toLowerCase())) score += 2;
+      t.toLowerCase().split(/\s+/).forEach(w => { if (w.length > 3 && terms.includes(w)) score += 1; });
+    });
+    return { lab: l, score };
+  }).sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(s => s.lab);
+}
+
+function citeTag(p) {
+  const last = (p.authors[0] || 'Author').split(' ').slice(-1)[0] || 'Author';
+  return `(${last}${p.authors.length > 1 ? ' et al.' : ''}, ${p.year || 'n.d.'})`;
+}
+function formatRef(p) {
+  const authors = p.authors.length
+    ? p.authors.slice(0, 3).join(', ') + (p.authors.length > 3 ? ', et al.' : '')
+    : 'Unknown author';
+  return `${authors} ${p.year ? `(${p.year}). ` : ''}${p.title}.${p.venue ? ` ${p.venue}.` : ''}${p.doi ? ` ${p.doi}` : ''}`.trim();
+}
+
+function buildResearchTimeline() {
+  return [
+    { when: 'Year 1', items: ['Confirm research questions and complete the full literature review', 'Provisional registration and an agreed supervision plan', 'Pilot study / proof-of-concept; confirmation (full registration) review at ~12 months'] },
+    { when: 'Year 2', items: ['Core data collection or model development', 'First conference paper or workshop submission', 'Mid-candidature progress review'] },
+    { when: 'Year 3', items: ['Complete analysis and remaining studies', 'Submit journal articles from thesis chapters', 'Write up, submit, and defend the thesis'] },
+  ];
+}
+
+/* Assemble the structured proposal object from a chosen direction */
+function buildProposal(intake, candidate, results) {
+  const method = PF_RESEARCH_METHODS.find(m => m.v === intake.method) || PF_RESEARCH_METHODS[1];
+  const papers = (results.papers || []).slice(0, 6);
+  const cites = papers.map(citeTag);
+  const themes = (results.topConcepts || []).slice(0, 5).map(c => c.name);
+  const labs = matchLabs(intake, results);
+
+  const abstract = `This doctoral research investigates ${rsLower(intake.topic)}` +
+    `${intake.problem ? `, motivated by ${rsLower(intake.problem)}` : ''}. ` +
+    `Adopting ${method.blurb}, the project focuses on ${rsLower(candidate.angle)} as an under-served angle within ${intake.field}. ` +
+    `The intended contribution is new evidence and methods that advance both scholarship and practice, with relevance to the New Zealand research context.`;
+
+  const background = `Recent work in ${intake.field}` +
+    `${themes.length ? ` has concentrated on ${themes.slice(0, 3).join(', ')}` : ' has grown rapidly'}` +
+    `${cites.length ? ` ${cites.slice(0, 3).join(' ')}` : ''}. ` +
+    (papers.length
+      ? `The most-cited recent literature (see References) frames the current state of the field. `
+      : `A focused reading of 10–15 recent papers will frame the current state of the field. `) +
+    `This proposal builds on that base while targeting ${rsLower(candidate.angle)}, which remains comparatively under-explored.`;
+
+  const gap = `Despite this progress, ${rsLower(candidate.angle)} in relation to ${rsLower(intake.topic)} is not yet well understood` +
+    `${themes.length > 1 ? `, particularly where ${themes[0]} and ${themes[1]} intersect` : ''}. ` +
+    `${intake.problem ? rsCap(intake.problem) + '. ' : ''}This project addresses that gap directly.`;
+
+  const questions = [
+    candidate.question,
+    `What evidence from a ${rsLower(method.short)} best characterises ${rsLower(intake.topic)} in practice?`,
+    `How do the findings transfer to the New Zealand setting and its national research priorities?`,
+  ];
+
+  const methodology = `The project will pursue ${method.blurb}. Indicatively this involves: ${method.methods.join('; ')}. ` +
+    `Data sources, instruments, and evaluation criteria will be refined with the supervisor during the first six months.`;
+
+  return {
+    title: candidate.title, intake, abstract, background, gap, questions, methodology,
+    timeline: buildResearchTimeline(),
+    supervisors: labs.map(l => { const u = uniById(l.uni);
+      return { lab: l.name, supervisor: l.supervisor, uni: u ? u.name : l.uni, hint: l.hint }; }),
+    refs: papers.map(formatRef),
+    sourcedFrom: papers.length,
+    generatedAt: Date.now(),
+  };
+}
+
+function proposalToMarkdown(p) {
+  const methodLabel = (PF_RESEARCH_METHODS.find(m => m.v === p.intake.method) || {}).t || '';
+  const L = [];
+  L.push(`# ${p.title}\n`);
+  L.push(`*Field:* ${p.intake.field}  \n*Methodology:* ${methodLabel}  \n*Generated by PathFinder Research Studio*\n`);
+  L.push(`## Abstract\n\n${p.abstract}\n`);
+  L.push(`## Background & significance\n\n${p.background}\n`);
+  L.push(`## Research gap\n\n${p.gap}\n`);
+  L.push(`## Research questions\n\n${p.questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`);
+  L.push(`## Methodology\n\n${p.methodology}\n`);
+  L.push(`## Indicative 3-year timeline\n\n${p.timeline.map(t => `**${t.when}**\n${t.items.map(i => `- ${i}`).join('\n')}`).join('\n\n')}\n`);
+  if (p.supervisors.length) L.push(`## Suggested NZ supervisors & labs\n\n${p.supervisors.map(s => `- **${s.lab}** (${s.uni}) — ${s.supervisor}. ${s.hint}`).join('\n')}\n`);
+  if (p.refs.length) L.push(`## References\n\n${p.refs.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`);
+  L.push(`\n---\n_Draft scaffold — verify all citations and refine with your supervisor before submission._`);
+  return L.join('\n');
+}
+
+function persistResearch() {
+  const rs = researchState;
+  PFStore.setResearch({ intake: rs.intake, candidates: rs.candidates,
+    selected: rs.selected, proposal: rs.proposal, results: rs.results,
+    generatedAt: Date.now() });
+}
+
+function startDiscovery() {
+  researchState.loading = true;
+  researchState.error = null;
+  route(); // paint the loading state
+  runScholarlySearch(researchState.intake).then(res => {
+    researchState.results = res.results;
+    researchState.error = res.error || null;
+    researchState.source = res.source || null;
+    researchState.candidates = generateCandidates(researchState.intake, res.results);
+    researchState.loading = false;
+    if ((location.hash || '').slice(1).split('?')[0] === 'research') route();
+  });
+}
+
+function renderResearch(main) {
+  const rs = researchState;
+  if (!rs.started) {
+    const saved = PFStore.getResearch();
+    if (saved && saved.proposal) return renderResearchLanding(main, saved);
+  }
+  if (rs.stage === 'proposal' && rs.proposal) return renderResearchProposal(main);
+  if (rs.stage === 'discover') return renderResearchDiscover(main);
+  return renderResearchIntake(main);
+}
+
+function renderResearchLanding(main, saved) {
+  main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Your research workspace',
+    'Pick up where you left off, or start a fresh topic search.') +
+    `<div class="card" style="max-width:680px">
+      <span class="chip chip-teal">Saved draft</span>
+      <h3 style="font-size:1.2rem;margin:10px 0 6px">${esc(saved.proposal.title)}</h3>
+      <p class="muted" style="font-size:13.5px">Field: ${esc(saved.intake.field)} · saved ${new Date(saved.proposal.generatedAt).toLocaleDateString()}</p>
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="rs-resume">Open saved proposal</button>
+        <button class="btn btn-ghost" id="rs-new">Start a new topic</button>
+      </div>
+    </div>`;
+  $('#rs-resume', main).onclick = () => {
+    researchState = { stage: 'proposal', started: true, loading: false, error: null,
+      intake: saved.intake, results: saved.results || { papers: [], topAuthors: [], topConcepts: [], years: {} },
+      candidates: saved.candidates || [], selected: saved.selected, proposal: saved.proposal };
+    route();
+  };
+  $('#rs-new', main).onclick = () => {
+    researchState = { stage: 'intake', intake: null, results: null, candidates: [],
+      selected: null, proposal: null, loading: false, error: null, started: true };
+    route();
+  };
+}
+
+function renderResearchIntake(main) {
+  const a = PFStore.getAssessment();
+  const prefField = (a && a.result && a.result.field) || '';
+  const prev = researchState.intake || {};
+  main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Find your PhD topic & draft a proposal',
+    'Answer a few questions. PathFinder searches real, recent academic literature (free, no sign-up) and turns it into candidate directions and a full proposal draft.') +
+    `<div class="card" style="max-width:680px">
+      <div class="rs-field">
+        <label class="rs-label">Your broad field</label>
+        <select class="field" id="rs-fieldsel">
+          ${PF_FIELDS.map(f => `<option ${(prev.field || prefField) === f ? 'selected' : ''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="rs-field">
+        <label class="rs-label">What do you want to research? <span class="faint">(one sentence, your own words)</span></label>
+        <textarea class="field" id="rs-topic" rows="2" placeholder="e.g. using machine learning to detect crop disease from drone imagery">${esc(prev.topic || '')}</textarea>
+      </div>
+      <div class="rs-field">
+        <label class="rs-label">What problem or gap motivates you? <span class="faint">(optional)</span></label>
+        <textarea class="field" id="rs-problem" rows="2" placeholder="e.g. smallholder farmers lack affordable early-warning tools">${esc(prev.problem || '')}</textarea>
+      </div>
+      <div class="rs-field">
+        <label class="rs-label">Preferred methodology</label>
+        <select class="field" id="rs-method">
+          ${PF_RESEARCH_METHODS.map(m => `<option value="${m.v}" ${prev.method === m.v ? 'selected' : ''}>${m.t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="rs-field">
+        <label class="rs-label">Extra keywords <span class="faint">(optional, comma-separated)</span></label>
+        <input class="field" id="rs-keywords" placeholder="e.g. remote sensing, precision agriculture" value="${esc(prev.keywords || '')}">
+      </div>
+      <button class="btn btn-primary" id="rs-go" style="margin-top:8px">
+        <span class="material-symbols-outlined" style="font-size:18px">search</span> Find research directions
+      </button>
+      <p class="faint" style="font-size:12px;margin-top:14px">Powered by the open <a href="https://openalex.org" target="_blank" rel="noopener" style="color:var(--route)">OpenAlex</a> catalogue. Drafts are a starting point — always refine with a supervisor.</p>
+    </div>`;
+  $('#rs-go', main).onclick = () => {
+    const topic = $('#rs-topic', main).value.trim();
+    if (!topic) return toast('Tell us what you want to research first');
+    researchState.intake = {
+      field: $('#rs-fieldsel', main).value,
+      topic,
+      problem: $('#rs-problem', main).value.trim(),
+      method: $('#rs-method', main).value,
+      keywords: $('#rs-keywords', main).value.trim(),
+    };
+    researchState.stage = 'discover';
+    researchState.started = true;
+    researchState.results = null;
+    startDiscovery();
+  };
+}
+
+function yearHistogram(years) {
+  const xs = Object.keys(years).map(Number).sort((a, b) => a - b);
+  if (!xs.length) return '';
+  const max = Math.max(...xs.map(y => years[y]));
+  return `<div class="rs-hist">${xs.map(y => `
+    <div class="rs-hist-bar" title="${y}: ${years[y]} paper(s)">
+      <span style="height:${Math.round(years[y] / max * 100)}%"></span><em>${String(y).slice(2)}</em>
+    </div>`).join('')}</div>`;
+}
+
+function renderResearchDiscover(main) {
+  const rs = researchState;
+  if (rs.loading || !rs.results) {
+    main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Searching the literature…',
+      'Querying the open OpenAlex catalogue for recent, highly-cited work in your area.') +
+      `<div class="card" style="max-width:520px;text-align:center;padding:48px 28px">
+        <div class="rs-spinner"></div>
+        <p class="muted" style="margin-top:18px;font-size:14px">Reading recent papers and mapping the field…</p>
+      </div>`;
+    return;
+  }
+  const r = rs.results;
+  const labs = matchLabs(rs.intake, r);
+  const notice = rs.error
+    ? `<div class="rs-notice"><span class="material-symbols-outlined" style="font-size:16px">cloud_off</span>
+        Couldn't reach the literature services right now, so the directions below are built from your answers and PathFinder's NZ data. You can still generate a full proposal and add citations later.</div>`
+    : (rs.source ? `<p class="faint" style="font-size:12px;margin:-8px 0 18px">Literature sourced live from ${esc(rs.source)} · ${r.papers.length} recent papers</p>` : '');
+  main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Candidate directions & literature map',
+    `For “${esc(rs.intake.topic)}” in ${esc(rs.intake.field)}.`) +
+    notice +
+    `<div style="margin-bottom:24px"><button class="btn btn-ghost btn-sm" id="rs-back">← Edit answers</button></div>
+     <h2 class="rs-h2">Pick a direction to expand</h2>
+     <div class="grid-2" style="margin-bottom:36px">
+       ${rs.candidates.map(c => `
+         <div class="card rs-cand">
+           <span class="chip chip-violet">${esc(c.angle)}</span>
+           <h3 style="font-size:1.05rem;margin:10px 0 8px">${esc(c.title)}</h3>
+           <p class="muted" style="font-size:13px">${esc(c.question)}</p>
+           <button class="btn btn-primary btn-sm rs-expand" data-id="${c.id}" style="margin-top:14px">
+             Expand into proposal <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></button>
+         </div>`).join('')}
+     </div>` +
+    (r.papers.length ? `
+      <h2 class="rs-h2">Literature map</h2>
+      <div class="grid-2" style="margin-bottom:24px">
+        <div class="card">
+          <strong style="font-size:13px">Trending sub-themes</strong>
+          <div class="rs-chips">${r.topConcepts.slice(0, 10).map(c => `<span class="chip chip-dim">${esc(c.name)}</span>`).join('')}</div>
+          ${yearHistogram(r.years)}
+        </div>
+        <div class="card">
+          <strong style="font-size:13px">Most active authors</strong>
+          <ul class="rs-authors">${r.topAuthors.slice(0, 8).map(a => `<li>${esc(a.name)} <span class="faint">· ${a.count}</span></li>`).join('')}</ul>
+        </div>
+      </div>
+      <h2 class="rs-h2">Key recent papers</h2>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:28px">
+        ${r.papers.slice(0, 10).map(p => `
+          <div class="card rs-paper">
+            <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <strong style="font-size:14px;flex:1;min-width:200px">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:var(--ink)">${esc(p.title)}</a>` : esc(p.title)}</strong>
+              <span class="chip chip-gold" style="height:fit-content">${p.citations.toLocaleString()} cites</span>
+            </div>
+            <p class="faint" style="font-size:12px;margin-top:4px">${esc(p.authors.slice(0, 3).join(', '))}${p.authors.length > 3 ? ' et al.' : ''}${p.year ? ` · ${p.year}` : ''}${p.venue ? ` · ${esc(p.venue)}` : ''}</p>
+            ${p.abstract ? `<p class="muted" style="font-size:12.5px;margin-top:8px">${esc(p.abstract)}</p>` : ''}
+          </div>`).join('')}
+      </div>` : '') +
+    (labs.length ? `
+      <h2 class="rs-h2">NZ labs that fit this topic</h2>
+      <div class="grid-3">
+        ${labs.map(l => { const u = uniById(l.uni); return `
+          <div class="card">
+            <span class="chip chip-teal">${esc(u ? u.name : l.uni)}</span>
+            <h3 style="font-size:1rem;margin:8px 0 4px">${esc(l.name)}</h3>
+            <p class="faint" style="font-size:12.5px">${esc(l.supervisor)}</p>
+            <p class="muted" style="font-size:12.5px;margin-top:8px">${esc(l.hint)}</p>
+          </div>`; }).join('')}
+      </div>` : '');
+  $('#rs-back', main).onclick = () => { researchState.stage = 'intake'; route(); };
+  $$('.rs-expand', main).forEach(b => b.onclick = () => {
+    const cand = rs.candidates.find(c => c.id === b.dataset.id);
+    researchState.selected = cand;
+    researchState.proposal = buildProposal(rs.intake, cand, rs.results);
+    researchState.stage = 'proposal';
+    persistResearch();
+    toast('Proposal drafted and saved');
+    route();
+  });
+}
+
+function renderResearchProposal(main) {
+  const p = researchState.proposal;
+  if (!p) { researchState.stage = 'intake'; return renderResearchIntake(main); }
+  const methodLabel = (PF_RESEARCH_METHODS.find(m => m.v === p.intake.method) || {}).t || '';
+  const sec = (title, body) => `<section class="rs-sec"><h3>${title}</h3>${body}</section>`;
+  main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Your draft proposal',
+    'A structured scaffold from your answers and real literature. Refine it with a supervisor before submitting.') +
+    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
+      <button class="btn btn-ghost btn-sm" id="rs-back2">← Back to directions</button>
+      <button class="btn btn-primary btn-sm rs-copy"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
+      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="md"><span class="material-symbols-outlined" style="font-size:15px">download</span> .md</button>
+      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="txt"><span class="material-symbols-outlined" style="font-size:15px">download</span> .txt</button>
+    </div>
+    <div class="card rs-proposal" style="max-width:800px">
+      <div class="rs-stamps">
+        <span class="chip chip-violet">${esc(p.intake.field)}</span>
+        <span class="chip chip-dim">${esc(methodLabel)}</span>
+        ${p.sourcedFrom ? `<span class="chip chip-gold">${p.sourcedFrom} sources cited</span>` : `<span class="chip chip-dim">offline draft</span>`}
+      </div>
+      <h1 class="rs-title">${esc(p.title)}</h1>
+      ${sec('Abstract', `<p>${esc(p.abstract)}</p>`)}
+      ${sec('Background &amp; significance', `<p>${esc(p.background)}</p>`)}
+      ${sec('Research gap', `<p>${esc(p.gap)}</p>`)}
+      ${sec('Research questions', `<ol class="rs-ol">${p.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol>`)}
+      ${sec('Methodology', `<p>${esc(p.methodology)}</p>`)}
+      ${sec('Indicative 3-year timeline', p.timeline.map(t => `<div class="rs-tl"><strong>${t.when}</strong><ul>${t.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join(''))}
+      ${p.supervisors.length ? sec('Suggested NZ supervisors &amp; labs', `<ul class="rs-sup">${p.supervisors.map(s => `<li><strong>${esc(s.lab)}</strong> — ${esc(s.uni)} · ${esc(s.supervisor)}<br><span class="faint" style="font-size:12.5px">${esc(s.hint)}</span></li>`).join('')}</ul>`) : ''}
+      ${p.refs.length ? sec('References', `<ol class="rs-refs">${p.refs.map(r => `<li>${esc(r)}</li>`).join('')}</ol>`) : `<p class="faint" style="font-size:12.5px">No external citations were fetched. Add 8–12 recent references before submitting.</p>`}
+      <p class="rs-disclaimer">Draft scaffold generated by PathFinder — verify every citation and refine with your supervisor before any submission.</p>
+    </div>
+    ${consultCTA('research-proposal')}`;
+  $('#rs-back2', main).onclick = () => { researchState.stage = 'discover'; route(); };
+}
+
+/* Proposal copy/download — delegated once, mirrors the template handler */
+document.addEventListener('click', e => {
+  const cp = e.target.closest('.rs-copy'), dl = e.target.closest('.rs-dl');
+  if (!cp && !dl) return;
+  const p = researchState.proposal;
+  if (!p) return;
+  const md = proposalToMarkdown(p);
+  if (cp) { navigator.clipboard.writeText(md).then(() => toast('Proposal copied to clipboard')); return; }
+  const fmt = dl.dataset.fmt === 'txt' ? 'txt' : 'md';
+  const blob = new Blob([md], { type: 'text/plain' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: (p.title.replace(/[^\w]+/g, '-').toLowerCase().replace(/^-+|-+$/g, '').slice(0, 60) || 'research-proposal') + '.' + fmt,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Proposal downloaded (.' + fmt + ')');
+});
 
 /* ── 3 · Explore (universities, labs, supervisors) ──────── */
 function renderExplore(main) {

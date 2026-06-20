@@ -233,3 +233,55 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ── Research Studio (#research) ── */
+.rs-field { margin-bottom: 16px; }
+.rs-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--ink-soft); margin-bottom: 6px; }
+.rs-label .faint { font-weight: 400; }
+.rs-h2 { font-size: 1.05rem; letter-spacing: .01em; margin: 0 0 16px; }
+
+.rs-cand { display: flex; flex-direction: column; }
+.rs-cand .btn { align-self: flex-start; margin-top: auto; }
+
+.rs-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--gold-soft); border: 1px solid var(--ochre);
+  border-radius: 3px; padding: 12px 16px; margin-bottom: 24px;
+  font-size: 13px; color: var(--ink-soft); max-width: 720px;
+}
+.rs-notice .material-symbols-outlined { color: var(--ochre); flex-shrink: 0; margin-top: 1px; }
+
+.rs-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.rs-authors { list-style: none; margin: 12px 0 0; padding: 0; font-size: 13px; }
+.rs-authors li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+.rs-authors li:last-child { border-bottom: none; }
+
+.rs-hist { display: flex; align-items: flex-end; gap: 5px; height: 70px; margin-top: 16px; }
+.rs-hist-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.rs-hist-bar > span { display: block; width: 100%; min-height: 2px; background: var(--route); border-radius: 1px; transition: height .5s cubic-bezier(.22,1,.36,1); }
+.rs-hist-bar > em { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint); font-style: normal; margin-top: 4px; }
+
+.rs-paper a:hover { color: var(--route); }
+
+.rs-spinner {
+  width: 34px; height: 34px; margin: 0 auto; border-radius: 50%;
+  border: 3px solid var(--line-2); border-top-color: var(--route);
+  animation: rs-spin .8s linear infinite;
+}
+@keyframes rs-spin { to { transform: rotate(360deg); } }
+
+.rs-proposal .rs-stamps { display: flex; flex-wrap: wrap; gap: 7px; }
+.rs-title { font-family: var(--font-display); font-size: clamp(1.4rem, 2.6vw, 1.9rem); line-height: 1.18; margin: 14px 0 4px; }
+.rs-sec { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.rs-sec h3 { font-size: 12px; font-family: var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--route); margin-bottom: 12px; }
+.rs-sec p { font-size: 14.5px; line-height: 1.7; color: var(--ink); }
+.rs-ol, .rs-refs { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+.rs-refs { font-size: 13px; color: var(--ink-soft); }
+.rs-refs li { margin-bottom: 8px; }
+.rs-tl { margin-bottom: 14px; }
+.rs-tl strong { display: block; font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; color: var(--sea); margin-bottom: 4px; }
+.rs-tl ul, .rs-sup { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; }
+.rs-sup { list-style: none; padding-left: 0; }
+.rs-sup li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.rs-sup li:last-child { border-bottom: none; }
+.rs-disclaimer { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-faint); font-style: italic; }
