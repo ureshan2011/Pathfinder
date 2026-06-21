@@ -285,3 +285,16 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .rs-sup li { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .rs-sup li:last-child { border-bottom: none; }
 .rs-disclaimer { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-faint); font-style: italic; }
+
+/* "Research happening in New Zealand" opportunity panel */
+.rs-nz { margin: 8px 0 36px; border: 1px solid var(--pine); background: linear-gradient(180deg, color-mix(in srgb, var(--pine) 6%, transparent), transparent); }
+.rs-nz-h { font-size: 1.15rem; margin: 12px 0 6px; }
+.rs-nz-sub { font-size: 14px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 16px; max-width: 64ch; }
+.rs-nz-people { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.rs-nz-person { display: flex; align-items: center; gap: 10px; }
+.rs-nz-dot { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-size: 15px; color: #fff; background: var(--pine); }
+.rs-nz-person strong { display: block; font-size: 13.5px; }
+.rs-nz-place { display: block; font-size: 12px; color: var(--ink-faint); }
+.rs-nz-why { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 0 0 8px; }
+.rs-nz-perks { margin: 0 0 18px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--ink-soft); }
+.rs-nz-cta { display: flex; gap: 10px; flex-wrap: wrap; }
