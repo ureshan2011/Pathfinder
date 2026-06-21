@@ -8,6 +8,20 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const uniById = id => PF_UNIVERSITIES.find(u => u.id === id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* Given a raw institution display-name (from OpenAlex authorships, or our
+   curated labs), resolve it to { uni } — one of the eight NZ campuses with an
+   Explore link — or { institute } — a recognised NZ research home — or null.
+   This is what lets a "cited author" quietly become "a researcher at a real NZ
+   university the student could join". */
+function nzHomeFromName(name) {
+  if (!name) return null;
+  const m = PF_UNI_MATCH.find(x => x.re.test(name));
+  if (m) return { uni: uniById(m.id), uniId: m.id };
+  const inst = PF_NZ_INSTITUTES.find(x => x.re.test(name));
+  if (inst) return { institute: inst.label };
+  return null;
+}
+
 function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
@@ -352,48 +366,87 @@ function reconstructAbstract(inv) {
   return text.length > 360 ? text.slice(0, 357).trim() + '…' : text;
 }
 
-/* Normalise a raw OpenAlex /works payload into the shape the UI needs */
+/* Normalise a raw OpenAlex /works payload into the shape the UI needs.
+   For every author we keep their NZ affiliation (read straight from the
+   authorship's institutions[].country_code) so we can later surface, quietly,
+   which of the people advancing this topic are based in New Zealand. */
 function parseWorks(works) {
-  const papers = (works || []).map(w => ({
-    title: w.title || w.display_name || '',
-    year: w.publication_year || null,
-    venue: (w.primary_location && w.primary_location.source && w.primary_location.source.display_name)
-      || (w.host_venue && w.host_venue.display_name) || '',
-    citations: w.cited_by_count || 0,
-    authors: (w.authorships || []).map(a => a.author && a.author.display_name).filter(Boolean),
-    concepts: (w.concepts || []).filter(c => c.level >= 1 && c.score >= 0.3).map(c => c.display_name),
-    abstract: reconstructAbstract(w.abstract_inverted_index),
-    doi: w.doi || '',
-    url: (w.primary_location && w.primary_location.landing_page_url) || w.doi || '',
-  })).filter(p => p.title);
+  const papers = (works || []).map(w => {
+    const authorships = (w.authorships || []);
+    // The NZ people on this paper, with the institution that makes them NZ.
+    const nzAuthors = [];
+    authorships.forEach(a => {
+      const name = a.author && a.author.display_name;
+      if (!name) return;
+      const nzInst = (a.institutions || []).find(i => i.country_code === 'NZ');
+      if (nzInst) nzAuthors.push({ name, institution: nzInst.display_name || '' });
+    });
+    return {
+      title: w.title || w.display_name || '',
+      year: w.publication_year || null,
+      venue: (w.primary_location && w.primary_location.source && w.primary_location.source.display_name)
+        || (w.host_venue && w.host_venue.display_name) || '',
+      citations: w.cited_by_count || 0,
+      authors: authorships.map(a => a.author && a.author.display_name).filter(Boolean),
+      nzAuthors,
+      isNZ: nzAuthors.length > 0,
+      concepts: (w.concepts || []).filter(c => c.level >= 1 && c.score >= 0.3).map(c => c.display_name),
+      abstract: reconstructAbstract(w.abstract_inverted_index),
+      doi: w.doi || '',
+      url: (w.primary_location && w.primary_location.landing_page_url) || w.doi || '',
+    };
+  }).filter(p => p.title);
 
-  const authorFreq = {}, conceptFreq = {}, years = {};
+  return aggregateResults(papers);
+}
+
+/* Build the author / concept / year rollups (and the NZ-author roll-up) from a
+   flat list of papers. Shared by OpenAlex, Crossref and the merge step. */
+function aggregateResults(papers) {
+  const authorFreq = {}, conceptFreq = {}, years = {}, nzMap = {};
   papers.forEach(p => {
     p.authors.forEach(a => { authorFreq[a] = (authorFreq[a] || 0) + 1; });
-    p.concepts.forEach(c => { conceptFreq[c] = (conceptFreq[c] || 0) + 1; });
+    (p.concepts || []).forEach(c => { conceptFreq[c] = (conceptFreq[c] || 0) + 1; });
     if (p.year) years[p.year] = (years[p.year] || 0) + 1;
+    (p.nzAuthors || []).forEach(na => {
+      const k = na.name;
+      if (!nzMap[k]) nzMap[k] = { name: na.name, institution: na.institution, count: 0 };
+      nzMap[k].count++;
+      if (!nzMap[k].institution && na.institution) nzMap[k].institution = na.institution;
+    });
   });
   const rank = obj => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+  // NZ authors, most-recurring first, tagged with the campus we resolve them to.
+  const nzAuthors = Object.values(nzMap)
+    .map(a => ({ ...a, home: nzHomeFromName(a.institution) }))
+    .sort((a, b) => b.count - a.count);
   return {
     papers,
     topAuthors: rank(authorFreq).slice(0, 8).map(([name, count]) => ({ name, count })),
     topConcepts: rank(conceptFreq).slice(0, 12).map(([name, count]) => ({ name, count })),
+    nzAuthors,
+    nzPaperCount: papers.filter(p => p.isNZ).length,
     years,
   };
 }
 
 /* Free, no-key, CORS-enabled scholarly search. Times out and degrades
    gracefully — the rest of the feature still works without it. */
-async function openAlexSearch(intake) {
+async function openAlexSearch(intake, nzOnly) {
   const terms = [intake.topic, intake.keywords, (PF_FIELD_KEYWORDS[intake.field] || []).join(' ')]
     .filter(Boolean).join(' ').trim();
   const fromYear = new Date().getFullYear() - 6;
+  // The NZ pass restricts to papers with at least one New-Zealand-based author,
+  // so even niche topics surface work happening at NZ campuses; the global pass
+  // keeps the literature map credible. We merge the two (NZ-first) afterwards.
+  const filters = [`from_publication_date:${fromYear}-01-01`];
+  if (nzOnly) filters.push('authorships.institutions.country_code:NZ');
   const params = new URLSearchParams({
     search: terms || intake.field || 'research',
-    filter: `from_publication_date:${fromYear}-01-01`,
+    filter: filters.join(','),
     sort: 'cited_by_count:desc',
   });
-  params.set('per-page', '25');
+  params.set('per-page', nzOnly ? '15' : '25');
   const email = (window.PF_CONFIG && PF_CONFIG.contactEmail) || '';
   if (email && !/example/i.test(email)) params.set('mailto', email);
   try {
@@ -441,12 +494,12 @@ function parseCrossRef(items) {
       url: w.URL || (w.DOI ? 'https://doi.org/' + w.DOI : ''),
     };
   }).filter(p => p.title);
-  const authorFreq = {}, years = {};
-  papers.forEach(p => { p.authors.forEach(a => { authorFreq[a] = (authorFreq[a] || 0) + 1; });
-    if (p.year) years[p.year] = (years[p.year] || 0) + 1; });
-  const rank = o => Object.entries(o).sort((a, b) => b[1] - a[1]);
-  return { papers, topAuthors: rank(authorFreq).slice(0, 8).map(([name, count]) => ({ name, count })),
-    topConcepts: deriveConcepts(papers), years };
+  // Crossref has no institution/country data, so isNZ/nzAuthors come back empty
+  // here (the caller fills nzAuthors from the curated seed). Concepts are
+  // derived from titles since Crossref carries no concept taxonomy.
+  const agg = aggregateResults(papers);
+  agg.topConcepts = deriveConcepts(papers);
+  return agg;
 }
 
 async function crossRefSearch(intake) {
@@ -471,14 +524,107 @@ async function crossRefSearch(intake) {
   }
 }
 
-/* Try OpenAlex (richer: abstracts + concepts) then fall back to Crossref,
-   then to a degraded offline scaffold. Returns { results, source, error }. */
+/* Merge the global + NZ OpenAlex passes into one result set: dedup by DOI/title
+   (NZ copy wins so its affiliations survive), then re-aggregate. Papers stay
+   ordered by citations for a credible literature map; the NZ steer happens in
+   how we surface NZ authors and which papers we cite, not by hiding global work. */
+function mergeResults(globalRes, nzRes) {
+  const key = p => (p.doi || p.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const seen = new Set(), papers = [];
+  [...((nzRes && nzRes.papers) || []), ...((globalRes && globalRes.papers) || [])].forEach(p => {
+    const k = key(p);
+    if (!k || seen.has(k)) return;
+    seen.add(k); papers.push(p);
+  });
+  papers.sort((a, b) => (b.citations || 0) - (a.citations || 0));
+  return aggregateResults(papers);
+}
+
+/* Curated NZ seed (the offline / no-affiliation-data half of the hybrid):
+   derive NZ researchers from PF_LABS for the field, so the "research happening
+   in New Zealand" panel still appears when we only have Crossref (no country
+   data) or no network at all. Flagged seed:true so the copy stays honest. */
+function nzSeedAuthors(intake) {
+  const pool = PF_LABS.filter(l => l.field === intake.field);
+  const out = [];
+  (pool.length ? pool : PF_LABS).forEach(l => {
+    const u = uniById(l.uni);
+    l.supervisor.split('/').map(s => s.trim())
+      .filter(s => s && !/multiple|various|several/i.test(s))
+      .forEach(name => out.push({
+        name: name.replace(/\s*\((founding|founder)\)/i, ''),
+        institution: u ? u.name : l.uni,
+        home: { uni: u, uniId: l.uni },
+        lab: l.name, topics: l.topics, count: 0, seed: true,
+      }));
+  });
+  // De-dup by name, keep first.
+  const seen = new Set();
+  return out.filter(a => { const k = a.name.toLowerCase(); return seen.has(k) ? false : (seen.add(k), true); });
+}
+
+/* The warm, ethical "this research lives in New Zealand" panel. It highlights
+   the NZ people behind the literature *indirectly* — as authors of the work the
+   student is reading/citing, shown with their campus, never labelled "your
+   supervisor" — then makes the honest case for why a NZ PhD is a real door.
+   `authors` is a list of { name, institution, home, cited?, seed? }. */
+function nzOpportunityPanel(authors) {
+  authors = (authors || []).slice(0, 6);
+  if (!authors.length) return '';
+  const live = authors.some(a => !a.seed);
+  const lead = live ? 'Notice who’s writing the work in your area'
+                    : 'Where this field is alive in New Zealand';
+  const sub = live
+    ? 'Several of the researchers whose recent papers match your topic are based at New Zealand universities — publishing right now, and supervising doctoral students. A PhD here could put you in the same corridor as them.'
+    : 'These New Zealand groups are active in your field — the kind of people you’d be citing, and potentially working alongside, on a doctorate here.';
+  const rows = authors.map(a => {
+    const uni = a.home && a.home.uni, inst = a.home && a.home.institute;
+    const place = uni ? uni.name : (inst || a.institution || 'New Zealand');
+    const city = uni ? uni.city : '';
+    return `<li class="rs-nz-person">
+      <span class="rs-nz-dot">${esc((a.name.trim()[0] || 'N').toUpperCase())}</span>
+      <div>
+        <strong>${esc(a.name)}</strong>${a.cited ? ' <span class="chip chip-gold">in your citations</span>' : ''}
+        <span class="rs-nz-place">${esc(place)}${city ? ' · ' + esc(city) : ''}</span>
+      </div>
+    </li>`;
+  }).join('');
+  return `<section class="rs-nz card">
+    <span class="chip chip-teal">Research happening in New Zealand</span>
+    <h3 class="rs-nz-h">${lead}</h3>
+    <p class="rs-nz-sub">${sub}</p>
+    <ul class="rs-nz-people">${rows}</ul>
+    <p class="rs-nz-why">And why being <em>here</em> matters for a PhD:</p>
+    <ul class="rs-nz-perks">
+      <li>Domestic PhD tuition (~NZ$7–8k/yr) — the same rate a local student pays</li>
+      <li>Work unlimited hours while you study; your partner gets an open work visa</li>
+      <li>A 3-year open post-study work visa once you graduate</li>
+    </ul>
+    <div class="rs-nz-cta">
+      <a class="btn btn-primary btn-sm" href="#explore">Explore their universities</a>
+      <a class="btn btn-ghost btn-sm" href="#kit">First-contact email template</a>
+    </div>
+    <p class="faint" style="font-size:11.5px;margin-top:12px">Authors and affiliations are drawn from the public research literature. PathFinder doesn’t arrange supervision — any approach is yours to make.</p>
+  </section>`;
+}
+
+/* Try OpenAlex (richer: abstracts, concepts, NZ affiliations) — running a global
+   and an NZ-only pass and merging — then fall back to Crossref, then to a
+   degraded offline scaffold. Either fallback still gets an NZ author panel from
+   the curated seed. Returns { results, source, error }. */
 async function runScholarlySearch(intake) {
-  const oa = await openAlexSearch(intake);
-  if (!oa.error && oa.results.papers.length) return { results: oa.results, source: 'OpenAlex' };
+  const [g, nz] = await Promise.all([openAlexSearch(intake, false), openAlexSearch(intake, true)]);
+  const gotGlobal = !g.error && g.results.papers.length;
+  const gotNZ = !nz.error && nz.results.papers.length;
+  if (gotGlobal || gotNZ) return { results: mergeResults(g.results, nz.results), source: 'OpenAlex' };
   const cr = await crossRefSearch(intake);
-  if (cr.results.papers.length) return { results: cr.results, source: 'Crossref' };
-  return { results: oa.results, source: null, error: oa.error || cr.error || 'unavailable' };
+  if (cr.results.papers.length) {
+    if (!cr.results.nzAuthors.length) cr.results.nzAuthors = nzSeedAuthors(intake);
+    return { results: cr.results, source: 'Crossref' };
+  }
+  const offline = g.results;
+  offline.nzAuthors = nzSeedAuthors(intake);
+  return { results: offline, source: null, error: g.error || nz.error || cr.error || 'unavailable' };
 }
 
 /* 3–5 candidate directions from the student's input + trending concepts */
@@ -552,10 +698,14 @@ function buildResearchTimeline() {
 /* Assemble the structured proposal object from a chosen direction */
 function buildProposal(intake, candidate, results) {
   const method = PF_RESEARCH_METHODS.find(m => m.v === intake.method) || PF_RESEARCH_METHODS[1];
-  const papers = (results.papers || []).slice(0, 6);
+  // NZ-prioritized citations: lead with NZ-authored papers, fill with global —
+  // so the references the student carries forward foreground NZ scholarship.
+  const all = results.papers || [];
+  const papers = [...all.filter(p => p.isNZ), ...all.filter(p => !p.isNZ)].slice(0, 6);
   const cites = papers.map(citeTag);
   const themes = (results.topConcepts || []).slice(0, 5).map(c => c.name);
   const labs = matchLabs(intake, results);
+  const nzAuthors = nzAuthorsForProposal(papers, results);
 
   const abstract = `This doctoral research investigates ${rsLower(intake.topic)}` +
     `${intake.problem ? `, motivated by ${rsLower(intake.problem)}` : ''}. ` +
@@ -586,12 +736,31 @@ function buildProposal(intake, candidate, results) {
   return {
     title: candidate.title, intake, abstract, background, gap, questions, methodology,
     timeline: buildResearchTimeline(),
-    supervisors: labs.map(l => { const u = uniById(l.uni);
-      return { lab: l.name, supervisor: l.supervisor, uni: u ? u.name : l.uni, hint: l.hint }; }),
+    groups: labs.map(l => { const u = uniById(l.uni);
+      return { lab: l.name, lead: l.supervisor, uni: u ? u.name : l.uni, hint: l.hint }; }),
+    nzAuthors,
     refs: papers.map(formatRef),
     sourcedFrom: papers.length,
     generatedAt: Date.now(),
   };
+}
+
+/* The indirect highlight: which authors of the work the proposal cites are
+   based in New Zealand. Prefer the NZ authors of the actually-cited papers
+   (strongest "these are the people behind your citations" link); fall back to
+   the result-set's NZ authors / curated seed. Returns up to 6, NZ-campus first. */
+function nzAuthorsForProposal(citedPapers, results) {
+  const byName = {};
+  citedPapers.forEach(p => (p.nzAuthors || []).forEach(na => {
+    if (!byName[na.name]) byName[na.name] = { name: na.name, institution: na.institution,
+      home: nzHomeFromName(na.institution), cited: true, count: 0 };
+    byName[na.name].count++;
+  }));
+  let list = Object.values(byName);
+  if (!list.length) list = (results.nzAuthors || []).slice();
+  // Authors we can pin to one of the eight campuses come first.
+  list.sort((a, b) => (!!(b.home && b.home.uni) - !!(a.home && a.home.uni)) || (b.count - a.count));
+  return list.slice(0, 6);
 }
 
 function proposalToMarkdown(p) {
@@ -605,7 +774,12 @@ function proposalToMarkdown(p) {
   L.push(`## Research questions\n\n${p.questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n`);
   L.push(`## Methodology\n\n${p.methodology}\n`);
   L.push(`## Indicative 3-year timeline\n\n${p.timeline.map(t => `**${t.when}**\n${t.items.map(i => `- ${i}`).join('\n')}`).join('\n\n')}\n`);
-  if (p.supervisors.length) L.push(`## Suggested NZ supervisors & labs\n\n${p.supervisors.map(s => `- **${s.lab}** (${s.uni}) — ${s.supervisor}. ${s.hint}`).join('\n')}\n`);
+  if ((p.nzAuthors || []).length) {
+    L.push(`## The work behind your references is happening in New Zealand\n`);
+    L.push(`Several authors of the literature cited above are based at New Zealand universities — the same campuses you could join as a doctoral researcher:\n`);
+    L.push(p.nzAuthors.map(a => `- **${a.name}** — ${(a.home && a.home.uni && a.home.uni.name) || (a.home && a.home.institute) || a.institution}`).join('\n') + '\n');
+  }
+  if ((p.groups || []).length) L.push(`## New Zealand research groups in this space\n\n${p.groups.map(s => `- **${s.lab}** (${s.uni}) — led by ${s.lead}. ${s.hint}`).join('\n')}\n`);
   if (p.refs.length) L.push(`## References\n\n${p.refs.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`);
   L.push(`\n---\n_Draft scaffold — verify all citations and refine with your supervisor before submission._`);
   return L.join('\n');
@@ -657,7 +831,7 @@ function renderResearchLanding(main, saved) {
     </div>`;
   $('#rs-resume', main).onclick = () => {
     researchState = { stage: 'proposal', started: true, loading: false, error: null,
-      intake: saved.intake, results: saved.results || { papers: [], topAuthors: [], topConcepts: [], years: {} },
+      intake: saved.intake, results: saved.results || { papers: [], topAuthors: [], topConcepts: [], nzAuthors: [], years: {} },
       candidates: saved.candidates || [], selected: saved.selected, proposal: saved.proposal };
     route();
   };
@@ -744,6 +918,11 @@ function renderResearchDiscover(main) {
   }
   const r = rs.results;
   const labs = matchLabs(rs.intake, r);
+  const nzNameMap = {}; (r.nzAuthors || []).forEach(a => { nzNameMap[a.name] = a; });
+  const nzChip = a => { const h = nzNameMap[a.name] && nzNameMap[a.name].home;
+    const label = h && (h.uni ? h.uni.name : h.institute);
+    return label ? ` <span class="chip chip-teal" style="font-size:10px">${esc(label)}</span>` : ''; };
+  const nzPanel = nzOpportunityPanel(r.nzAuthors);
   const notice = rs.error
     ? `<div class="rs-notice"><span class="material-symbols-outlined" style="font-size:16px">cloud_off</span>
         Couldn't reach the literature services right now, so the directions below are built from your answers and PathFinder's NZ data. You can still generate a full proposal and add citations later.</div>`
@@ -763,6 +942,7 @@ function renderResearchDiscover(main) {
              Expand into proposal <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></button>
          </div>`).join('')}
      </div>` +
+    nzPanel +
     (r.papers.length ? `
       <h2 class="rs-h2">Literature map</h2>
       <div class="grid-2" style="margin-bottom:24px">
@@ -773,7 +953,7 @@ function renderResearchDiscover(main) {
         </div>
         <div class="card">
           <strong style="font-size:13px">Most active authors</strong>
-          <ul class="rs-authors">${r.topAuthors.slice(0, 8).map(a => `<li>${esc(a.name)} <span class="faint">· ${a.count}</span></li>`).join('')}</ul>
+          <ul class="rs-authors">${r.topAuthors.slice(0, 8).map(a => `<li>${esc(a.name)} <span class="faint">· ${a.count}</span>${nzChip(a)}</li>`).join('')}</ul>
         </div>
       </div>
       <h2 class="rs-h2">Key recent papers</h2>
@@ -782,7 +962,7 @@ function renderResearchDiscover(main) {
           <div class="card rs-paper">
             <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
               <strong style="font-size:14px;flex:1;min-width:200px">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:var(--ink)">${esc(p.title)}</a>` : esc(p.title)}</strong>
-              <span class="chip chip-gold" style="height:fit-content">${p.citations.toLocaleString()} cites</span>
+              <span style="display:flex;gap:6px;height:fit-content">${p.isNZ ? '<span class="chip chip-teal">NZ-authored</span>' : ''}<span class="chip chip-gold">${p.citations.toLocaleString()} cites</span></span>
             </div>
             <p class="faint" style="font-size:12px;margin-top:4px">${esc(p.authors.slice(0, 3).join(', '))}${p.authors.length > 3 ? ' et al.' : ''}${p.year ? ` · ${p.year}` : ''}${p.venue ? ` · ${esc(p.venue)}` : ''}</p>
             ${p.abstract ? `<p class="muted" style="font-size:12.5px;margin-top:8px">${esc(p.abstract)}</p>` : ''}
@@ -837,10 +1017,12 @@ function renderResearchProposal(main) {
       ${sec('Research questions', `<ol class="rs-ol">${p.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol>`)}
       ${sec('Methodology', `<p>${esc(p.methodology)}</p>`)}
       ${sec('Indicative 3-year timeline', p.timeline.map(t => `<div class="rs-tl"><strong>${t.when}</strong><ul>${t.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join(''))}
-      ${p.supervisors.length ? sec('Suggested NZ supervisors &amp; labs', `<ul class="rs-sup">${p.supervisors.map(s => `<li><strong>${esc(s.lab)}</strong> — ${esc(s.uni)} · ${esc(s.supervisor)}<br><span class="faint" style="font-size:12.5px">${esc(s.hint)}</span></li>`).join('')}</ul>`) : ''}
+      ${(p.nzAuthors || []).length ? sec('The people behind your citations — in New Zealand', `<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:12px">Several authors of the work you cite above are based at New Zealand universities. These are exactly the kind of researchers a doctoral student in this area works alongside.</p><ul class="rs-sup">${p.nzAuthors.map(a => { const place = (a.home && a.home.uni && a.home.uni.name) || (a.home && a.home.institute) || a.institution; return `<li><strong>${esc(a.name)}</strong>${a.cited ? ' <span class="chip chip-gold">in your citations</span>' : ''}<br><span class="faint" style="font-size:12.5px">${esc(place)}</span></li>`; }).join('')}</ul>`) : ''}
+      ${(p.groups || []).length ? sec('New Zealand research groups in this space', `<ul class="rs-sup">${p.groups.map(s => `<li><strong>${esc(s.lab)}</strong> — ${esc(s.uni)}<br><span class="faint" style="font-size:12.5px">Group lead: ${esc(s.lead)}. ${esc(s.hint)}</span></li>`).join('')}</ul>`) : ''}
       ${p.refs.length ? sec('References', `<ol class="rs-refs">${p.refs.map(r => `<li>${esc(r)}</li>`).join('')}</ol>`) : `<p class="faint" style="font-size:12.5px">No external citations were fetched. Add 8–12 recent references before submitting.</p>`}
       <p class="rs-disclaimer">Draft scaffold generated by PathFinder — verify every citation and refine with your supervisor before any submission.</p>
     </div>
+    ${nzOpportunityPanel(p.nzAuthors)}
     ${consultCTA('research-proposal')}`;
   $('#rs-back2', main).onclick = () => { researchState.stage = 'discover'; route(); };
 }

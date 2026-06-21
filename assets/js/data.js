@@ -37,6 +37,40 @@ const PF_UNIVERSITIES = [
     note:'Specialist land-based university; highest research income per academic in NZ agriculture.' },
 ];
 
+/* Maps the institution display-names OpenAlex returns on each paper's authors
+   back to one of the eight NZ universities above, so a cited NZ author can be
+   linked to a real campus the student can explore. Order is specific-first:
+   "Auckland University of Technology" must match AUT before the generic
+   "Auckland" rule catches it, and "Lincoln University" before "Canterbury".
+   Used by nzUniFromName() in app.js — see the Research Studio. */
+const PF_UNI_MATCH = [
+  { id:'aut',     re:/auckland university of technology|\bAUT\b/i },
+  { id:'lincoln', re:/lincoln university|lincoln agritech/i },
+  { id:'massey',  re:/massey/i },
+  { id:'waikato', re:/waikato/i },
+  { id:'uc',      re:/university of canterbury|\bcanterbury\b/i },
+  { id:'vuw',     re:/victoria university of wellington|te herenga waka/i },
+  { id:'uoo',     re:/university of otago|\botago\b/i },
+  { id:'uoa',     re:/university of auckland|\bauckland\b/i },
+];
+
+/* Other recognised NZ research homes (Crown Research Institutes & independents)
+   that aren't one of the eight universities but are absolutely places a PhD
+   topic "lives" in New Zealand — surfaced (without an Explore link) when a
+   cited author is affiliated to one. country_code:NZ from OpenAlex is the real
+   signal; this list just gives them a friendlier short label. */
+const PF_NZ_INSTITUTES = [
+  { re:/niwa|national institute of water/i,                 label:'NIWA' },
+  { re:/plant\s*&?\s*food|plant and food research/i,        label:'Plant & Food Research' },
+  { re:/agresearch/i,                                       label:'AgResearch' },
+  { re:/manaaki whenua|landcare research/i,                 label:'Manaaki Whenua – Landcare' },
+  { re:/\bGNS\b|geological and nuclear/i,                   label:'GNS Science' },
+  { re:/\bESR\b|institute of environmental science/i,       label:'ESR' },
+  { re:/\bscion\b|forest research/i,                        label:'Scion' },
+  { re:/malaghan/i,                                         label:'Malaghan Institute' },
+  { re:/callaghan/i,                                        label:'Callaghan Innovation' },
+];
+
 const PF_LABS = [
   { id:'l1', uni:'uoa', name:'Strong AI Lab (NAOInstitute)', field:'Computer Science & AI',
     topics:['Deep learning','NLP','AI safety'], supervisor:'Prof. Michael Witbrock', email:'via faculty page',
