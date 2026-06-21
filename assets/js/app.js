@@ -683,39 +683,85 @@ function corpusFieldAuthors(field) {
 }
 
 /* Blend the NZ-author signals into one ranked, accurate list:
+   • the verified PF_NZ_SUPERVISORS roster (180+ named, topic-tagged supervisors),
    • OpenAlex group_by (topic-specific output, the most authoritative ranking),
    • the authors of the papers actually retrieved (gives campus + citations),
    • the corpus field index (best-published in the field, fills gaps offline).
-   Authors relevant to the topic rank first; citation impact breaks ties and
-   lets a leading researcher surface even from a thin result set. */
+   Verified supervisors whose subfield keywords match the topic get a strong
+   boost; this ensures the panel surfaces real, active NZ researchers even when
+   the API or corpus coverage is thin. */
 function blendNZAuthors(intake, results, groupAuthors) {
   const norm = s => String(s).toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
   const map = {};
   const e = name => (map[norm(name)] || (map[norm(name)] = {
-    name, topicCount: 0, matched: 0, citations: 0, institution: '', home: null }));
+    name, topicCount: 0, matched: 0, citations: 0, institution: '', home: null,
+    verified: false, subMatch: 0 }));
+  // Signal 1: verified supervisor roster — topic-keyword matching
+  const topicLC = (intake.topic + ' ' + (intake.keywords || '')).toLowerCase();
+  const topicToks = topicLC.split(/\s+/).filter(w => w.length > 2);
+  (typeof PF_NZ_SUPERVISORS !== 'undefined' ? PF_NZ_SUPERVISORS : [])
+    .filter(s => s.field === intake.field)
+    .forEach(s => {
+      const x = e(s.n);
+      x.verified = true;
+      const u = uniById(s.uni);
+      if (!x.institution) { x.institution = u ? u.name : s.uni; x.home = { uni: u, uniId: s.uni }; }
+      let sm = 0;
+      (s.sub || []).forEach(kw => {
+        const kwl = kw.toLowerCase();
+        if (topicLC.includes(kwl)) sm += 3;
+        else kwl.split(/\s+/).forEach(w => { if (w.length > 3 && topicToks.some(t => t.includes(w) || w.includes(t))) sm += 1; });
+      });
+      x.subMatch = Math.max(x.subMatch, sm);
+    });
+  // Signal 2: OpenAlex group_by facet
   (groupAuthors || []).forEach(g => { const x = e(g.name); x.topicCount = Math.max(x.topicCount, g.topicCount || 0); });
+  // Signal 3: authors from retrieved papers
   (results.nzAuthors || []).forEach(a => { const x = e(a.name);
     x.matched = Math.max(x.matched, a.count || 0);
     x.citations = Math.max(x.citations, a.citations || 0);
     if (!x.institution && a.institution) { x.institution = a.institution; x.home = a.home || nzHomeFromName(a.institution); } });
+  // Signal 4: corpus field index
   corpusFieldAuthors(intake.field).forEach(a => { const x = e(a.name);
     x.citations = Math.max(x.citations, a.citations || 0);
     if (!x.institution && a.institution) { x.institution = a.institution; x.home = a.home; } });
   const list = Object.values(map).filter(x => x.name).map(x => {
     const home = x.home || nzHomeFromName(x.institution);
+    const score = x.topicCount * 4 + x.matched * 3
+      + Math.min(6, Math.log10((x.citations || 0) + 1) * 2)
+      + (home ? 1.5 : 0)
+      + x.subMatch * 2
+      + (x.verified ? 2 : 0);
     return { name: x.name, institution: x.institution || (x.topicCount ? 'New Zealand' : x.institution),
       home, citations: x.citations, papers: x.matched || x.topicCount, cited: x.matched > 0,
-      score: x.topicCount * 4 + x.matched * 3 + Math.min(6, Math.log10((x.citations || 0) + 1) * 2) + (home ? 1.5 : 0) };
+      verified: x.verified, score };
   });
   list.sort((a, b) => b.score - a.score);
-  return list.slice(0, 10);
+  return list.slice(0, 12);
 }
 
-/* Curated NZ seed (the offline / no-affiliation-data half of the hybrid):
-   derive NZ researchers from PF_LABS for the field, so the "research happening
-   in New Zealand" panel still appears when we only have Crossref (no country
-   data) or no network at all. Flagged seed:true so the copy stays honest. */
+/* Curated NZ seed — draws from the verified PF_NZ_SUPERVISORS roster (180+
+   named researchers with subfield keywords and campus), falling back to
+   PF_LABS when no supervisors match. Topic-relevant supervisors rank first
+   so the panel stays useful even with zero network. */
 function nzSeedAuthors(intake) {
+  const topicLC = (intake.topic + ' ' + (intake.keywords || '')).toLowerCase();
+  const sups = (typeof PF_NZ_SUPERVISORS !== 'undefined' ? PF_NZ_SUPERVISORS : [])
+    .filter(s => s.field === intake.field);
+  if (sups.length) {
+    const scored = sups.map(s => {
+      const u = uniById(s.uni);
+      let rel = 0;
+      (s.sub || []).forEach(kw => { if (topicLC.includes(kw.toLowerCase())) rel += 3;
+        else kw.toLowerCase().split(/\s+/).forEach(w => { if (w.length > 3 && topicLC.includes(w)) rel += 1; }); });
+      return { name: s.n, institution: u ? u.name : s.uni, home: { uni: u, uniId: s.uni },
+        topics: s.sub, count: 0, seed: true, verified: true, rel };
+    });
+    scored.sort((a, b) => b.rel - a.rel);
+    const seen = new Set();
+    return scored.filter(a => { const k = a.name.toLowerCase(); return seen.has(k) ? false : (seen.add(k), true); }).slice(0, 10);
+  }
+  // Fallback: parse PF_LABS supervisor strings
   const pool = PF_LABS.filter(l => l.field === intake.field);
   const out = [];
   (pool.length ? pool : PF_LABS).forEach(l => {
@@ -729,7 +775,6 @@ function nzSeedAuthors(intake) {
         lab: l.name, topics: l.topics, count: 0, seed: true,
       }));
   });
-  // De-dup by name, keep first.
   const seen = new Set();
   return out.filter(a => { const k = a.name.toLowerCase(); return seen.has(k) ? false : (seen.add(k), true); });
 }
@@ -740,7 +785,7 @@ function nzSeedAuthors(intake) {
    supervisor" — then makes the honest case for why a NZ PhD is a real door.
    `authors` is a list of { name, institution, home, cited?, seed? }. */
 function nzOpportunityPanel(authors) {
-  authors = (authors || []).slice(0, 6);
+  authors = (authors || []).slice(0, 8);
   if (!authors.length) return '';
   const live = authors.some(a => !a.seed);
   const lead = live ? 'Notice who’s writing the work in your area'
@@ -936,21 +981,30 @@ function buildProposal(intake, candidate, results) {
 }
 
 /* The indirect highlight: which authors of the work the proposal cites are
-   based in New Zealand. Prefer the NZ authors of the actually-cited papers
-   (strongest "these are the people behind your citations" link); fall back to
-   the result-set's NZ authors / curated seed. Returns up to 6, NZ-campus first. */
+   based in New Zealand. Cross-references PF_NZ_SUPERVISORS for accurate
+   institution resolution. Returns up to 8, verified campus-pinned authors first. */
 function nzAuthorsForProposal(citedPapers, results) {
+  const norm = s => String(s).toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+  const supIdx = {};
+  (typeof PF_NZ_SUPERVISORS !== 'undefined' ? PF_NZ_SUPERVISORS : []).forEach(s => {
+    supIdx[norm(s.n)] = s;
+  });
   const byName = {};
   citedPapers.forEach(p => (p.nzAuthors || []).forEach(na => {
-    if (!byName[na.name]) byName[na.name] = { name: na.name, institution: na.institution,
-      home: nzHomeFromName(na.institution), cited: true, count: 0 };
-    byName[na.name].count++;
+    const k = norm(na.name);
+    if (!byName[k]) {
+      const sv = supIdx[k];
+      const u = sv ? uniById(sv.uni) : null;
+      byName[k] = { name: na.name, institution: u ? u.name : na.institution,
+        home: u ? { uni: u, uniId: sv.uni } : nzHomeFromName(na.institution),
+        cited: true, count: 0, verified: !!sv };
+    }
+    byName[k].count++;
   }));
   let list = Object.values(byName);
   if (!list.length) list = (results.nzAuthors || []).slice();
-  // Authors we can pin to one of the eight campuses come first.
-  list.sort((a, b) => (!!(b.home && b.home.uni) - !!(a.home && a.home.uni)) || (b.count - a.count));
-  return list.slice(0, 6);
+  list.sort((a, b) => (!!b.verified - !!a.verified) || (!!(b.home && b.home.uni) - !!(a.home && a.home.uni)) || (b.count - a.count));
+  return list.slice(0, 8);
 }
 
 function proposalToMarkdown(p) {
