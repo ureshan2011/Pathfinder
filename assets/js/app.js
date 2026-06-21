@@ -524,20 +524,114 @@ async function crossRefSearch(intake) {
   }
 }
 
-/* Merge the global + NZ OpenAlex passes into one result set: dedup by DOI/title
-   (NZ copy wins so its affiliations survive), then re-aggregate. Papers stay
-   ordered by citations for a credible literature map; the NZ steer happens in
-   how we surface NZ authors and which papers we cite, not by hiding global work. */
-function mergeResults(globalRes, nzRes) {
+/* Combine any number of result sets into one: dedup by DOI/title (earlier args
+   win, so pass NZ / corpus sources first to preserve their affiliations), then
+   order by citations for a credible literature map and re-aggregate. The NZ
+   steer happens in how we surface NZ authors and which papers we cite — not by
+   hiding global work. */
+function combineResults(...sets) {
   const key = p => (p.doi || p.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
   const seen = new Set(), papers = [];
-  [...((nzRes && nzRes.papers) || []), ...((globalRes && globalRes.papers) || [])].forEach(p => {
+  sets.forEach(s => ((s && s.papers) || []).forEach(p => {
     const k = key(p);
     if (!k || seen.has(k)) return;
     seen.add(k); papers.push(p);
-  });
+  }));
   papers.sort((a, b) => (b.citations || 0) - (a.citations || 0));
   return aggregateResults(papers);
+}
+function mergeResults(globalRes, nzRes) { return combineResults(nzRes, globalRes); }
+
+/* ── Pre-scraped NZ corpus (sharded) ──────────────────────────
+   10k+ recent NZ-authored papers live in per-field shards under
+   assets/js/corpus/<slug>.js, with a tiny index at assets/js/research-corpus.js.
+   We load the index once, then lazy-load ONLY the shard for the field a student
+   is searching — so the browser downloads ~one field's worth, never all 10k.
+   The corpus anchors the NZ side: it works offline and never hits a rate limit;
+   the live API still runs for freshness/global context. Rebuild the data with
+   scripts/scrape-nz-corpus.js. */
+function _loadScript(src) {
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+let _corpusIndexPromise = null;
+function ensureCorpusIndex() {
+  if (typeof window !== 'undefined' && window.PF_RESEARCH_CORPUS) return Promise.resolve(window.PF_RESEARCH_CORPUS);
+  if (_corpusIndexPromise) return _corpusIndexPromise;
+  _corpusIndexPromise = _loadScript('assets/js/research-corpus.js').then(() => window.PF_RESEARCH_CORPUS || null);
+  return _corpusIndexPromise;
+}
+
+const _shardPromises = {};
+/* Load one field's shard on demand. Resolves whether or not it succeeds. */
+function ensureField(field) {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  window.PF_CORPUS_SHARDS = window.PF_CORPUS_SHARDS || {};
+  if (window.PF_CORPUS_SHARDS[field]) return Promise.resolve(true);
+  if (_shardPromises[field]) return _shardPromises[field];
+  _shardPromises[field] = ensureCorpusIndex().then(idx => {
+    const info = idx && idx.fields && idx.fields[field];
+    if (!info) return false;
+    return _loadScript('assets/js/' + info.file).then(() => !!(window.PF_CORPUS_SHARDS && window.PF_CORPUS_SHARDS[field]));
+  });
+  return _shardPromises[field];
+}
+
+/* Ensure the index plus the shard(s) we'll query are loaded before a search. */
+function ensureCorpus(intake) {
+  return ensureCorpusIndex().then(() => ensureField(intake.field)).catch(() => false);
+}
+
+/* Expand a compact corpus record (short keys) to the standard paper shape. */
+function expandCorpusRec(r) {
+  return {
+    title: r.t || '', year: r.y || null, venue: r.v || '', citations: r.c || 0,
+    authors: r.a || [],
+    nzAuthors: (r.nz || []).map(x => ({ name: x.n, institution: x.i })),
+    isNZ: true,
+    concepts: r.k || [], abstract: r.ab || '',
+    doi: r.d || '', url: r.d || '',
+  };
+}
+
+const _corpusTok = s => String(s || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ')
+  .split(/\s+/).filter(w => w.length > 2 && !RS_STOP.has(w));
+
+/* Score & rank the local NZ corpus against the student's topic + keywords.
+   Returns up to `limit` papers in the standard shape (all NZ-authored), or []
+   if the corpus isn't loaded. Broadens beyond the chosen field if a niche topic
+   has too few in-field hits, so there's always NZ work to anchor to. */
+function corpusSearch(intake, limit = 25) {
+  const shards = (typeof window !== 'undefined' && window.PF_CORPUS_SHARDS) || null;
+  if (!shards) return [];
+  const terms = new Set([..._corpusTok(intake.topic), ..._corpusTok(intake.keywords),
+    ...(PF_FIELD_KEYWORDS[intake.field] || []).flatMap(_corpusTok)]);
+  const score = r => {
+    if (!terms.size) return r.c ? 1 : 0;
+    const hay = (r.t + ' ' + (r.k || []).join(' ') + ' ' + (r.ab || '')).toLowerCase();
+    let s = 0;
+    terms.forEach(t => { if (hay.includes(t)) s += 2; });
+    // tie-break toward well-cited work without letting it dominate relevance
+    return s ? s + Math.min(3, Math.log10((r.c || 0) + 1)) : 0;
+  };
+  const rank = list => list.map(r => ({ r, s: score(r) })).filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s);
+  let scored = rank(shards[intake.field] || []);
+  if (scored.length < 8) {
+    // Broaden across whatever other shards happen to be loaded already (we don't
+    // force-load every shard — the live NZ pass covers anything still missing).
+    const others = Object.entries(shards).filter(([f]) => f !== intake.field)
+      .flatMap(([, ps]) => ps || []);
+    const seen = new Set(scored.map(x => x.r.t));
+    scored = scored.concat(rank(others).filter(x => !seen.has(x.r.t)));
+  }
+  return scored.slice(0, limit).map(x => expandCorpusRec(x.r));
 }
 
 /* Curated NZ seed (the offline / no-affiliation-data half of the hybrid):
@@ -608,15 +702,23 @@ function nzOpportunityPanel(authors) {
   </section>`;
 }
 
-/* Try OpenAlex (richer: abstracts, concepts, NZ affiliations) — running a global
-   and an NZ-only pass and merging — then fall back to Crossref, then to a
-   degraded offline scaffold. Either fallback still gets an NZ author panel from
-   the curated seed. Returns { results, source, error }. */
+/* Anchor on the pre-scraped NZ corpus (real NZ-authored papers, always present
+   offline), then enrich with live OpenAlex — a global pass plus an NZ-filtered
+   pass — for freshness and global context. Corpus papers are passed first to
+   combineResults so they win de-dup. Falls back to Crossref, then to the curated
+   seed so the NZ author panel always appears. Returns { results, source, error }. */
 async function runScholarlySearch(intake) {
+  const corpus = corpusSearch(intake);                 // local NZ papers (may be [])
+  const corpusSet = corpus.length ? { papers: corpus } : null;
   const [g, nz] = await Promise.all([openAlexSearch(intake, false), openAlexSearch(intake, true)]);
   const gotGlobal = !g.error && g.results.papers.length;
   const gotNZ = !nz.error && nz.results.papers.length;
-  if (gotGlobal || gotNZ) return { results: mergeResults(g.results, nz.results), source: 'OpenAlex' };
+  if (gotGlobal || gotNZ) {
+    const results = combineResults(corpusSet, nz.results, g.results);
+    return { results, source: corpus.length ? 'NZ corpus + OpenAlex' : 'OpenAlex' };
+  }
+  // Offline / live failed but the corpus loaded — it alone is a solid NZ result.
+  if (corpus.length) return { results: aggregateResults(corpus), source: 'NZ corpus' };
   const cr = await crossRefSearch(intake);
   if (cr.results.papers.length) {
     if (!cr.results.nzAuthors.length) cr.results.nzAuthors = nzSeedAuthors(intake);
@@ -796,7 +898,9 @@ function startDiscovery() {
   researchState.loading = true;
   researchState.error = null;
   route(); // paint the loading state
-  runScholarlySearch(researchState.intake).then(res => {
+  // Lazy-load the index + this field's NZ corpus shard before searching, so it
+  // anchors the results; if it fails to load the live/seed path still works.
+  ensureCorpus(researchState.intake).then(() => runScholarlySearch(researchState.intake)).then(res => {
     researchState.results = res.results;
     researchState.error = res.error || null;
     researchState.source = res.source || null;
