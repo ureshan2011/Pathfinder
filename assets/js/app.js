@@ -410,16 +410,18 @@ function aggregateResults(papers) {
     if (p.year) years[p.year] = (years[p.year] || 0) + 1;
     (p.nzAuthors || []).forEach(na => {
       const k = na.name;
-      if (!nzMap[k]) nzMap[k] = { name: na.name, institution: na.institution, count: 0 };
+      if (!nzMap[k]) nzMap[k] = { name: na.name, institution: na.institution, count: 0, citations: 0 };
       nzMap[k].count++;
+      nzMap[k].citations += (p.citations || 0);   // citation impact, not just paper count
       if (!nzMap[k].institution && na.institution) nzMap[k].institution = na.institution;
     });
   });
   const rank = obj => Object.entries(obj).sort((a, b) => b[1] - a[1]);
-  // NZ authors, most-recurring first, tagged with the campus we resolve them to.
+  // NZ authors in this result set, tagged with the campus we resolve them to.
+  // (Final ranking/blending with the corpus index happens in blendNZAuthors.)
   const nzAuthors = Object.values(nzMap)
     .map(a => ({ ...a, home: nzHomeFromName(a.institution) }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => (b.count - a.count) || (b.citations - a.citations));
   return {
     papers,
     topAuthors: rank(authorFreq).slice(0, 8).map(([name, count]) => ({ name, count })),
@@ -430,23 +432,32 @@ function aggregateResults(papers) {
   };
 }
 
-/* Free, no-key, CORS-enabled scholarly search. Times out and degrades
-   gracefully — the rest of the feature still works without it. */
-async function openAlexSearch(intake, nzOnly) {
-  const terms = [intake.topic, intake.keywords, (PF_FIELD_KEYWORDS[intake.field] || []).join(' ')]
-    .filter(Boolean).join(' ').trim();
-  const fromYear = new Date().getFullYear() - 6;
-  // The NZ pass restricts to papers with at least one New-Zealand-based author,
-  // so even niche topics surface work happening at NZ campuses; the global pass
-  // keeps the literature map credible. We merge the two (NZ-first) afterwards.
+/* Build the OpenAlex `search` string. The topic + the student's own keywords
+   lead; field keywords are only appended when the input is sparse, so they
+   sharpen recall without diluting relevance on a well-specified topic. */
+function rsQuery(intake) {
+  const core = [intake.topic, intake.keywords].filter(Boolean).join(' ').trim();
+  if (core.replace(/\s+/g, '').length >= 24) return core;
+  return [core, (PF_FIELD_KEYWORDS[intake.field] || []).join(' ')].filter(Boolean).join(' ').trim()
+    || intake.field || 'research';
+}
+
+/* Free, no-key, CORS-enabled OpenAlex /works search. `opts.sort` defaults to
+   relevance (relevance_score:desc) — the previous citation-only sort discarded
+   OpenAlex's relevance ranking and hid relevant niche work; we now retrieve by
+   relevance and order the display by citations later. Degrades gracefully. */
+async function openAlexSearch(intake, nzOnly, opts = {}) {
+  const fromYear = new Date().getFullYear() - 7;
+  // The NZ pass restricts to papers with >= 1 New-Zealand-based author so even
+  // niche topics surface NZ work; the global pass keeps the map credible.
   const filters = [`from_publication_date:${fromYear}-01-01`];
   if (nzOnly) filters.push('authorships.institutions.country_code:NZ');
   const params = new URLSearchParams({
-    search: terms || intake.field || 'research',
+    search: rsQuery(intake),
     filter: filters.join(','),
-    sort: 'cited_by_count:desc',
+    sort: opts.sort || 'relevance_score:desc',
   });
-  params.set('per-page', nzOnly ? '15' : '25');
+  params.set('per-page', String(opts.perPage || 50));
   const email = (window.PF_CONFIG && PF_CONFIG.contactEmail) || '';
   if (email && !/example/i.test(email)) params.set('mailto', email);
   try {
@@ -459,6 +470,33 @@ async function openAlexSearch(intake, nzOnly) {
     return { results: parseWorks(data.results) };
   } catch (e) {
     return { results: parseWorks([]), error: e.message || 'network' };
+  }
+}
+
+/* The "best published NZ authors on this topic", straight from OpenAlex's native
+   analytics: group all NZ-authored works matching the query by author and read
+   the ranked counts. Far more accurate than aggregating a small page of papers.
+   Returns [{ name, topicCount }] (most prolific first) or [] on failure. */
+async function openAlexNZAuthors(intake) {
+  const fromYear = new Date().getFullYear() - 7;
+  const params = new URLSearchParams({
+    search: rsQuery(intake),
+    filter: `authorships.institutions.country_code:NZ,from_publication_date:${fromYear}-01-01`,
+    group_by: 'authorships.author.id',
+  });
+  const email = (window.PF_CONFIG && PF_CONFIG.contactEmail) || '';
+  if (email && !/example/i.test(email)) params.set('mailto', email);
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const resp = await fetch('https://api.openalex.org/works?' + params.toString(), { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    return (data.group_by || []).filter(g => g.key_display_name && g.key_display_name !== 'unknown')
+      .slice(0, 20).map(g => ({ name: g.key_display_name, topicCount: g.count }));
+  } catch (e) {
+    return [];
   }
 }
 
@@ -540,7 +578,6 @@ function combineResults(...sets) {
   papers.sort((a, b) => (b.citations || 0) - (a.citations || 0));
   return aggregateResults(papers);
 }
-function mergeResults(globalRes, nzRes) { return combineResults(nzRes, globalRes); }
 
 /* ── Pre-scraped NZ corpus (sharded) ──────────────────────────
    10k+ recent NZ-authored papers live in per-field shards under
@@ -634,6 +671,46 @@ function corpusSearch(intake, limit = 25) {
   return scored.slice(0, limit).map(x => expandCorpusRec(x.r));
 }
 
+/* The precomputed top NZ authors for a field (from the corpus index), ranked by
+   total citations — the best-published NZ researchers in the field, available
+   instantly and offline. Returns [{ name, institution, home, papers, citations }]. */
+function corpusFieldAuthors(field) {
+  const idx = (typeof window !== 'undefined' && window.PF_RESEARCH_CORPUS
+    && window.PF_RESEARCH_CORPUS.fields && window.PF_RESEARCH_CORPUS.fields[field]) || null;
+  if (!idx || !idx.authors) return [];
+  return idx.authors.map(a => ({ name: a.n, institution: a.i, home: nzHomeFromName(a.i),
+    papers: a.p, citations: a.c, fieldTop: true }));
+}
+
+/* Blend the NZ-author signals into one ranked, accurate list:
+   • OpenAlex group_by (topic-specific output, the most authoritative ranking),
+   • the authors of the papers actually retrieved (gives campus + citations),
+   • the corpus field index (best-published in the field, fills gaps offline).
+   Authors relevant to the topic rank first; citation impact breaks ties and
+   lets a leading researcher surface even from a thin result set. */
+function blendNZAuthors(intake, results, groupAuthors) {
+  const norm = s => String(s).toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+  const map = {};
+  const e = name => (map[norm(name)] || (map[norm(name)] = {
+    name, topicCount: 0, matched: 0, citations: 0, institution: '', home: null }));
+  (groupAuthors || []).forEach(g => { const x = e(g.name); x.topicCount = Math.max(x.topicCount, g.topicCount || 0); });
+  (results.nzAuthors || []).forEach(a => { const x = e(a.name);
+    x.matched = Math.max(x.matched, a.count || 0);
+    x.citations = Math.max(x.citations, a.citations || 0);
+    if (!x.institution && a.institution) { x.institution = a.institution; x.home = a.home || nzHomeFromName(a.institution); } });
+  corpusFieldAuthors(intake.field).forEach(a => { const x = e(a.name);
+    x.citations = Math.max(x.citations, a.citations || 0);
+    if (!x.institution && a.institution) { x.institution = a.institution; x.home = a.home; } });
+  const list = Object.values(map).filter(x => x.name).map(x => {
+    const home = x.home || nzHomeFromName(x.institution);
+    return { name: x.name, institution: x.institution || (x.topicCount ? 'New Zealand' : x.institution),
+      home, citations: x.citations, papers: x.matched || x.topicCount, cited: x.matched > 0,
+      score: x.topicCount * 4 + x.matched * 3 + Math.min(6, Math.log10((x.citations || 0) + 1) * 2) + (home ? 1.5 : 0) };
+  });
+  list.sort((a, b) => b.score - a.score);
+  return list.slice(0, 10);
+}
+
 /* Curated NZ seed (the offline / no-affiliation-data half of the hybrid):
    derive NZ researchers from PF_LABS for the field, so the "research happening
    in New Zealand" panel still appears when we only have Crossref (no country
@@ -671,15 +748,17 @@ function nzOpportunityPanel(authors) {
   const sub = live
     ? 'Several of the researchers whose recent papers match your topic are based at New Zealand universities — publishing right now, and supervising doctoral students. A PhD here could put you in the same corridor as them.'
     : 'These New Zealand groups are active in your field — the kind of people you’d be citing, and potentially working alongside, on a doctorate here.';
+  const impact = c => c >= 1000 ? (c / 1000).toFixed(c >= 10000 ? 0 : 1) + 'k' : String(c);
   const rows = authors.map(a => {
     const uni = a.home && a.home.uni, inst = a.home && a.home.institute;
     const place = uni ? uni.name : (inst || a.institution || 'New Zealand');
     const city = uni ? uni.city : '';
+    const meta = a.citations ? `${impact(a.citations)} citations` : '';
     return `<li class="rs-nz-person">
       <span class="rs-nz-dot">${esc((a.name.trim()[0] || 'N').toUpperCase())}</span>
       <div>
         <strong>${esc(a.name)}</strong>${a.cited ? ' <span class="chip chip-gold">in your citations</span>' : ''}
-        <span class="rs-nz-place">${esc(place)}${city ? ' · ' + esc(city) : ''}</span>
+        <span class="rs-nz-place">${esc(place)}${city ? ' · ' + esc(city) : ''}${meta ? ' · ' + meta : ''}</span>
       </div>
     </li>`;
   }).join('');
@@ -710,23 +789,32 @@ function nzOpportunityPanel(authors) {
 async function runScholarlySearch(intake) {
   const corpus = corpusSearch(intake);                 // local NZ papers (may be [])
   const corpusSet = corpus.length ? { papers: corpus } : null;
-  const [g, nz] = await Promise.all([openAlexSearch(intake, false), openAlexSearch(intake, true)]);
+  // Three live calls in parallel: a relevance-ranked global pass, the same for
+  // NZ-only papers, and OpenAlex's group_by facet for the best NZ authors.
+  const [g, nz, groupAuthors] = await Promise.all([
+    openAlexSearch(intake, false),
+    openAlexSearch(intake, true),
+    openAlexNZAuthors(intake),
+  ]);
   const gotGlobal = !g.error && g.results.papers.length;
   const gotNZ = !nz.error && nz.results.papers.length;
+  // Blend the accurate author list from the group_by facet, the retrieved
+  // papers, and the corpus index — falling back to the curated seed only if
+  // nothing else placed an NZ researcher.
+  const withAuthors = (results, source, error) => {
+    results.nzAuthors = blendNZAuthors(intake, results, groupAuthors);
+    if (!results.nzAuthors.length) results.nzAuthors = nzSeedAuthors(intake);
+    return { results, source, error };
+  };
   if (gotGlobal || gotNZ) {
-    const results = combineResults(corpusSet, nz.results, g.results);
-    return { results, source: corpus.length ? 'NZ corpus + OpenAlex' : 'OpenAlex' };
+    return withAuthors(combineResults(corpusSet, nz.results, g.results),
+      corpus.length ? 'NZ corpus + OpenAlex' : 'OpenAlex');
   }
   // Offline / live failed but the corpus loaded — it alone is a solid NZ result.
-  if (corpus.length) return { results: aggregateResults(corpus), source: 'NZ corpus' };
+  if (corpus.length) return withAuthors(aggregateResults(corpus), 'NZ corpus');
   const cr = await crossRefSearch(intake);
-  if (cr.results.papers.length) {
-    if (!cr.results.nzAuthors.length) cr.results.nzAuthors = nzSeedAuthors(intake);
-    return { results: cr.results, source: 'Crossref' };
-  }
-  const offline = g.results;
-  offline.nzAuthors = nzSeedAuthors(intake);
-  return { results: offline, source: null, error: g.error || nz.error || cr.error || 'unavailable' };
+  if (cr.results.papers.length) return withAuthors(cr.results, 'Crossref');
+  return withAuthors(g.results, null, g.error || nz.error || cr.error || 'unavailable');
 }
 
 /* 3–5 candidate directions from the student's input + trending concepts */

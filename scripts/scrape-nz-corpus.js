@@ -178,35 +178,7 @@ function readShard(absFile) {
     total += recs.length;
   }
 
-  const meta = {
-    generated: new Date().toISOString().slice(0, 10),
-    source: 'OpenAlex',
-    fromYear: FROM_YEAR,
-    fields: Object.keys(FIELDS),
-    paperCount: total,
-  };
-
-  const banner =
-`/* ════════════════════════════════════════════════════════════
-   PF_RESEARCH_CORPUS — INDEX for the pre-scraped New-Zealand-authored corpus.
-
-   GENERATED FILE — do not hand-edit. Rebuild with:
-     node scripts/scrape-nz-corpus.js
-
-   This is just the index (meta + field → shard map). The actual papers live in
-   per-field shards under assets/js/corpus/<slug>.js and are lazy-loaded one at a
-   time by the Research Studio (assets/js/app.js → ensureField), so the browser
-   only ever downloads the field a student is searching — not all ${total.toLocaleString()} papers.
-
-   Source: OpenAlex. Slice: recent (>= ${FROM_YEAR}), highly-cited journal articles
-   with >= 1 New-Zealand-based author. Generated ${meta.generated}.
-   ════════════════════════════════════════════════════════════ */`;
-
-  const indexBody =
-`const PF_RESEARCH_CORPUS = ${JSON.stringify({ meta, fields: fieldIndex })};\n` +
-`if (typeof window !== 'undefined') { window.PF_RESEARCH_CORPUS = PF_RESEARCH_CORPUS; window.PF_CORPUS_SHARDS = window.PF_CORPUS_SHARDS || {}; }\n`;
-
-  fs.writeFileSync(INDEX_OUT, banner + '\n' + indexBody);
-  console.log(`\nWrote index ${INDEX_OUT}`);
-  console.log(`TOTAL: ${total} unique NZ papers across ${meta.fields.length} fields`);
+  // Single source of truth for the index (incl. per-field NZ author rollups).
+  require('./build-corpus-index').buildIndex();
+  console.log(`\nScrape complete: ${total} NZ papers across ${Object.keys(fieldIndex).length} fields`);
 })();
