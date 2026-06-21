@@ -86,7 +86,9 @@ const THIS_YEAR = new Date().getFullYear();
    per-second burst limit (and deep cursor pagination is throttled hardest), so
    we paginate SHALLOWLY — one page-1 request per (field, year) — and back off
    generously on the occasional 429. */
-async function fetchTop(search, year) {
+const PAGES_PER_YEAR = Number(process.env.PAGES_PER_YEAR || 2); // shallow cursor depth per year
+
+async function fetchTop(search, year, cursor) {
   const params = new URLSearchParams({
     search,
     filter: `authorships.institutions.country_code:NZ,publication_year:${year},type:article`,
@@ -94,6 +96,7 @@ async function fetchTop(search, year) {
     select: 'title,display_name,publication_year,primary_location,cited_by_count,authorships,concepts,abstract_inverted_index,doi',
     'per-page': '200',
     mailto: MAILTO,
+    cursor,
   });
   const url = 'https://api.openalex.org/works?' + params.toString();
   for (let attempt = 0; attempt < 7; attempt++) {
@@ -111,17 +114,23 @@ async function fetchTop(search, year) {
 }
 
 /* Top-cited NZ papers per field, gathered one publication-year at a time
-   (newest → oldest) so every request is a cheap page-1 fetch. */
+   (newest → oldest), up to PAGES_PER_YEAR shallow pages each — so we never run
+   a deep cursor (which OpenAlex throttles hardest) yet still get good depth. */
 async function scrapeField(field, terms) {
   const search = terms.join(' ');
   const recs = [];
   for (let year = THIS_YEAR; year >= FROM_YEAR && recs.length < PER_FIELD; year--) {
-    const data = await fetchTop(search, year);
-    if (!data) { console.warn(`  ${field} ${year}: failed, keeping ${recs.length}`); await sleep(BASE_DELAY); continue; }
-    const items = data.results || [];
-    for (const w of items) { const r = toRecord(w); if (r && r.t) recs.push(r); }
-    process.stdout.write(`\r  ${field}: ${recs.length} (through ${year})…   `);
-    await sleep(BASE_DELAY);
+    let cursor = '*';
+    for (let page = 0; page < PAGES_PER_YEAR && cursor && recs.length < PER_FIELD; page++) {
+      const data = await fetchTop(search, year, cursor);
+      if (!data) { console.warn(`  ${field} ${year} p${page}: failed, keeping ${recs.length}`); await sleep(BASE_DELAY); break; }
+      const items = data.results || [];
+      for (const w of items) { const r = toRecord(w); if (r && r.t) recs.push(r); }
+      cursor = data.meta && data.meta.next_cursor;
+      process.stdout.write(`\r  ${field}: ${recs.length} (through ${year})…   `);
+      await sleep(BASE_DELAY);
+      if (items.length < 200) break; // year exhausted
+    }
   }
   process.stdout.write('\n');
   return recs.slice(0, PER_FIELD);
