@@ -89,6 +89,32 @@ dashboard. No gateway, no registration, stays inside the Firebase free tier.
    }
    ```
 
+### International rail now — PayPal (no business registration)
+
+Sri Lankan accounts can now **receive** PayPal, so PathFinder offers PayPal
+alongside the local manual rail for students paying with an international card
+or a PayPal balance. It's still **Tier 1** (no backend, no API secret): the
+student pays on PayPal's hosted page, then taps **"I've paid"** to report it,
+and you confirm receipt in your PayPal account and mark it paid — exactly like
+the manual rail. Set **one** of these in `PF_CONFIG.paypal` (`assets/js/data.js`):
+
+```js
+paypal: {
+  enabled: true,
+  business: 'you@example.com',   // hosted Buy-Now checkout (carries the order id), OR
+  meHandle: 'yourhandle',        // a simpler PayPal.Me link
+  sandbox: false,                // true while testing
+  currency: 'USD',               // PayPal has no LKR — settle in USD (or another supported currency)
+  usdRate: 300,                  // indicative LKR per 1 USD, for the amount shown — hand-maintained
+}
+```
+
+PayPal **cannot transact in LKR**, so the LKR price is converted with `usdRate`
+for display and checkout; the student sees the foreign-currency figure and
+PayPal sets the exact amount at checkout. Leave both `business` and `meHandle`
+blank to hide the PayPal option. (`assets/js/paypal.js` builds the link;
+`assets/js/pay.js` shows the button and records the report.)
+
 ### Upgrade path — PayHere (after a cheap sole-proprietor registration)
 
 Once revenue is steady, register a **sole-proprietor business name** at your
@@ -136,14 +162,30 @@ free Spark plan (few docs, cached reads, debounced writes).
   the Starter Kit. Offline/static deploys (no Firebase) keep everything free.
 - **Views** — `#pricing` (plans), `#billing` (your purchases), admin **Orders**
   tab (confirm payments, see revenue, export CSV).
+- **Accounting (admin)** — the admin **Accounting** tab is a single ledger
+  reconstructed from both revenue sources already loaded (`mentor_requests`
+  payments + `orders`) — no new collection, no extra reads. It shows **total
+  received**, **pending confirmation**, **platform earnings** (premium orders
+  at 100% + the `PF_CONFIG.platformTakeRate` cut of paid sessions) and mentor
+  payouts, a **received-by-method** breakdown, and a transaction ledger with
+  **per-payment receipts/invoices** (a print-ready / save-as-PDF document with
+  the `PF_CONFIG.org` issuer identity) and a **ledger CSV export** for your
+  records. Treat it as a management ledger — reconcile against your bank /
+  PayHere / PayPal statements for statutory accounting.
 - **Security** — `firestore.rules` lets a student only *report* their own
   payment / create their own order; only the admin can flip anything to `paid`.
 
 ### Pre-launch checklist
 
 - [ ] Fill `PF_CONFIG.manualPay` (bank + wallet details).
-- [ ] Confirm `PF_CONFIG.pricing` / `sessionTiers` are the prices you want.
+- [ ] (Optional) Set `PF_CONFIG.paypal.business` **or** `meHandle`, flip
+      `sandbox: false`, and check `usdRate` to enable the PayPal rail.
+- [ ] Fill `PF_CONFIG.org` (legal name, email, address, tax id) so the
+      Accounting-tab receipts print as proper invoices.
+- [ ] Confirm `PF_CONFIG.pricing` / `sessionTiers` / `platformTakeRate` are
+      the values you want.
 - [ ] Deploy the updated `firestore.rules` (adds the `orders` collection +
-      student payment-report rule).
+      student payment-report rule). *(No rules change is needed for PayPal or
+      the Accounting tab — both reuse existing data.)*
 - [ ] (Later) Register a sole proprietorship → set `payhere.merchantId`,
       `sandbox: false`.

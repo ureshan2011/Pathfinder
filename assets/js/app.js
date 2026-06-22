@@ -2615,7 +2615,7 @@ function admErrCard(what) {
 }
 
 function adminDashboard(main) {
-  const TABS = [['overview', 'Overview'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['orders', 'Orders'], ['users', 'User records']];
+  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['orders', 'Orders'], ['users', 'User records']];
   const counts = {
     leads: adminState.leads ? adminState.leads.length : '·',
     mentors: adminState.mentors ? adminState.mentors.length : '·',
@@ -2637,7 +2637,7 @@ function adminDashboard(main) {
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
-    ({ overview: admOverview, leads: admLeads, mentors: admMentors, requests: admRequests, orders: admOrders, users: admUsers })[adminState.tab](body);
+    ({ overview: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors, requests: admRequests, orders: admOrders, users: admUsers })[adminState.tab](body);
   }
 
   $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
@@ -2698,6 +2698,13 @@ function adminDashboard(main) {
         if (o) Object.assign(o, patch);
         toast('Order updated'); paint();
       } catch { ob.disabled = false; toast('Update failed'); }
+      return;
+    }
+    // open a print-ready receipt/invoice for one accounting row
+    const inv = e.target.closest('button[data-invoice]');
+    if (inv) {
+      const tx = accountingRows().find(t => t.invoiceNo === inv.dataset.invoice);
+      if (tx) openInvoice(tx);
     }
   });
 
@@ -2905,6 +2912,154 @@ function admOrders(body) {
   if (dl) dl.onclick = () => csvDownload('pathfinder-orders.csv',
     ['item', 'amountLKR', 'status', 'method', 'ref', 'payerTxn', 'uid', 'createdAt'],
     orders.map(o => ({ ...o, createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : '' })));
+}
+
+/* ── Accounting: one ledger from both revenue sources ───────────────────
+   Reconstructs a unified transaction list from data the admin already
+   loaded (mentor_requests[].payment + orders[]) — no extra Firestore reads
+   and no new collection, so it stays inside the free Spark plan. */
+function accountingRows() {
+  const prefix = (PF_CONFIG.org && PF_CONFIG.org.invoicePrefix) || 'PF';
+  const tail = id => String(id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase() || '------';
+  const rows = [];
+
+  (adminState.requests || []).forEach(r => {
+    const p = r.payment;
+    if (!p || !p.paymentStatus || p.paymentStatus === 'none') return;
+    rows.push({
+      invoiceNo: `${prefix}-INV-S-${tail(r.id)}`, kind: 'session',
+      item: (PF_CONSULT_TOPICS[r.topic] ? PF_CONSULT_TOPICS[r.topic] + ' — ' : '') + 'mentoring session',
+      payer: r.name || '', payerContact: r.contact || '', payerUid: r.studentUid || '',
+      method: p.method || '', ref: p.payerRef || '', txn: p.payerTxn || '',
+      amountLKR: Number(p.amountLKR) || 0, status: p.paymentStatus,
+      date: p.paidAt || p.reportedAt || r.at || null, srcId: r.id,
+    });
+  });
+
+  (adminState.orders || []).forEach(o => {
+    rows.push({
+      invoiceNo: `${prefix}-INV-O-${tail(o.id)}`, kind: 'order',
+      item: (PFPay.items()[o.item] && PFPay.items()[o.item].label) || o.item || 'Premium unlock',
+      payer: '', payerContact: '', payerUid: o.uid || '',
+      method: o.method || '', ref: o.ref || '', txn: o.payerTxn || '',
+      amountLKR: Number(o.amountLKR) || 0, status: o.status,
+      date: o.paidAt || o.createdAt || null, srcId: o.id,
+    });
+  });
+
+  const ts = d => (d == null ? 0 : (typeof d === 'number' ? d : Date.parse(d) || 0));
+  return rows.sort((a, b) => ts(b.date) - ts(a.date));
+}
+
+function admAccounting(body) {
+  if (adminState.requests === null && adminState.orders === null) { body.innerHTML = admErrCard('accounting data'); return; }
+  const rows = accountingRows();
+  const take = Number(PF_CONFIG.platformTakeRate) || 0.20;
+  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
+  const isPaid = s => s === 'paid';
+  const isPending = s => s === 'reported' || s === 'pending' || s === 'requested';
+  const dateStr = d => d ? new Date(typeof d === 'number' ? d : Date.parse(d)).toLocaleDateString() : '—';
+
+  const received = rows.filter(r => isPaid(r.status)).reduce((s, r) => s + r.amountLKR, 0);
+  const pending  = rows.filter(r => isPending(r.status)).reduce((s, r) => s + r.amountLKR, 0);
+  const platform = rows.filter(r => isPaid(r.status))
+    .reduce((s, r) => s + (r.kind === 'order' ? r.amountLKR : r.amountLKR * take), 0);
+  const mentorShare = rows.filter(r => isPaid(r.status) && r.kind === 'session')
+    .reduce((s, r) => s + r.amountLKR * (1 - take), 0);
+
+  const byMethod = {};
+  rows.filter(r => isPaid(r.status)).forEach(r => { const k = r.method || 'Unspecified'; byMethod[k] = (byMethod[k] || 0) + r.amountLKR; });
+  const methodRows = Object.entries(byMethod).sort((a, b) => b[1] - a[1]);
+
+  body.innerHTML = `
+    <div class="grid-4" style="margin-bottom:24px">
+      ${admMetric('account_balance_wallet', money(received), 'Total received')}
+      ${admMetric('hourglass_top', money(pending), 'Pending confirmation')}
+      ${admMetric('savings', money(platform), 'Platform earnings')}
+      ${admMetric('receipt_long', rows.length, 'Transactions')}
+    </div>
+    ${methodRows.length ? `<div class="card" style="margin-bottom:20px">
+      <h3 style="font-size:1.05rem;margin-bottom:12px">Received by method</h3>
+      <table class="ledger"><tbody>${methodRows.map(([m, v]) => `
+        <tr><td style="font-size:13px">${esc(m)}</td>
+            <td style="width:55%"><div class="bar"><span style="width:${received ? Math.round(v / received * 100) : 0}%"></span></div></td>
+            <td class="mono" style="text-align:right;white-space:nowrap">${money(v)}</td></tr>`).join('')}</tbody></table>
+      <p class="faint" style="font-size:11.5px;margin-top:10px">Mentor payouts (paid sessions, ${Math.round((1 - take) * 100)}%): ${money(mentorShare)} · platform take-rate ${Math.round(take * 100)}%.</p>
+    </div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <p class="faint" style="font-size:12.5px;margin:0">${rows.length} transaction${rows.length === 1 ? '' : 's'} · ledger newest first</p>
+      ${rows.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-acct"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export ledger CSV</button>` : ''}
+    </div>
+    ${rows.length ? `<div class="card" style="overflow-x:auto"><table class="ledger" style="min-width:660px"><thead>
+      <tr><th style="text-align:left">Date</th><th style="text-align:left">Invoice</th><th style="text-align:left">Item</th><th style="text-align:left">Method</th><th style="text-align:right">Amount</th><th style="text-align:left">Status</th><th></th></tr>
+    </thead><tbody>
+      ${rows.map(r => `<tr>
+        <td class="mono" style="font-size:11.5px;white-space:nowrap">${dateStr(r.date)}</td>
+        <td class="mono" style="font-size:11px">${esc(r.invoiceNo)}</td>
+        <td style="font-size:13px">${esc(r.item)}${r.payer ? ` · <span class="faint">${esc(r.payer)}</span>` : ''}</td>
+        <td style="font-size:12.5px">${esc(r.method || '—')}</td>
+        <td class="mono" style="text-align:right;white-space:nowrap">${money(r.amountLKR)}</td>
+        <td>${payStatusChip({ paymentStatus: r.status })}</td>
+        <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Open receipt"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button></td>
+      </tr>`).join('')}
+    </tbody></table></div>` : `<div class="card"><p class="muted" style="font-size:14px">No payments recorded yet. Reported and confirmed payments from mentor sessions and premium unlocks appear here.</p></div>`}
+    <p class="faint" style="font-size:11.5px;margin-top:14px">A management ledger reconstructed from live records. For statutory accounting, reconcile against your bank / PayHere / PayPal statements and register a business once revenue is steady (see <code>docs/PRICING.md</code>).</p>`;
+
+  const dl = $('#adm-dl-acct', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-accounting-ledger.csv',
+    ['invoiceNo', 'date', 'kind', 'item', 'payer', 'payerUid', 'method', 'ref', 'txn', 'amountLKR', 'status'],
+    rows.map(r => ({ ...r, date: r.date ? new Date(typeof r.date === 'number' ? r.date : Date.parse(r.date)).toISOString() : '' })));
+}
+
+/* Print-ready receipt / invoice for one transaction. Opens a clean,
+   self-contained doc in a new tab with a Print button (print-to-PDF gives a
+   downloadable record). Issuer identity comes from PF_CONFIG.org. */
+function openInvoice(tx) {
+  const org = PF_CONFIG.org || {};
+  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
+  const paid = tx.status === 'paid';
+  const e = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const dateStr = tx.date ? new Date(typeof tx.date === 'number' ? tx.date : Date.parse(tx.date)).toLocaleDateString() : new Date().toLocaleDateString();
+  const issuer = org.legalName || org.name || 'PathFinder';
+  const title = paid ? 'RECEIPT' : 'INVOICE';
+  const statusLabel = paid ? 'PAID' : (tx.status === 'reported' ? 'PAYMENT REPORTED — AWAITING CONFIRMATION' : 'UNPAID');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${e(tx.invoiceNo)}</title><style>
+    *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1C1A15;max-width:720px;margin:32px auto;padding:0 28px;line-height:1.5}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1C1A15;padding-bottom:18px;margin-bottom:24px}
+    .brand{font-size:24px;font-weight:700;letter-spacing:-.02em}.brand i{color:#C2401C;font-style:italic}
+    .doc{font-size:13px;text-transform:uppercase;letter-spacing:.16em;color:#C2401C;font-weight:600;text-align:right}
+    .muted{color:#666;font-size:12.5px}h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 6px}
+    .cols{display:flex;gap:40px;flex-wrap:wrap;margin-bottom:28px}.cols>div{flex:1;min-width:200px}
+    table{width:100%;border-collapse:collapse;margin:8px 0 18px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #ddd;font-size:14px}
+    th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888}.r{text-align:right}
+    .total{font-size:20px;font-weight:700}.status{display:inline-block;margin-top:8px;padding:4px 12px;border-radius:3px;font-size:12px;font-weight:600;background:${paid ? '#e7f0ea' : '#f7efda'};color:${paid ? '#2D5A41' : '#8A6A2F'}}
+    .foot{margin-top:32px;padding-top:16px;border-top:1px solid #ddd;font-size:11.5px;color:#888}
+    .noprint{margin:24px 0;text-align:center}button{font:inherit;padding:10px 22px;border:1px solid #1C1A15;background:#1C1A15;color:#fff;border-radius:3px;cursor:pointer}
+    @media print{.noprint{display:none}}
+  </style></head><body>
+    <div class="top">
+      <div><div class="brand">Path<i>finder</i></div><div class="muted">${e(issuer)}${org.email ? ' · ' + e(org.email) : ''}${org.address ? '<br>' + e(org.address) : ''}${org.taxId ? '<br>Tax ID: ' + e(org.taxId) : ''}</div></div>
+      <div class="doc">${title}<div class="muted" style="text-transform:none;letter-spacing:0;color:#1C1A15;font-weight:400;margin-top:6px">${e(tx.invoiceNo)}</div></div>
+    </div>
+    <div class="cols">
+      <div><h2>Billed to</h2>${e(tx.payer || 'PathFinder student')}${tx.payerContact ? '<br>' + e(tx.payerContact) : ''}${tx.payerUid ? '<br><span class="muted">acct ' + e(tx.payerUid.slice(0, 16)) + '…</span>' : ''}</div>
+      <div class="r"><h2>Details</h2>Date: ${e(dateStr)}<br>Method: ${e(tx.method || '—')}${tx.ref ? '<br>Reference: ' + e(tx.ref) : ''}${tx.txn ? '<br>Txn: ' + e(tx.txn) : ''}</div>
+    </div>
+    <table>
+      <thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
+      <tbody><tr><td>${e(tx.item)}</td><td class="r">${money(tx.amountLKR)}</td></tr></tbody>
+      <tfoot><tr><td class="total">Total</td><td class="r total">${money(tx.amountLKR)}</td></tr></tfoot>
+    </table>
+    <span class="status">${statusLabel}</span>
+    <div class="foot">${org.legalName ? '' : 'Issued by an unregistered sole trader — this is a payment confirmation, not a tax invoice. '}Amounts in Sri Lankan Rupees (LKR). Generated by PathFinder on ${new Date().toLocaleString()}.</div>
+    <div class="noprint"><button onclick="window.print()">Print / Save as PDF</button></div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { toast('Allow pop-ups to open the receipt'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 function admUsers(body) {
