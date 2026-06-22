@@ -30,6 +30,59 @@ function toast(msg) {
   t._h = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
+/* Lightweight modal — the only one in the app. Returns { el, close } so
+   callers can wire forms/buttons inside `el`. Closes on overlay click, the
+   ✕ button, or Esc. Used by the payment flows (assets/js/pay.js). */
+function modal(title, bodyHTML) {
+  const root = document.createElement('div');
+  root.className = 'modal';
+  root.innerHTML = `<div class="modal-overlay"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="modal-head">
+        <h2 style="font-size:1.15rem;margin:0">${esc(title)}</h2>
+        <button class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">${bodyHTML}</div>
+    </div>`;
+  document.body.appendChild(root);
+  document.body.style.overflow = 'hidden';
+  const close = () => {
+    root.remove();
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  root.querySelector('.modal-overlay').onclick = close;
+  root.querySelector('.modal-close').onclick = close;
+  requestAnimationFrame(() => root.classList.add('show'));
+  return { el: root, close };
+}
+
+/* ── Entitlements (one-time premium unlocks) ─────────────────────────────
+   Derived once per session from the signed-in user's paid `orders`, cached
+   in a JS variable so gating reads (renderKit etc.) cost zero Firestore
+   reads on navigation. The Sprint bundle also grants the Toolkit. */
+let entState = { loaded: false, items: {} };
+function entitlements() { return entState.items; }
+function cloudOn() { return !!(window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey); }
+function loadEntitlements(cb) {
+  if (!(cloudOn() && window.PFCloud && PFCloud.hasUser && PFCloud.hasUser())) {
+    entState = { loaded: true, items: {} };
+    if (cb) cb();
+    return;
+  }
+  PFCloud.fetchMyOrders().then(orders => {
+    const items = {};
+    (orders || []).filter(o => o.status === 'paid').forEach(o => {
+      items[o.item] = true;
+      if (o.item === 'sprint') items.toolkit = true;   // bundle grants toolkit
+    });
+    entState = { loaded: true, items };
+    if (cb) cb();
+  }).catch(() => { entState = { loaded: true, items: {} }; if (cb) cb(); });
+}
+
 /* ── Router ─────────────────────────────────────────────── */
 const ROUTES = {
   assessment: renderAssessment,
@@ -43,6 +96,8 @@ const ROUTES = {
   settlement: renderSettlement,
   mentors:    renderMentors,
   mentor:     renderMentor,
+  pricing:    renderPricing,
+  billing:    renderBilling,
   account:    renderAccount,
   admin:      renderAdmin,
 };
@@ -102,11 +157,11 @@ function reqStatusChip(status) {
    (Tier 1) or by the PayHere webhook (Tier 2): both write the same field */
 function payStatusChip(payment) {
   const ps = (payment && payment.paymentStatus) || 'none';
-  const cls = { none:'chip-dim', requested:'chip-gold', paid:'chip-teal' };
-  const lbl = { none:'No payment', requested:'Payment requested', paid:'Paid' };
+  const cls = { none:'chip-dim', requested:'chip-gold', reported:'chip-violet', pending:'chip-gold', paid:'chip-teal' };
+  const lbl = { none:'No payment', requested:'Payment requested', reported:'Payment reported', pending:'Awaiting payment', paid:'Paid' };
   const amt = ps !== 'none' && payment && payment.amountLKR
     ? ` · LKR ${Number(payment.amountLKR).toLocaleString()}` : '';
-  return `<span class="chip ${cls[ps]}">${lbl[ps]}${amt}</span>`;
+  return `<span class="chip ${cls[ps] || 'chip-dim'}">${lbl[ps] || ps}${amt}</span>`;
 }
 
 /* inline "Ask a mentor" hook — expand + submit, no navigation */
@@ -1551,28 +1606,71 @@ function renderDashboard(main) {
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
 function renderKit(main) {
-  main.innerHTML = viewHead('package_2', 'PhD Starter Kit', 'Templates & resources',
-    'Battle-tested templates for every stage — preview, copy, or download. Personalize everything: generic emails get deleted.') +
-    `<div class="grid-2">${PF_TEMPLATES.map(t => `
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div style="width:40px;height:40px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center">
-            <span class="material-symbols-outlined" style="color:var(--route);font-size:20px">${t.icon}</span>
-          </div>
-          <div><strong style="font-size:14.5px">${t.name}</strong>
-            <div class="faint" style="font-size:12px">${t.type}</div></div>
+  // Gate the advanced templates behind the Premium Toolkit — but only when
+  // the cloud (accounts/orders) is configured. Offline/static deploys keep
+  // every template free, preserving the original behaviour.
+  const premiumIds = (PF_CONFIG.premiumTemplateIds || []);
+  const gate = cloudOn() && premiumIds.length > 0;
+  const unlocked = !gate || entitlements().toolkit === true;
+  const price = (PF_CONFIG.pricing && PF_CONFIG.pricing.toolkit) || 0;
+
+  const freeCard = t => `<div class="card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:11px;background:var(--teal-soft);display:flex;align-items:center;justify-content:center">
+          <span class="material-symbols-outlined" style="color:var(--route);font-size:20px">${t.icon}</span>
         </div>
-        <pre class="tpl-preview">${esc(t.body)}</pre>
-        <div style="display:flex;gap:10px;margin-top:14px">
-          <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
-            <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
-          <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
-            <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
-        </div>
-      </div>`).join('')}
+        <div><strong style="font-size:14.5px">${t.name}</strong>
+          <div class="faint" style="font-size:12px">${t.type}</div></div>
+      </div>
+      <pre class="tpl-preview">${esc(t.body)}</pre>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
+          <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
+        <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
+          <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
+      </div>
     </div>`;
 
+  const lockedCard = t => `<div class="card locked-card">
+      <span class="chip chip-gold lock-chip"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">lock</span> Premium</span>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:11px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center">
+          <span class="material-symbols-outlined" style="color:var(--ochre);font-size:20px">${t.icon}</span>
+        </div>
+        <div><strong style="font-size:14.5px">${t.name}</strong>
+          <div class="faint" style="font-size:12px">${t.type}</div></div>
+      </div>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">Part of the Premium Toolkit — unlock all ${premiumIds.length} advanced templates plus the application guides.</p>
+      <button class="btn btn-primary btn-sm pf-buy" data-item="toolkit" style="width:100%;justify-content:center">
+        <span class="material-symbols-outlined" style="font-size:15px">lock_open</span> Unlock Premium Toolkit · LKR ${price.toLocaleString()}</button>
+    </div>`;
+
+  const banner = (gate && !unlocked) ? `<div class="card" style="margin-bottom:24px;border-color:var(--ochre);display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+      <span class="material-symbols-outlined" style="color:var(--ochre)">workspace_premium</span>
+      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${PF_TEMPLATES.length - premiumIds.length} templates are free. Unlock the ${premiumIds.length} advanced ones (research proposal, interview prep, 3-year plan, budgets &amp; more) with the <strong>Premium Toolkit</strong>.</p>
+      <a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>
+    </div>` : '';
+
+  main.innerHTML = viewHead('package_2', 'PhD Starter Kit', 'Templates & resources',
+    'Battle-tested templates for every stage — preview, copy, or download. Personalize everything: generic emails get deleted.') +
+    banner +
+    `<div class="grid-2">${PF_TEMPLATES.map(t => {
+      const isPremium = gate && premiumIds.includes(t.id);
+      return (isPremium && !unlocked) ? lockedCard(t) : freeCard(t);
+    }).join('')}</div>`;
+
+  // entitlements not yet resolved this session → fetch, then repaint #kit
+  if (gate && !entState.loaded) loadEntitlements(() => {
+    if (location.hash.slice(1).split('?')[0] === 'kit') route();
+  });
 }
+
+/* buy buttons (premium unlocks) — delegated once */
+document.addEventListener('click', e => {
+  const b = e.target.closest('.pf-buy');
+  if (!b) return;
+  PFPay.startOrder(b.dataset.item, () => loadEntitlements(() => route()));
+});
 
 /* ── 7 · Visa Hub ───────────────────────────────────────── */
 function visaProgress() {
@@ -1847,7 +1945,12 @@ function renderMentors(main) {
 
 /* a student-facing request card: status + payment + (when due) a Pay button */
 function studentReqCard(r) {
-  const payable = r.status === 'awaiting_payment' && r.payment && r.payment.paymentStatus === 'requested';
+  const ps = r.payment && r.payment.paymentStatus;
+  const payable = r.status === 'awaiting_payment' && ps === 'requested';
+  const reported = r.status === 'awaiting_payment' && ps === 'reported';
+  const payLabel = PFPay.isPayHereLive()
+    ? 'Pay securely (Cards, HelaPay, eZ Cash, Genie &amp; more)'
+    : 'Pay now (bank transfer / mobile wallet)';
   return `<div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
       <div style="flex:1;min-width:200px">
@@ -1861,25 +1964,103 @@ function studentReqCard(r) {
       </div>
     </div>
     ${payable ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. To continue with a paid follow-on session (LKR ${Number(r.payment.amountLKR).toLocaleString()}), pay securely below — then your mentor confirms and books the session.</p>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. To continue with a paid follow-on session (LKR ${Number(r.payment.amountLKR).toLocaleString()}), pay below — then your mentor confirms and books the session.</p>
       <button class="btn btn-primary btn-sm pay-now" data-req="${r.id}" style="width:100%;justify-content:center">
         <span class="material-symbols-outlined" style="font-size:16px">lock</span>
-        Pay securely (Cards, HelaPay, eZ Cash, Genie &amp; more — via PayHere)
+        ${payLabel}
       </button>
+    </div>` : ''}
+    ${reported ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
+      <p class="muted" style="font-size:13px;margin:0">Payment reported — your mentor will confirm receipt and book the session shortly.${r.payment.payerRef ? ` Reference: <strong class="mono">${esc(r.payment.payerRef)}</strong>.` : ''}</p>
     </div>` : ''}
   </div>`;
 }
 
-/* student "Pay securely" → opens PayHere hosted checkout (Tier 1) */
+/* student "Pay" → manual rail (bank/wallet + report) or PayHere if live */
 document.addEventListener('click', e => {
   const b = e.target.closest('.pay-now');
   if (!b) return;
   const r = reqCache.get(b.dataset.req);
   if (!r) return;
-  if (!PFPayHere.openCheckout(r)) {
-    toast('Payment isn’t set up yet — your mentor will share a link.');
-  }
+  PFPay.startSession(r);
 });
+
+/* ── 9d · Pricing (#pricing) — what's free, what's paid ─────────────────
+   Freemium model: discovery is free; pay only for high-stakes human help
+   (mentor sessions) and one-time premium unlocks. No subscription. */
+function renderPricing(main) {
+  const p = PF_CONFIG.pricing || {};
+  const t = PF_CONFIG.sessionTiers || {};
+  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
+  const freeList = ['Eligibility assessment & roadmap', 'University, lab & supervisor explorer',
+    'Scholarships hub & visa checklist', 'Research Studio (topic & proposal help)', '12 starter templates'];
+
+  const tier = (badge, badgeCls, title, price, sub, lines, cta) => `<div class="card" style="display:flex;flex-direction:column">
+      <span class="chip ${badgeCls}" style="align-self:flex-start;margin-bottom:12px">${badge}</span>
+      <h2 style="font-size:1.2rem;margin:0 0 2px">${title}</h2>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0">${price}</div>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">${sub}</p>
+      <ul class="price-list">${lines.map(l => `<li>${l}</li>`).join('')}</ul>
+      <div style="margin-top:auto;padding-top:16px">${cta}</div>
+    </div>`;
+
+  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay only for the big moments.',
+    'Everything you need to find a funded PhD in New Zealand is free. Pay only when you want a mentor who has done it, or the premium toolkit that sharpens your application.') +
+    `<div class="grid-2" style="align-items:stretch">
+      ${tier('Free', 'chip-teal', 'Explorer', 'LKR 0', 'No account needed — your work saves on this device.',
+        freeList, `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start the assessment</a>`)}
+      ${tier('One-time', 'chip-gold', 'Premium Toolkit', money(p.toolkit), 'Unlock every advanced template + the application guides.',
+        ['All 7 premium templates', 'Research proposal & interview prep', '3-year plan & budget planners', 'Yours for good — no subscription'],
+        `<button class="btn btn-primary btn-sm pf-buy" data-item="toolkit" style="width:100%;justify-content:center">Unlock for ${money(p.toolkit)}</button>`)}
+    </div>
+    <div class="grid-2" style="align-items:stretch;margin-top:18px">
+      ${tier('Mentorship', 'chip-violet', 'Talk to a mentor', `Free + ${money(t.quick)}–${money(t.standard)}`, 'A Sri Lankan postgrad already in NZ. First 15 minutes free.',
+        ['Free 15-min intro call', `Follow-on session ${money(t.quick)}–${money(t.standard)}`, `Application audit ${money(p.auditSop)}–${money(p.auditFull)}`, 'Pay only if you continue'],
+        `<a class="btn btn-primary btn-sm" href="#mentors" style="width:100%;justify-content:center">Ask a mentor</a>`)}
+      ${tier('Best value', 'chip-rose', 'Application Sprint', money(p.sprint), 'Everything to go from idea to submitted application.',
+        ['Premium Toolkit included', '2 mentor sessions', '1 full proposal review', 'Cheaper than a single agent fee'],
+        `<button class="btn btn-primary btn-sm pf-buy" data-item="sprint" style="width:100%;justify-content:center">Get the Sprint · ${money(p.sprint)}</button>`)}
+    </div>
+    <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+}
+
+/* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
+function renderBilling(main) {
+  const head = viewHead('receipt_long', 'Billing', 'Your purchases', 'One-time unlocks and their status. Nothing recurring — you only ever pay once per item.');
+
+  if (!cloudOn()) {
+    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px">Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a>.</p></div>`;
+    return;
+  }
+  if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn())) {
+    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px"><a href="#account" class="route-link" style="color:var(--route)">Create a free account</a> to buy and keep premium unlocks across devices.</p></div>`;
+    return;
+  }
+
+  main.innerHTML = head + `<div id="bill-body"><div class="card"><p class="muted">Loading…</p></div></div>`;
+  const body = $('#bill-body');
+  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
+  const label = it => (PFPay.items()[it] && PFPay.items()[it].label) || it;
+
+  PFCloud.fetchMyOrders().then(orders => {
+    if (!orders.length) {
+      body.innerHTML = `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to unlock the Premium Toolkit or Sprint.</p></div>`;
+      return;
+    }
+    body.innerHTML = orders.map(o => `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <strong style="font-size:14.5px">${esc(label(o.item))}</strong>
+          <div class="faint" style="font-size:12.5px;margin-top:2px">${o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ''} · ${money(o.amountLKR)}${o.ref ? ` · ref <span class="mono">${esc(o.ref)}</span>` : ''}</div>
+        </div>
+        ${payStatusChip({ paymentStatus: o.status })}
+      </div>
+      ${o.status === 'reported' || o.status === 'pending' ? `<p class="muted" style="font-size:12.5px;margin:10px 0 0">We’re verifying your transfer — this unlocks within 24 hours of payment.</p>` : ''}
+    </div>`).join('');
+  }).catch(() => {
+    body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
+  });
+}
 
 /* ── 9c · Account (#account) — unified front door for all roles ──
    Login is OPTIONAL for clients/students: anonymous browsing always
@@ -2266,12 +2447,13 @@ function claimedReqCard(r) {
         <button class="btn btn-primary btn-sm mt-genlink" data-req="${r.id}">Generate payment link</button>
       </div>`;
   } else if (r.status === 'awaiting_payment') {
-    actions = `<button class="btn btn-ghost btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>
+    actions = `${PFPay.isPayHereLive() ? `<button class="btn btn-ghost btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>` : ''}
       <button class="btn btn-primary btn-sm mt-paid" data-req="${r.id}">Mark payment received</button>`;
   } else if (r.status === 'paid') {
     actions = `<button class="btn btn-primary btn-sm mt-complete" data-req="${r.id}">Mark session completed</button>`;
   }
   const canCancel = !['paid', 'completed', 'cancelled'].includes(r.status);
+  const reported = r.payment && r.payment.paymentStatus === 'reported';
   return `<div class="card" style="margin-bottom:12px" data-req="${r.id}">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
       <div style="flex:1;min-width:200px">
@@ -2279,6 +2461,7 @@ function claimedReqCard(r) {
         <span class="faint" style="font-size:12.5px"> · ${esc(r.contact || 'no contact')}</span>
         <div class="faint" style="font-size:12.5px;margin-top:2px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}</div>
         ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
+        ${reported ? `<div class="muted" style="font-size:12.5px;margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:3px">Student reported payment via <strong>${esc(r.payment.method || 'transfer')}</strong>${r.payment.payerRef ? ` · ref <strong class="mono">${esc(r.payment.payerRef)}</strong>` : ''}${r.payment.payerTxn ? ` · txn <span class="mono">${esc(r.payment.payerTxn)}</span>` : ''}. Verify in your banking app, then “Mark payment received”.</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
         ${reqStatusChip(r.status)}
@@ -2328,9 +2511,11 @@ async function mentorCardAction(e) {
   if (window.PFCloud && window.PFCloud.onMentorState) {
     window.PFCloud.onMentorState(() => {
       paintMentorSidebarLink();
+      entState.loaded = false;   // re-derive premium unlocks for the new session
       const v = (location.hash || '').slice(1).split('?')[0];
       if (v === 'mentor') { mentorState.loaded = false; route(); }
       else if (v === 'account') route();
+      else if (v === 'kit' || v === 'billing') route();
     });
   } else if (tries < 40 && (window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey)) {
     setTimeout(() => hookMentorAuth(tries + 1), 100);
@@ -2348,7 +2533,7 @@ function paintMentorSidebarLink() {
    Email/Password admin login (see firebase-config.js) — so the data
    reads below are enforced by Firestore rules, not by client JS.
    Shows: overview analytics · leads · mentors · requests · user records. */
-let adminState = { tab: 'overview', leads: null, mentors: null, requests: null, users: null, loading: false, loaded: false, error: '' };
+let adminState = { tab: 'overview', leads: null, mentors: null, requests: null, orders: null, users: null, loading: false, loaded: false, error: '' };
 
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
@@ -2388,7 +2573,7 @@ function adminLogin(main) {
     go.disabled = true; msg.textContent = 'Checking…';
     try {
       await PFCloud.signInAdmin(val);
-      adminState = { tab: 'overview', leads: null, mentors: null, requests: null, users: null, loading: false, loaded: false, error: '' };
+      adminState = { tab: 'overview', leads: null, mentors: null, requests: null, orders: null, users: null, loading: false, loaded: false, error: '' };
       route();
     } catch (e) {
       go.disabled = false;
@@ -2406,14 +2591,15 @@ async function adminLoad() {
   adminState.loading = true; adminState.error = '';
   // Each section loads independently — one failing read (e.g. a rules
   // gap) must not blank the others, and must never re-trigger a reload.
-  const [l, m, r, u] = await Promise.allSettled([
-    PFCloud.fetchLeads(), PFCloud.fetchMentors(), PFCloud.fetchAllRequests(), PFCloud.fetchUsers(),
+  const [l, m, r, o, u] = await Promise.allSettled([
+    PFCloud.fetchLeads(), PFCloud.fetchMentors(), PFCloud.fetchAllRequests(), PFCloud.fetchAllOrders(), PFCloud.fetchUsers(),
   ]);
   adminState.leads    = l.status === 'fulfilled' ? l.value : null;
   adminState.mentors  = m.status === 'fulfilled' ? m.value : null;
   adminState.requests = r.status === 'fulfilled' ? r.value : null;
+  adminState.orders   = o.status === 'fulfilled' ? o.value : null;
   adminState.users    = u.status === 'fulfilled' ? u.value : null;
-  const settled = [l, m, r, u];
+  const settled = [l, m, r, o, u];
   const failed = settled.filter(x => x.status === 'rejected');
   if (failed.length) console.warn('PathFinder admin: some reads failed —', failed.map(f => f.reason && f.reason.message));
   if (settled.every(x => x.status === 'rejected')) {
@@ -2429,11 +2615,12 @@ function admErrCard(what) {
 }
 
 function adminDashboard(main) {
-  const TABS = [['overview', 'Overview'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['users', 'User records']];
+  const TABS = [['overview', 'Overview'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['orders', 'Orders'], ['users', 'User records']];
   const counts = {
     leads: adminState.leads ? adminState.leads.length : '·',
     mentors: adminState.mentors ? adminState.mentors.length : '·',
     requests: adminState.requests ? adminState.requests.length : '·',
+    orders: adminState.orders ? adminState.orders.length : '·',
     users: adminState.users ? adminState.users.length : '·',
   };
 
@@ -2450,7 +2637,7 @@ function adminDashboard(main) {
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
-    ({ overview: admOverview, leads: admLeads, mentors: admMentors, requests: admRequests, users: admUsers })[adminState.tab](body);
+    ({ overview: admOverview, leads: admLeads, mentors: admMentors, requests: admRequests, orders: admOrders, users: admUsers })[adminState.tab](body);
   }
 
   $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
@@ -2460,7 +2647,7 @@ function adminDashboard(main) {
   });
   $('#adm-refresh').onclick = async () => {
     adminState.loaded = false;
-    adminState.leads = adminState.mentors = adminState.requests = adminState.users = null;
+    adminState.leads = adminState.mentors = adminState.requests = adminState.orders = adminState.users = null;
     body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
     await adminLoad();
     route();
@@ -2498,6 +2685,19 @@ function adminDashboard(main) {
         if (r) Object.assign(r, patch);
         toast('Request updated'); paint();
       } catch { rb.disabled = false; toast('Update failed'); }
+      return;
+    }
+    const ob = e.target.closest('button[data-oid]');
+    if (ob) {
+      const id = ob.dataset.oid;
+      const o = (adminState.orders || []).find(x => x.id === id);
+      const patch = ob.dataset.act === 'paid' ? { status: 'paid', paidAt: Date.now() } : { status: 'cancelled' };
+      ob.disabled = true;
+      try {
+        await PFCloud.updateOrderAdmin(id, patch);
+        if (o) Object.assign(o, patch);
+        toast('Order updated'); paint();
+      } catch { ob.disabled = false; toast('Update failed'); }
     }
   });
 
@@ -2533,6 +2733,9 @@ function admOverview(body) {
   const paidTotal = requests
     .filter(r => r.payment && r.payment.paymentStatus === 'paid')
     .reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
+  const orders = adminState.orders || [];
+  const orderRevenue = orders.filter(o => o.status === 'paid').reduce((s, o) => s + (Number(o.amountLKR) || 0), 0);
+  const ordersToConfirm = orders.filter(o => o.status === 'reported' || o.status === 'pending').length;
 
   // field distribution from completed assessments
   const fields = {};
@@ -2551,7 +2754,9 @@ function admOverview(body) {
       ${admMetric('inbox', requests.length, 'Total requests')}
       ${admMetric('hourglass_top', openReq, 'Open (unclaimed)')}
       ${admMetric('payments', awaitingPay, 'Awaiting payment')}
-      ${admMetric('paid', 'LKR ' + paidTotal.toLocaleString(), 'Paid this period')}
+      ${admMetric('paid', 'LKR ' + paidTotal.toLocaleString(), 'Session revenue')}
+      ${admMetric('shopping_bag', 'LKR ' + orderRevenue.toLocaleString(), 'Premium revenue')}
+      ${admMetric('receipt_long', ordersToConfirm, 'Orders to confirm')}
       ${admMetric('group', users.length, 'Synced users')}
       ${admMetric('quiz', assessments, 'Assessments completed')}
       ${admMetric('folder_managed', totalApps, 'Applications tracked')}
@@ -2662,6 +2867,44 @@ function admRequests(body) {
       mentorId: r.mentorId || '',
       paymentStatus: r.payment ? r.payment.paymentStatus : 'none',
       amountLKR: r.payment ? r.payment.amountLKR : '' })));
+}
+
+function admOrders(body) {
+  if (adminState.orders === null) { body.innerHTML = admErrCard('orders'); return; }
+  const orders = adminState.orders;
+  const label = it => (PFPay.items()[it] && PFPay.items()[it].label) || it;
+  const revenue = orders.filter(o => o.status === 'paid').reduce((s, o) => s + (Number(o.amountLKR) || 0), 0);
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <p class="faint" style="font-size:12.5px;margin:0">${orders.length} order${orders.length === 1 ? '' : 's'} · LKR ${revenue.toLocaleString()} confirmed</p>
+      ${orders.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-orders"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+    </div>
+    ${orders.length ? orders.map(o => {
+      const canPaid = o.status === 'reported' || o.status === 'pending';
+      const canCancel = o.status !== 'paid' && o.status !== 'cancelled';
+      return `<div class="card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1;min-width:220px">
+            <strong style="font-size:14.5px">${esc(label(o.item))}</strong>
+            <span class="faint" style="font-size:12.5px"> · LKR ${Number(o.amountLKR || 0).toLocaleString()}</span>
+            <div class="faint" style="font-size:12.5px;margin-top:2px">
+              ${o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ''}${o.method ? ' · ' + esc(o.method) : ''}${o.ref ? ' · ref ' + esc(o.ref) : ''}${o.payerTxn ? ' · txn ' + esc(o.payerTxn) : ''}
+            </div>
+            <div class="faint mono" style="font-size:11px;margin-top:4px">uid ${esc((o.uid || '').slice(0, 12))}…</div>
+          </div>
+          ${payStatusChip({ paymentStatus: o.status })}
+        </div>
+        ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
+          ${canPaid ? `<button class="btn btn-primary btn-sm" data-oid="${o.id}" data-act="paid">Mark paid &amp; unlock</button>` : ''}
+          ${canCancel ? `<button class="btn btn-ghost btn-sm" data-oid="${o.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+        </div>` : ''}
+      </div>`;
+    }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No premium orders yet.</p></div>`}`;
+
+  const dl = $('#adm-dl-orders', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-orders.csv',
+    ['item', 'amountLKR', 'status', 'method', 'ref', 'payerTxn', 'uid', 'createdAt'],
+    orders.map(o => ({ ...o, createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : '' })));
 }
 
 function admUsers(body) {

@@ -103,7 +103,42 @@ service cloud.firestore {
             && resource.data.studentUid == request.auth.uid
             && request.resource.data.status == 'cancelled'
             && resource.data.status != 'paid'
-            && resource.data.status != 'completed');
+            && resource.data.status != 'completed')
+        // A student may report their own payment (manual rail): only the
+        // payment block changes to 'reported'; status/mentor stay put, and
+        // the mentor/admin still confirms 'paid' afterwards.
+        || (request.auth != null
+            && resource.data.studentUid == request.auth.uid
+            && resource.data.status == 'awaiting_payment'
+            && request.resource.data.status == 'awaiting_payment'
+            && request.resource.data.mentorId == resource.data.mentorId
+            && request.resource.data.payment.paymentStatus == 'reported');
+
+      allow delete: if false;
+    }
+
+    // ── One-time premium unlocks (orders) ──────────────────────────────
+    // A signed-in user (incl. anonymous) creates their own order as
+    // 'reported' (manual rail) or 'pending' (future PayHere). Only the admin
+    // may mark it 'paid' after verifying the transfer; the owner may cancel
+    // before it is paid. Reads are limited to the owner and the admin.
+    match /orders/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && (request.resource.data.status == 'reported'
+            || request.resource.data.status == 'pending')
+        && request.resource.data.item is string
+        && request.resource.data.item.size() < 60
+        && request.resource.data.amountLKR is number;
+
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.uid == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (request.auth != null
+            && resource.data.uid == request.auth.uid
+            && request.resource.data.status == 'cancelled'
+            && resource.data.status != 'paid');
 
       allow delete: if false;
     }
