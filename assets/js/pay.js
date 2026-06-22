@@ -27,6 +27,20 @@ const PFPay = (() => {
   const isPayHereLive = () => !!(cfg().payhere && cfg().payhere.merchantId);
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
 
+  /* PayPal is offered when configured with a receiving identity. */
+  function payPalOn() {
+    const pp = cfg().paypal || {};
+    return !!(pp.enabled && (pp.business || pp.meHandle) && typeof PFPayPal !== 'undefined');
+  }
+  /* Convert an LKR price into the PayPal settlement currency for display +
+     checkout. PayPal cannot transact in LKR, so we use the hand-maintained
+     PF_CONFIG.paypal.usdRate (LKR per 1 unit). Returns { amount, currency }. */
+  function paypalAmountFor(amountLKR) {
+    const pp = cfg().paypal || {};
+    const rate = Number(pp.usdRate) || 300;
+    return { amount: Math.max(1, Math.round((Number(amountLKR) || 0) / rate)), currency: pp.currency || 'USD' };
+  }
+
   /* Catalogue of one-time platform products, priced from PF_CONFIG. */
   function items() {
     const p = cfg().pricing || {};
@@ -49,7 +63,37 @@ const PFPay = (() => {
     const m = cfg().manualPay || {};
     const opts = ['Bank transfer'];
     (m.wallets || []).forEach(w => { if (w.number) opts.push(w.name); });
+    if (payPalOn()) opts.push('PayPal');
     return opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  }
+
+  /* "Pay with PayPal" button (international rail). Opens PayPal's hosted
+     checkout in a new tab for the converted foreign-currency amount; the
+     student then still reports the payment below, exactly like the manual
+     rail, so the owner confirms receipt before it counts as paid. */
+  function paypalButtonHTML(amountLKR) {
+    if (!payPalOn()) return '';
+    const { amount, currency } = paypalAmountFor(amountLKR);
+    return `<div class="pay-paypal" style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
+      <button type="button" class="btn btn-ghost pp-go" data-amount="${amountLKR}" style="width:100%;justify-content:center">
+        <span class="material-symbols-outlined" style="font-size:16px">account_balance_wallet</span>
+        Pay with PayPal (international cards) · ~${currency} ${amount}
+      </button>
+      <p class="muted" style="font-size:11.5px;margin:8px 0 0">Pays in ${currency} (PayPal has no LKR). After paying, choose <strong>PayPal</strong> below and tap “I’ve paid”.</p>
+    </div>`;
+  }
+
+  /* Wire the PayPal button inside a payment modal to open checkout. `ref`
+     becomes the order id on the PayPal-side so manual reconciliation can
+     match it; for a mentor request we pass the real request id. */
+  function bindPayPal(modalEl, id) {
+    const btn = modalEl.querySelector('.pp-go');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const { amount, currency } = paypalAmountFor(btn.dataset.amount);
+      const ok = PFPayPal.openCheckout({ id: id || 'order', payment: { method: 'paypal', amount, currency } });
+      if (!ok) toast('PayPal isn’t configured — set PF_CONFIG.paypal.business or meHandle.');
+    });
   }
 
   /* The bank/wallet instructions panel shared by both flows. */
@@ -91,7 +135,8 @@ const PFPay = (() => {
     const amount = request.payment && request.payment.amountLKR;
     const reference = refFor((request.id || '').replace('mr_', '').slice(-6));
     const m = modal('Pay for your session',
-      instructionsHTML(amount, reference) + reportFormHTML('I’ve paid — notify my mentor'));
+      instructionsHTML(amount, reference) + paypalButtonHTML(amount) + reportFormHTML('I’ve paid — notify my mentor'));
+    bindPayPal(m.el, request.id);
 
     m.el.querySelector('.pay-report').addEventListener('submit', async e => {
       e.preventDefault();
@@ -126,7 +171,8 @@ const PFPay = (() => {
     // until then premium unlocks always use the manual rail.
     const m = modal('Unlock ' + meta.label,
       `<p class="muted" style="font-size:13.5px;margin:0 0 14px">One-time payment — unlocks ${esc(meta.label)} on your account for good.</p>` +
-      instructionsHTML(meta.amount, reference) + reportFormHTML('I’ve paid — unlock my account'));
+      instructionsHTML(meta.amount, reference) + paypalButtonHTML(meta.amount) + reportFormHTML('I’ve paid — unlock my account'));
+    bindPayPal(m.el, 'order:' + itemKey);
 
     m.el.querySelector('.pay-report').addEventListener('submit', async e => {
       e.preventDefault();
@@ -145,5 +191,5 @@ const PFPay = (() => {
     });
   }
 
-  return { isPayHereLive, items, money, startSession, startOrder };
+  return { isPayHereLive, payPalOn, paypalAmountFor, items, money, startSession, startOrder };
 })();

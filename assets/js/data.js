@@ -1233,6 +1233,11 @@ const PF_CONFIG = {
     auditFull: 10000,   // full CV + SOP + proposal audit (a mentor service)
   },
 
+  // Platform take-rate on paid mentor sessions (mentor keeps the rest).
+  // Used by the admin Accounting tab to split gross into platform earnings.
+  // Premium unlocks (orders) are sold by the platform, so they count 100%.
+  platformTakeRate: 0.20,
+
   // Advanced templates locked behind the Premium Toolkit. The first twelve
   // (t1–t12) stay free as the funnel; these are the high-leverage ones.
   premiumTemplateIds: ['t13', 't14', 't15', 't16', 't17', 't18', 't19'],
@@ -1254,6 +1259,38 @@ const PF_CONFIG = {
       { name: 'FriMi',   number: '' },   // TODO before launch (NDB)
     ],
     instructions: 'Transfer the exact amount using any method above and put the reference in the payment note. Then tap “I’ve paid” — we confirm within 24 hours and your access/session unlocks.',
+  },
+
+  /* ── PayPal rail (international cards / PayPal balance) ────────────────
+     Sri Lankan accounts can now RECEIVE PayPal, so this adds a card-free
+     international option alongside the local manual rail. Like the manual
+     rail it is Tier 1 (no backend, no API secret): the student pays on
+     PayPal's hosted page, then taps "I've paid" to report it, and the
+     owner/admin confirms receipt and marks it paid. PayPal cannot transact
+     in LKR, so amounts are converted to `currency` using `usdRate` and the
+     student is shown the foreign-currency figure. Set ONE of `business`
+     (hosted Buy-Now checkout, carries the order id) or `meHandle`
+     (simpler PayPal.Me link). Leave both blank to hide the PayPal option. */
+  paypal: {
+    enabled: true,
+    business: '',        // PayPal receiving email / merchant id — TODO before launch
+    meHandle: '',        // OR a PayPal.Me handle, e.g. 'pathfinderlk' — alternative to business
+    sandbox: true,       // flip to false for live PayPal payments
+    currency: 'USD',     // PayPal-supported settlement currency (PayPal has no LKR)
+    usdRate: 300,        // indicative LKR per 1 USD for display — hand-maintained, NOT live
+  },
+
+  /* ── Invoice / receipt issuer identity ───────────────────────────────
+     Printed on the receipts the admin generates from the Accounting tab.
+     Fill the legal name + (if registered) tax id before issuing invoices;
+     until then receipts print as informal payment confirmations. */
+  org: {
+    name: 'PathFinder',
+    legalName: '',                       // registered / sole-proprietor name — TODO
+    email: 'support@pathfinder.app',     // billing contact
+    address: '',                         // business address (optional until registered)
+    taxId: '',                           // TIN / VAT no. once registered (optional)
+    invoicePrefix: 'PF',                 // receipt-number prefix, e.g. PF-INV-S-AB12CD
   },
 
   /* ── Settlement & cost-of-living benchmarks (re-verify periodically) ──
