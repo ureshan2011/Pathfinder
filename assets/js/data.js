@@ -1217,7 +1217,44 @@ const PF_CONFIG = {
 
   // Suggested follow-on session price (LKR), editable by the mentor per
   // request from their dashboard before generating the payment link.
-  defaultSessionPriceLKR: 5000,
+  // Lowered from 5000 — a price-sensitive student audience converts better
+  // at 2,500–4,000; mentors can still raise it per request.
+  defaultSessionPriceLKR: 4000,
+  sessionTiers: { quick: 2500, standard: 4000 },
+
+  /* ── One-time premium unlocks (LKR) ──────────────────────────────────
+     Sold directly by the platform (no mentor). A paid `orders` doc grants
+     the matching entitlement; gating lives in app.js (renderKit). The
+     Sprint bundle also grants the Toolkit. */
+  pricing: {
+    toolkit:   1990,    // all premium templates + guides, one-time
+    sprint:    12900,   // toolkit + 2 sessions + 1 proposal review (anchor)
+    auditSop:  6000,    // SOP / proposal review (a mentor service)
+    auditFull: 10000,   // full CV + SOP + proposal audit (a mentor service)
+  },
+
+  // Advanced templates locked behind the Premium Toolkit. The first twelve
+  // (t1–t12) stay free as the funnel; these are the high-leverage ones.
+  premiumTemplateIds: ['t13', 't14', 't15', 't16', 't17', 't18', 't19'],
+
+  /* ── Manual payment rail (no merchant ID / no business registration) ──
+     The student transfers to a PERSONAL account/wallet, quotes the shown
+     reference, and taps "I've paid"; the owner/mentor confirms in the admin
+     panel after checking their banking app. Fill these before launch. When
+     payhere.merchantId is later set (after a sole-proprietor registration),
+     the same flows switch to PayHere automatically — see assets/js/pay.js. */
+  manualPay: {
+    enabled: true,
+    bankName: '',        // e.g. 'Commercial Bank'        — TODO before launch
+    accountName: '',     // e.g. 'A. B. Perera'           — TODO before launch
+    accountNo: '',       // e.g. '8001234567'             — TODO before launch
+    branch: '',          // e.g. 'Colombo 03'             — optional
+    wallets: [           // peer-to-peer wallets (no business reg needed)
+      { name: 'eZ Cash', number: '' },   // TODO before launch (Dialog)
+      { name: 'FriMi',   number: '' },   // TODO before launch (NDB)
+    ],
+    instructions: 'Transfer the exact amount using any method above and put the reference in the payment note. Then tap “I’ve paid” — we confirm within 24 hours and your access/session unlocks.',
+  },
 
   /* ── Settlement & cost-of-living benchmarks (re-verify periodically) ──
      These change with policy and the market — confirm the dates below. */
