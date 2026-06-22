@@ -410,6 +410,51 @@ if (cfg && cfg.apiKey) {
       requireAdmin();
       await updateDoc(doc(db, 'mentor_requests', id), { ...patch, updatedAt: Date.now() });
     },
+    // A student reports that they have paid (manual rail): flips their own
+    // request's payment to 'reported'. Rules allow only this transition for
+    // the owning student; the mentor/admin still confirms 'paid' afterwards.
+    async reportMyPayment(id, payment) {
+      const u = auth.currentUser; if (!u) throw new Error('Not signed in');
+      await updateDoc(doc(db, 'mentor_requests', id), { payment, updatedAt: Date.now() });
+    },
+
+    /* ── One-time premium unlocks (`orders`) ─────────────────────────────
+       A signed-in user creates an order as 'reported' (manual rail) or
+       'pending' (future PayHere); the admin marks it 'paid' after verifying
+       the transfer. Entitlements in the app are derived from paid orders. */
+    async createOrder({ item, amountLKR, ref, method, payerTxn, status }) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Sign in before purchasing');
+      const docRef = await addDoc(collection(db, 'orders'), {
+        uid: u.uid,
+        item: String(item || ''),
+        amountLKR: Number(amountLKR) || 0,
+        ref: ref || '',
+        method: method || '',
+        payerTxn: payerTxn || '',
+        status: status || 'reported',
+        createdAt: Date.now(),
+        ts: serverTimestamp(),
+      });
+      return docRef.id;
+    },
+    // The signed-in user's own orders (for #billing + entitlement gating).
+    async fetchMyOrders() {
+      const u = auth.currentUser; if (!u) return [];
+      const snap = await getDocs(query(collection(db, 'orders'), where('uid', '==', u.uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    },
+    async fetchAllOrders() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'orders'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    },
+    async updateOrderAdmin(id, patch) {
+      requireAdmin();
+      await updateDoc(doc(db, 'orders', id), { ...patch, updatedAt: Date.now() });
+    },
   };
 
   let authInitialised = false;
