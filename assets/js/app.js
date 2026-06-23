@@ -90,6 +90,7 @@ const ROUTES = {
   research:   renderResearch,
   explore:    renderExplore,
   funding:    renderFunding,
+  news:       renderNews,
   dashboard:  renderDashboard,
   kit:        renderKit,
   visa:       renderVisa,
@@ -111,11 +112,13 @@ const norm = s => String(s || '').trim().toUpperCase();
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   const fn = ROUTES[view] || renderDashboard;
+  if (ROUTES[view]) markSeen(view);
   $$('.side-link').forEach(a => a.classList.toggle('active', a.dataset.view === view));
   $('.side-link.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
+  updateJourneyMeter();
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
   window.scrollTo(0, 0);
@@ -124,6 +127,326 @@ function route() {
 /* "#mentors?topic=visa-medical" → { topic:'visa-medical' } */
 function hashQuery() {
   return Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
+}
+
+/* ── Journey engine ─────────────────────────────────────────────
+   The whole product is one arc: Discover → Plan → Apply → Visa →
+   Settle in. This models that arc as five phases, each with three
+   concrete milestones derived from real saved data, so the student
+   always sees where they are, what's next, and how far they've come
+   (goal-gradient + endowed-progress + Zeigarnik). One source of truth
+   feeds the dashboard Journey Map, the sidebar meter, and every
+   next-best-action nudge. */
+
+/* record that a view has been opened (once, ever) — powers the
+   "explored" milestones without per-visit writes (stays frugal). */
+function markSeen(view) {
+  if (!view) return;
+  const seen = PFStore.get('journey.seen', {}) || {};
+  if (!seen[view]) { seen[view] = Date.now(); PFStore.set('journey.seen', seen); }
+}
+
+function journeyModel() {
+  const a = PFStore.getAssessment();
+  const saved = PFStore.getSaved();
+  const apps = PFStore.getApps();
+  const reqs = PFStore.getMentorRequests();
+  const vp = visaProgress();
+  const research = (PFStore.getResearch && PFStore.getResearch()) || null;
+  const plans = (PFStore.getFundsPlans && PFStore.getFundsPlans()) || [];
+  const fm = (PFStore.getFirstMonthsProgress && PFStore.getFirstMonthsProgress()) || null;
+  const seen = PFStore.get('journey.seen', {}) || {};
+  const ST = PFStore.APP_STATUSES;
+  const furthest = apps.reduce((m, x) => Math.max(m, ST.indexOf(x.status) + 1), 0);
+  const halfVisa = vp.total ? Math.ceil(vp.total / 2) : 1;
+
+  const phases = [
+    { id: 'discover', label: 'Discover', icon: 'travel_explore', view: 'assessment', color: 'teal',
+      blurb: 'Find your fit — pathway, fields, labs and funding.',
+      steps: [
+        ['Take the 5-minute assessment', !!a, '#assessment'],
+        ['Save 3 labs or scholarships', saved.length >= 3, '#explore'],
+        ['Generate a research direction', !!(research && research.candidates && research.candidates.length), '#research'],
+      ] },
+    { id: 'plan', label: 'Plan', icon: 'route', view: 'roadmap', color: 'violet',
+      blurb: 'Turn your result into a month-by-month roadmap.',
+      steps: [
+        ['Open your personalized roadmap', !!seen.roadmap && !!a, '#roadmap'],
+        ['Grab a starter-kit template', !!seen.kit, '#kit'],
+        ['Check eligible scholarships', !!seen.funding, '#funding'],
+      ] },
+    { id: 'apply', label: 'Apply', icon: 'folder_managed', view: 'dashboard', color: 'gold',
+      blurb: 'Contact supervisors and track every application.',
+      steps: [
+        ['Track your first application', apps.length >= 1, '#dashboard'],
+        ['Reach “Applied” on one', furthest >= ST.indexOf('Applied') + 1, '#dashboard'],
+        ['Get a mentor’s eyes on your plan', reqs.length >= 1, '#mentors'],
+      ] },
+    { id: 'visa', label: 'Visa', icon: 'flight_takeoff', view: 'visa', color: 'rose',
+      blurb: 'Walk the 7-stage NZ student-visa process.',
+      steps: [
+        ['Start the visa checklist', vp.done >= 1, '#visa'],
+        ['Cross the halfway mark', !!vp.total && vp.done >= halfVisa, '#visa'],
+        ['Finish the visa checklist', !!vp.total && vp.done >= vp.total, '#visa'],
+      ] },
+    { id: 'settle', label: 'Settle in', icon: 'luggage', view: 'settlement', color: 'teal',
+      blurb: 'Plan funds, first months and the move itself.',
+      steps: [
+        ['Plan your funds', plans.length >= 1, '#settlement'],
+        ['Map your first 90 days', !!fm, '#settlement'],
+        ['Read the settling-in guides', !!seen.settlement, '#settlement'],
+      ] },
+  ];
+
+  phases.forEach(p => {
+    p.done = p.steps.filter(s => s[1]).length;
+    p.total = p.steps.length;
+    p.pct = Math.round((p.done / p.total) * 100);
+    p.complete = p.done === p.total;
+    p.started = p.done > 0;
+    p.nextStep = p.steps.find(s => !s[1]) || null;
+  });
+
+  const totalSteps = phases.reduce((s, p) => s + p.total, 0);
+  const doneSteps = phases.reduce((s, p) => s + p.done, 0);
+  const overall = Math.round((doneSteps / totalSteps) * 100);
+  const current = phases.find(p => !p.complete) || phases[phases.length - 1];
+  const nextStep = current.nextStep;
+  return { phases, overall, doneSteps, totalSteps, current, nextStep };
+}
+
+/* where a phase chip jumps to: the next unfinished milestone, else its home view */
+function journeyJump(p) { return p.nextStep ? p.nextStep[2] : '#' + p.view; }
+
+function journeyBlurb(J) {
+  if (J.overall === 0) return 'Five stages from your first question to enrolment in New Zealand. It starts with a 5-minute assessment.';
+  if (J.overall >= 100) return 'Every milestone done — you’re ready. Keep a mentor close for the final stretch.';
+  const left = 100 - J.overall;
+  return `You’re in <strong>${J.current.label}</strong>. ${J.current.blurb}${left <= 35 ? ' Almost there.' : ''}`;
+}
+
+/* The dashboard hero: a visual, clickable map of the whole journey. */
+function renderJourneyMap() {
+  const J = journeyModel();
+  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  const hasData = !!PFStore.getAssessment() || PFStore.getApps().length > 0 || PFStore.getSaved().length > 0;
+  const cont = J.nextStep;
+
+  const cards = J.phases.map((p, idx) => {
+    const isCur = p.id === J.current.id && !p.complete;
+    const badge = p.complete
+      ? '<span class="material-symbols-outlined" style="font-size:17px">check</span>'
+      : (idx + 1);
+    return `<a class="jp ${p.complete ? 'jp-done' : ''} ${isCur ? 'jp-cur' : ''}" href="${journeyJump(p)}" data-phase="${p.id}">
+      <div class="jp-top">
+        <span class="jp-num">${badge}</span>
+        <span class="material-symbols-outlined jp-ic">${p.icon}</span>
+      </div>
+      <div class="jp-name">${p.label}</div>
+      <div class="jp-bar"><span style="width:${p.pct}%"></span></div>
+      <div class="jp-meta">${isCur ? 'You’re here · ' : ''}${p.done}/${p.total}</div>
+    </a>`;
+  }).join('');
+
+  return `<section class="journey" aria-label="Your journey to a PhD in New Zealand">
+    <div class="journey-head">
+      <div style="min-width:240px">
+        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to a NZ PhD</span>
+        <h2 class="journey-pct">${J.overall}<small>% complete</small></h2>
+        <p class="muted" style="font-size:13.5px;margin:4px 0 0;max-width:460px">${journeyBlurb(J)}</p>
+      </div>
+      ${cont
+        ? `<a class="btn btn-primary journey-cta" href="${cont[2]}"><span class="material-symbols-outlined" style="font-size:17px">bolt</span>${cont[0]}</a>`
+        : `<a class="btn btn-primary journey-cta" href="#mentors"><span class="material-symbols-outlined" style="font-size:17px">support_agent</span>Pressure-test with a mentor</a>`}
+    </div>
+    <div class="journey-track">${cards}</div>
+    ${!synced && hasData
+      ? `<a class="journey-nudge" href="#account"><span class="material-symbols-outlined" style="font-size:17px">cloud_sync</span><span>You’ve built real progress — <strong>create a free account</strong> to keep it safe across devices.</span><span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span></a>`
+      : ''}
+  </section>`;
+}
+
+/* keep the sidebar journey meter in sync after every route */
+function updateJourneyMeter() {
+  const el = document.getElementById('journey-meter');
+  if (!el) return;
+  const J = journeyModel();
+  const bar = el.querySelector('.jm-bar span'); if (bar) bar.style.width = J.overall + '%';
+  const pct = el.querySelector('.jm-pct'); if (pct) pct.textContent = J.overall + '%';
+  const lbl = el.querySelector('.jm-lbl'); if (lbl) lbl.textContent = J.overall >= 100 ? 'Journey complete' : 'In ' + J.current.label;
+}
+
+/* ── Briefing: live immigration + PhD/postgrad news ─────────────────
+   Fetches ONLY on-topic news from free, no-key Google News RSS search
+   feeds (PF_NEWS in data.js) through a CORS proxy — the same
+   "external servers, never Firestore" model as the Research Studio, so
+   it adds zero backend and zero Firestore cost. Results are filtered to
+   relevant + recent, deduped, sorted newest-first, and cached locally
+   under a `__`-prefixed key the sync layer skips (no write quota used). */
+let newsState = { loading: false, items: null, fetchedAt: 0, error: null };
+let newsFilter = 'all';
+
+function newsCacheRead() {
+  if (newsState.items) return;
+  const c = PFStore.get('__newsCache', null);
+  if (c && Array.isArray(c.items)) { newsState.items = c.items; newsState.fetchedAt = c.fetchedAt || 0; }
+}
+function newsStale() {
+  const ms = (PF_NEWS.refreshHours || 3) * 3600e3;
+  return !newsState.fetchedAt || (Date.now() - newsState.fetchedAt) > ms;
+}
+
+/* try each free proxy in turn until one returns RSS XML */
+async function newsProxyFetch(url) {
+  for (const p of (PF_NEWS.proxies || [])) {
+    try {
+      const r = await fetch(p + encodeURIComponent(url));
+      if (!r.ok) continue;
+      const t = await r.text();
+      if (t && t.indexOf('<') !== -1) return t;
+    } catch {}
+  }
+  return null;
+}
+
+function newsRelevant(title, summary) {
+  const hay = (title + ' ' + summary).toLowerCase();
+  if ((PF_NEWS.blocklist || []).some(b => hay.includes(b))) return false;
+  return (PF_NEWS.keywords || []).some(k => hay.includes(k));
+}
+
+function parseNewsXML(xml, feed) {
+  const out = [];
+  try {
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    [...doc.querySelectorAll('item')].slice(0, PF_NEWS.perFeed || 12).forEach(it => {
+      const rawTitle = stripTags(it.querySelector('title')?.textContent || '');
+      const link = (it.querySelector('link')?.textContent || '').trim();
+      const desc = stripTags(it.querySelector('description')?.textContent || '');
+      const pub = it.querySelector('pubDate')?.textContent || '';
+      let src = (it.getElementsByTagName('source')[0]?.textContent || '').trim();
+      const ts = pub ? Date.parse(pub) : 0;
+      if (!rawTitle || !link) return;
+      // Google News appends " - Publisher" to titles — split it back out.
+      let title = rawTitle;
+      const dash = rawTitle.lastIndexOf(' - ');
+      if (dash > 0 && rawTitle.length - dash < 40) { if (!src) src = rawTitle.slice(dash + 3); title = rawTitle.slice(0, dash); }
+      if (!newsRelevant(title, desc)) return;
+      out.push({ title: title.trim(), link, source: src || 'News', summary: desc, ts, tag: feed.tag, accent: feed.accent });
+    });
+  } catch {}
+  return out;
+}
+
+async function fetchNews() {
+  const maxAge = (PF_NEWS.maxAgeDays || 90) * 86400e3;
+  const now = Date.now();
+  const all = [];
+  await Promise.all((PF_NEWS.feeds || []).map(async f => {
+    const xml = await newsProxyFetch(PF_NEWS.googleBase + encodeURIComponent(f.q));
+    if (xml) all.push(...parseNewsXML(xml, f));
+  }));
+  let items = all.filter(x => !x.ts || (now - x.ts) <= maxAge); // recency (keep undated)
+  const seen = new Set();                                        // dedupe by title
+  items = items.filter(x => {
+    const k = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+    if (seen.has(k)) return false; seen.add(k); return true;
+  });
+  items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  return items.slice(0, 40);
+}
+
+function loadNews(cb, force) {
+  newsCacheRead();
+  if (!force && newsState.items && newsState.items.length && !newsStale()) { cb && cb(); return; }
+  if (newsState.loading) { cb && cb(); return; }
+  newsState.loading = true; newsState.error = null;
+  if (cb) cb(); // let callers paint a loading state immediately
+  fetchNews().then(items => {
+    newsState.loading = false;
+    if (items && items.length) {
+      newsState.items = items; newsState.fetchedAt = Date.now();
+      PFStore.set('__newsCache', { items, fetchedAt: newsState.fetchedAt }); // local-only (__ skips sync)
+    } else if (!newsState.items || !newsState.items.length) {
+      newsState.error = 'empty';
+    }
+    cb && cb();
+  }).catch(() => { newsState.loading = false; newsState.error = 'fail'; cb && cb(); });
+}
+
+function relTime(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  const d = Math.floor(s / 86400);
+  return d < 30 ? d + 'd ago' : new Date(ts).toLocaleDateString();
+}
+
+function newsItemRow(x, compact) {
+  const sum = x.summary && x.summary.length > 160 ? x.summary.slice(0, 160) + '…' : (x.summary || '');
+  return `<a class="news-row" href="${esc(x.link)}" target="_blank" rel="noopener">
+    <div class="news-main">
+      <div class="news-meta"><span class="chip chip-${x.accent || 'dim'}">${esc(x.tag)}</span>
+        <span class="news-src">${esc(x.source)}</span>${x.ts ? `<span class="news-time">· ${relTime(x.ts)}</span>` : ''}</div>
+      <strong class="news-title">${esc(x.title)}</strong>
+      ${!compact && sum ? `<p class="news-sum">${esc(sum)}</p>` : ''}
+    </div>
+    <span class="material-symbols-outlined news-go">north_east</span>
+  </a>`;
+}
+
+/* compact 3-item strip for the dashboard (a high-traffic, "good for
+   students" surface). Filled async by loadNews after first paint. */
+function newsStrip() {
+  const items = (newsState.items || []).slice(0, 3);
+  const inner = items.length ? items.map(x => newsItemRow(x, true)).join('')
+    : `<p class="muted" style="font-size:13.5px;margin:0">Loading the latest immigration & PhD news…</p>`;
+  return `<section class="card" style="margin-bottom:40px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="font-size:1.15rem;margin:0"><span class="material-symbols-outlined" style="font-size:19px;color:var(--route);vertical-align:-4px">newspaper</span> Latest briefing</h2>
+      <a href="#news" class="route-link" style="color:var(--route);font-size:13px">All news →</a>
+    </div>
+    <div id="dash-news" class="news-list">${inner}</div>
+  </section>`;
+}
+
+function renderNews(main) {
+  main.innerHTML = viewHead('newspaper', 'Briefing', 'Immigration & PhD news, live',
+    'Only what matters for a Sri Lankan student heading to New Zealand — visa & immigration changes and PhD / postgraduate news, pulled fresh from across the web and refreshed continuously.') +
+    `<div id="news-body"></div>`;
+  const body = $('#news-body', main);
+
+  const paint = () => {
+    const items = newsState.items || [];
+    const tags = ['all', ...new Set((PF_NEWS.feeds || []).map(f => f.tag))];
+    const chips = tags.map(t => `<button class="chip-filter news-fil ${newsFilter === t ? 'active' : ''}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
+    const shown = items.filter(x => newsFilter === 'all' || x.tag === newsFilter);
+    const updated = newsState.fetchedAt ? `Updated ${relTime(newsState.fetchedAt)}` : '';
+
+    let listHtml;
+    if (newsState.loading && !items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Fetching the latest immigration & PhD news…</p></div>`;
+    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-ghost btn-sm news-refresh">Try again</button></p></div>`;
+    else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
+      : `<div class="card"><p class="muted" style="margin:0">Nothing in this category right now — try “All”.</p></div>`;
+
+    body.innerHTML = `<div class="news-bar">
+        <div class="news-fils">${chips}</div>
+        <div class="news-upd">${updated}${newsState.loading ? ' · refreshing…' : ''}
+          <button class="btn btn-ghost btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
+      </div>
+      <div class="news-list">${listHtml}</div>
+      <p class="faint" style="font-size:11.5px;margin-top:20px;max-width:640px">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a>.</p>`;
+  };
+
+  paint();
+  loadNews(paint, false);
+
+  body.addEventListener('click', e => {
+    const fil = e.target.closest('.news-fil');
+    if (fil) { newsFilter = fil.dataset.fil; paint(); return; }
+    if (e.target.closest('.news-refresh')) { newsState.fetchedAt = 0; loadNews(paint, true); }
+  });
 }
 
 /* contextual mentor hook — quiet, helpful, pre-fills the topic. Now an
@@ -307,9 +630,19 @@ function finishAssessment(main) {
   const result = computeResult(asmState.answers);
   PFStore.setAssessment({ answers: asmState.answers, result, completedAt: Date.now() });
   asmState = { step: 0, answers: {} };
+  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
   main.innerHTML = viewHead('celebration', 'Assessment complete', 'Your personalized result',
     'Saved to your dashboard. Your roadmap has been generated from these answers.') +
     resultCard(result) +
+    // Endowed-progress login moment: the student now HAS a result worth
+    // keeping — the strongest point to offer a free account (never forced).
+    (cloudOn() && !synced
+      ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
+          <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
+          <span>You’re <strong>${result.readiness}% PhD-ready</strong>. Create a free account to lock in your result and roadmap across every device.</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+        </a>`
+      : '') +
     `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
       <a class="btn btn-primary" href="#roadmap">Open my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
       <a class="btn btn-ghost" href="#explore">Explore matched labs</a>
@@ -1452,12 +1785,11 @@ function renderDashboard(main) {
   const inProg = apps.filter(x => ['Contacted Supervisor', 'Preparing Documents', 'Applied', 'Interview'].includes(x.status)).length;
   const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
   const activeReqs = reqs.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  const nextAction =
-    !a                    ? ['quiz', 'Take the 5-minute assessment to unlock your roadmap', '#assessment'] :
-    !saved.length         ? ['travel_explore', 'Save a few labs & scholarships that fit your field', '#explore'] :
-    !apps.length          ? ['folder_managed', 'Start tracking your first application', '#dashboard'] :
-    vp.done < vp.total    ? ['flight_takeoff', `Continue your visa checklist — ${vp.total - vp.done} step${vp.total - vp.done === 1 ? '' : 's'} left`, '#visa'] :
-                            ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
+  // single source of truth — same engine that drives the Journey Map + meter
+  const J = journeyModel();
+  const nextAction = J.nextStep
+    ? [J.current.icon, J.nextStep[0], J.nextStep[2]]
+    : ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
   const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
 
   const savedHtml = saved.length ? saved.map(s => {
@@ -1477,7 +1809,9 @@ function renderDashboard(main) {
     a ? `Pathway: <strong>${a.result.pathway}</strong> in ${a.result.field}.`
       : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> to unlock your personalized roadmap.') +
 
-    `<div class="grid-4" style="margin-bottom:40px">
+    renderJourneyMap() +
+
+    `<div class="grid-4" style="margin:40px 0">
       ${[['quiz', a ? a.result.readiness + '%' : '—', 'Readiness score', '#assessment'],
          ['bookmark', saved.length, 'Saved opportunities', '#explore'],
          ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
@@ -1510,6 +1844,8 @@ function renderDashboard(main) {
         Next step: <a href="${nextAction[2]}" style="color:var(--route)">${nextAction[1]}</a>
       </div>
     </div>
+
+    ${newsStrip()}
 
     <h2 style="font-size:1.3rem;margin-bottom:16px">Application tracker</h2>
     <div class="card" style="margin-bottom:18px">
@@ -1602,6 +1938,15 @@ function renderDashboard(main) {
     toast('Removed from this device');
     route();
   });
+
+  // fill the briefing strip async (won't block the dashboard render)
+  loadNews(() => {
+    const el = document.getElementById('dash-news');
+    if (!el) return;
+    const items = (newsState.items || []).slice(0, 3);
+    if (items.length) el.innerHTML = items.map(x => newsItemRow(x, true)).join('');
+    else if (!newsState.loading) el.innerHTML = `<p class="muted" style="font-size:13px;margin:0">News sources are unreachable right now — <a href="#news" style="color:var(--route)">open the Briefing</a> to retry.</p>`;
+  }, false);
 }
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */

@@ -41,6 +41,92 @@
     .side-link .material-symbols-outlined { font-size: 18px; }
     .side-foot { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); line-height: 2; }
 
+    /* sidebar phase group labels — give the flat nav a journey structure */
+    .side-group-h {
+      padding: 14px 10px 5px; margin-top: 4px;
+      font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+      letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); opacity: .7;
+    }
+
+    /* live journey progress meter */
+    .journey-meter { display: block; margin: 0 8px 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); transition: border-color .2s, background .2s; }
+    .journey-meter:hover { border-color: var(--route); }
+    .journey-meter .jm-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+    .journey-meter .jm-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+    .journey-meter .jm-pct { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--route); }
+    .journey-meter .jm-bar { height: 5px; border-radius: 3px; background: rgba(28,26,21,.1); overflow: hidden; }
+    .journey-meter .jm-bar span { display: block; height: 100%; border-radius: 3px; background: var(--route); transition: width .5s cubic-bezier(.22,1,.36,1); }
+
+    /* ── Journey Map (dashboard hero) ── */
+    .journey { margin-bottom: 40px; }
+    .journey-head { display: flex; gap: 18px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+    .journey-pct { font-family: var(--font-display); font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 560; margin: 8px 0 0; line-height: 1; }
+    .journey-pct small { font-size: .42em; font-weight: 500; color: var(--ink-faint); letter-spacing: .02em; }
+    .journey-cta { white-space: nowrap; }
+    .journey-track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; align-items: stretch; }
+    .jp {
+      display: flex; flex-direction: column; gap: 7px;
+      padding: 14px 13px; border: 1px solid var(--line); border-radius: 7px;
+      background: var(--paper); transition: transform .2s cubic-bezier(.22,1,.36,1), border-color .2s, box-shadow .2s;
+    }
+    .jp:hover { transform: translateY(-3px); border-color: var(--ink); box-shadow: 0 10px 24px rgba(20,16,12,.08); }
+    .jp-top { display: flex; align-items: center; justify-content: space-between; }
+    .jp-num {
+      width: 23px; height: 23px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+      border: 1.4px solid var(--line-2); color: var(--ink-faint); background: var(--paper);
+    }
+    .jp-ic { font-size: 19px; color: var(--ink-faint); }
+    .jp-name { font-family: var(--font-display); font-size: 15px; font-weight: 560; color: var(--ink); }
+    .jp-bar { height: 5px; border-radius: 3px; background: rgba(28,26,21,.09); overflow: hidden; }
+    .jp-bar span { display: block; height: 100%; border-radius: 3px; background: var(--ink-faint); transition: width .5s cubic-bezier(.22,1,.36,1); }
+    .jp-meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-faint); }
+    /* current phase — the focal point */
+    .jp-cur { border-color: var(--route); background: linear-gradient(180deg, rgba(194,64,28,.05), var(--paper)); box-shadow: 0 0 0 1px var(--route) inset; }
+    .jp-cur .jp-num { border-color: var(--route); color: var(--paper); background: var(--route); }
+    .jp-cur .jp-ic, .jp-cur .jp-meta { color: var(--route); }
+    .jp-cur .jp-bar span { background: var(--route); }
+    /* completed phases */
+    .jp-done .jp-num { border-color: var(--pine); background: var(--pine); color: #fff; }
+    .jp-done .jp-bar span { background: var(--pine); }
+    .jp-done .jp-ic { color: var(--pine); }
+
+    /* contextual nudge banner (login / sync) */
+    .journey-nudge {
+      display: flex; align-items: center; gap: 11px; margin-top: 14px;
+      padding: 13px 16px; border: 1px solid var(--line-2); border-radius: 7px;
+      background: var(--gold-soft); font-size: 13.5px; color: var(--ink-soft);
+      transition: border-color .2s, transform .15s;
+    }
+    .journey-nudge:hover { border-color: var(--route); transform: translateY(-1px); }
+    .journey-nudge .material-symbols-outlined { color: var(--route); flex-shrink: 0; }
+    .journey-nudge strong { color: var(--ink); }
+
+    /* ── Briefing (live news) ── */
+    .news-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .news-fils { display: flex; gap: 7px; flex-wrap: wrap; }
+    .news-upd { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em; color: var(--ink-faint); white-space: nowrap; }
+    .news-list { display: flex; flex-direction: column; }
+    .news-row {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 15px 4px; border-top: 1px solid var(--line);
+      transition: padding-left .2s cubic-bezier(.22,1,.36,1), background .2s;
+    }
+    .news-row:last-child { border-bottom: 1px solid var(--line); }
+    .news-row:hover { padding-left: 10px; }
+    .news-main { flex: 1; min-width: 0; }
+    .news-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+    .news-src { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em; color: var(--ink-faint); text-transform: uppercase; }
+    .news-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+    .news-title { display: block; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+    .news-row:hover .news-title { color: var(--route); }
+    .news-sum { margin: 5px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
+    .news-go { font-size: 16px; color: var(--ink-faint); flex-shrink: 0; margin-top: 2px; transition: color .2s, transform .2s; }
+    .news-row:hover .news-go { color: var(--route); transform: translate(2px, -2px); }
+    /* the dashboard strip uses the same rows but trims the top border of the first */
+    #dash-news .news-row:first-child { border-top: none; padding-top: 4px; }
+
     /* Main */
     .main { padding: 44px clamp(20px, 4vw, 60px) 96px; max-width: 1060px; width: 100%; background: var(--paper); }
     .vhead { margin-bottom: 40px; padding-top: 14px; border-top: 1px solid var(--ink); }
@@ -214,11 +300,25 @@
         justify-content: flex-start; background: rgba(244,241,234,.95); backdrop-filter: blur(12px);
         overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
       .side::-webkit-scrollbar { display: none; }
-      .side .logo, .side-foot, .side-link span.lbl, #auth-slot { display: none; }
+      .side .logo, .side-foot, .side-link span.lbl, #auth-slot,
+      .side-group-h, .journey-meter { display: none; }
       .side-link { flex-direction: column; gap: 3px; padding: 8px 11px; border-left: none; border-top: 2px solid transparent; flex-shrink: 0; scroll-snap-align: center; }
       .side-link.active { border-top-color: var(--route); }
       .main { padding-bottom: 130px; }
       .app-form { grid-template-columns: 1fr !important; }
+    }
+
+    /* journey map: swipeable carousel on narrow screens (still all five
+       phases visible by scroll — no phase hidden) */
+    @media (max-width: 720px) {
+      .journey-track {
+        display: flex; gap: 9px; overflow-x: auto; scroll-snap-type: x proximity;
+        margin: 0 -4px; padding: 4px; scrollbar-width: none;
+      }
+      .journey-track::-webkit-scrollbar { display: none; }
+      .jp { flex: 0 0 132px; scroll-snap-align: start; }
+      .journey-head { align-items: flex-start; }
+      .journey-cta { width: 100%; justify-content: center; }
     }
   </style>
 </head>
@@ -227,17 +327,35 @@
 <div class="shell">
   <aside class="side">
     <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span></a>
-    <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">explore</span><span class="lbl">Dashboard</span></a>
+
+    <!-- live journey progress meter (updated by app.js after every route) -->
+    <a class="journey-meter" id="journey-meter" href="#dashboard" title="Your journey to a NZ PhD">
+      <div class="jm-row"><span class="jm-lbl">Your journey</span><span class="jm-pct">0%</span></div>
+      <div class="jm-bar"><span style="width:0%"></span></div>
+    </a>
+
+    <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">space_dashboard</span><span class="lbl">Home</span></a>
+    <a class="side-link" data-view="news"       href="#news"><span class="material-symbols-outlined">newspaper</span><span class="lbl">Briefing</span></a>
+
+    <div class="side-group-h">① Discover</div>
     <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">my_location</span><span class="lbl">Assessment</span></a>
-    <a class="side-link" data-view="roadmap"    href="#roadmap"><span class="material-symbols-outlined">route</span><span class="lbl">Roadmap</span></a>
-    <a class="side-link" data-view="research"   href="#research"><span class="material-symbols-outlined">lightbulb</span><span class="lbl">Research Studio</span></a>
     <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">travel_explore</span><span class="lbl">Explore</span></a>
+    <a class="side-link" data-view="research"   href="#research"><span class="material-symbols-outlined">lightbulb</span><span class="lbl">Research Studio</span></a>
     <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">request_quote</span><span class="lbl">Funding</span></a>
-    <a class="side-link" data-view="visa"       href="#visa"><span class="material-symbols-outlined">flight_takeoff</span><span class="lbl">Visa Hub</span></a>
-    <a class="side-link" data-view="settlement" href="#settlement"><span class="material-symbols-outlined">luggage</span><span class="lbl">Settle In</span></a>
+
+    <div class="side-group-h">② Plan</div>
+    <a class="side-link" data-view="roadmap"    href="#roadmap"><span class="material-symbols-outlined">route</span><span class="lbl">Roadmap</span></a>
+    <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">history_edu</span><span class="lbl">Templates</span></a>
+
+    <div class="side-group-h">③ Apply</div>
     <a class="side-link" data-view="mentors"    href="#mentors"><span class="material-symbols-outlined">support_agent</span><span class="lbl">Mentors</span></a>
     <a class="side-link hidden" id="mentor-link" data-view="mentor" href="#mentor"><span class="material-symbols-outlined">badge</span><span class="lbl">Mentor Dashboard</span></a>
-    <a class="side-link" data-view="kit"        href="#kit"><span class="material-symbols-outlined">history_edu</span><span class="lbl">Templates</span></a>
+
+    <div class="side-group-h">④ Move</div>
+    <a class="side-link" data-view="visa"       href="#visa"><span class="material-symbols-outlined">flight_takeoff</span><span class="lbl">Visa Hub</span></a>
+    <a class="side-link" data-view="settlement" href="#settlement"><span class="material-symbols-outlined">luggage</span><span class="lbl">Settle In</span></a>
+
+    <div class="side-group-h">You</div>
     <a class="side-link" data-view="pricing"    href="#pricing"><span class="material-symbols-outlined">payments</span><span class="lbl">Plans</span></a>
     <a class="side-link" data-view="billing"    href="#billing"><span class="material-symbols-outlined">receipt_long</span><span class="lbl">Billing</span></a>
     <a class="side-link" data-view="account"    href="#account"><span class="material-symbols-outlined">account_circle</span><span class="lbl">Account</span></a>
