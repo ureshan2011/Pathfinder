@@ -111,11 +111,13 @@ const norm = s => String(s || '').trim().toUpperCase();
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   const fn = ROUTES[view] || renderDashboard;
+  if (ROUTES[view]) markSeen(view);
   $$('.side-link').forEach(a => a.classList.toggle('active', a.dataset.view === view));
   $('.side-link.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
+  updateJourneyMeter();
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
   window.scrollTo(0, 0);
@@ -124,6 +126,153 @@ function route() {
 /* "#mentors?topic=visa-medical" → { topic:'visa-medical' } */
 function hashQuery() {
   return Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] || ''));
+}
+
+/* ── Journey engine ─────────────────────────────────────────────
+   The whole product is one arc: Discover → Plan → Apply → Visa →
+   Settle in. This models that arc as five phases, each with three
+   concrete milestones derived from real saved data, so the student
+   always sees where they are, what's next, and how far they've come
+   (goal-gradient + endowed-progress + Zeigarnik). One source of truth
+   feeds the dashboard Journey Map, the sidebar meter, and every
+   next-best-action nudge. */
+
+/* record that a view has been opened (once, ever) — powers the
+   "explored" milestones without per-visit writes (stays frugal). */
+function markSeen(view) {
+  if (!view) return;
+  const seen = PFStore.get('journey.seen', {}) || {};
+  if (!seen[view]) { seen[view] = Date.now(); PFStore.set('journey.seen', seen); }
+}
+
+function journeyModel() {
+  const a = PFStore.getAssessment();
+  const saved = PFStore.getSaved();
+  const apps = PFStore.getApps();
+  const reqs = PFStore.getMentorRequests();
+  const vp = visaProgress();
+  const research = (PFStore.getResearch && PFStore.getResearch()) || null;
+  const plans = (PFStore.getFundsPlans && PFStore.getFundsPlans()) || [];
+  const fm = (PFStore.getFirstMonthsProgress && PFStore.getFirstMonthsProgress()) || null;
+  const seen = PFStore.get('journey.seen', {}) || {};
+  const ST = PFStore.APP_STATUSES;
+  const furthest = apps.reduce((m, x) => Math.max(m, ST.indexOf(x.status) + 1), 0);
+  const halfVisa = vp.total ? Math.ceil(vp.total / 2) : 1;
+
+  const phases = [
+    { id: 'discover', label: 'Discover', icon: 'travel_explore', view: 'assessment', color: 'teal',
+      blurb: 'Find your fit — pathway, fields, labs and funding.',
+      steps: [
+        ['Take the 5-minute assessment', !!a, '#assessment'],
+        ['Save 3 labs or scholarships', saved.length >= 3, '#explore'],
+        ['Generate a research direction', !!(research && research.candidates && research.candidates.length), '#research'],
+      ] },
+    { id: 'plan', label: 'Plan', icon: 'route', view: 'roadmap', color: 'violet',
+      blurb: 'Turn your result into a month-by-month roadmap.',
+      steps: [
+        ['Open your personalized roadmap', !!seen.roadmap && !!a, '#roadmap'],
+        ['Grab a starter-kit template', !!seen.kit, '#kit'],
+        ['Check eligible scholarships', !!seen.funding, '#funding'],
+      ] },
+    { id: 'apply', label: 'Apply', icon: 'folder_managed', view: 'dashboard', color: 'gold',
+      blurb: 'Contact supervisors and track every application.',
+      steps: [
+        ['Track your first application', apps.length >= 1, '#dashboard'],
+        ['Reach “Applied” on one', furthest >= ST.indexOf('Applied') + 1, '#dashboard'],
+        ['Get a mentor’s eyes on your plan', reqs.length >= 1, '#mentors'],
+      ] },
+    { id: 'visa', label: 'Visa', icon: 'flight_takeoff', view: 'visa', color: 'rose',
+      blurb: 'Walk the 7-stage NZ student-visa process.',
+      steps: [
+        ['Start the visa checklist', vp.done >= 1, '#visa'],
+        ['Cross the halfway mark', !!vp.total && vp.done >= halfVisa, '#visa'],
+        ['Finish the visa checklist', !!vp.total && vp.done >= vp.total, '#visa'],
+      ] },
+    { id: 'settle', label: 'Settle in', icon: 'luggage', view: 'settlement', color: 'teal',
+      blurb: 'Plan funds, first months and the move itself.',
+      steps: [
+        ['Plan your funds', plans.length >= 1, '#settlement'],
+        ['Map your first 90 days', !!fm, '#settlement'],
+        ['Read the settling-in guides', !!seen.settlement, '#settlement'],
+      ] },
+  ];
+
+  phases.forEach(p => {
+    p.done = p.steps.filter(s => s[1]).length;
+    p.total = p.steps.length;
+    p.pct = Math.round((p.done / p.total) * 100);
+    p.complete = p.done === p.total;
+    p.started = p.done > 0;
+    p.nextStep = p.steps.find(s => !s[1]) || null;
+  });
+
+  const totalSteps = phases.reduce((s, p) => s + p.total, 0);
+  const doneSteps = phases.reduce((s, p) => s + p.done, 0);
+  const overall = Math.round((doneSteps / totalSteps) * 100);
+  const current = phases.find(p => !p.complete) || phases[phases.length - 1];
+  const nextStep = current.nextStep;
+  return { phases, overall, doneSteps, totalSteps, current, nextStep };
+}
+
+/* where a phase chip jumps to: the next unfinished milestone, else its home view */
+function journeyJump(p) { return p.nextStep ? p.nextStep[2] : '#' + p.view; }
+
+function journeyBlurb(J) {
+  if (J.overall === 0) return 'Five stages from your first question to enrolment in New Zealand. It starts with a 5-minute assessment.';
+  if (J.overall >= 100) return 'Every milestone done — you’re ready. Keep a mentor close for the final stretch.';
+  const left = 100 - J.overall;
+  return `You’re in <strong>${J.current.label}</strong>. ${J.current.blurb}${left <= 35 ? ' Almost there.' : ''}`;
+}
+
+/* The dashboard hero: a visual, clickable map of the whole journey. */
+function renderJourneyMap() {
+  const J = journeyModel();
+  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  const hasData = !!PFStore.getAssessment() || PFStore.getApps().length > 0 || PFStore.getSaved().length > 0;
+  const cont = J.nextStep;
+
+  const cards = J.phases.map((p, idx) => {
+    const isCur = p.id === J.current.id && !p.complete;
+    const badge = p.complete
+      ? '<span class="material-symbols-outlined" style="font-size:17px">check</span>'
+      : (idx + 1);
+    return `<a class="jp ${p.complete ? 'jp-done' : ''} ${isCur ? 'jp-cur' : ''}" href="${journeyJump(p)}" data-phase="${p.id}">
+      <div class="jp-top">
+        <span class="jp-num">${badge}</span>
+        <span class="material-symbols-outlined jp-ic">${p.icon}</span>
+      </div>
+      <div class="jp-name">${p.label}</div>
+      <div class="jp-bar"><span style="width:${p.pct}%"></span></div>
+      <div class="jp-meta">${isCur ? 'You’re here · ' : ''}${p.done}/${p.total}</div>
+    </a>`;
+  }).join('');
+
+  return `<section class="journey" aria-label="Your journey to a PhD in New Zealand">
+    <div class="journey-head">
+      <div style="min-width:240px">
+        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to a NZ PhD</span>
+        <h2 class="journey-pct">${J.overall}<small>% complete</small></h2>
+        <p class="muted" style="font-size:13.5px;margin:4px 0 0;max-width:460px">${journeyBlurb(J)}</p>
+      </div>
+      ${cont
+        ? `<a class="btn btn-primary journey-cta" href="${cont[2]}"><span class="material-symbols-outlined" style="font-size:17px">bolt</span>${cont[0]}</a>`
+        : `<a class="btn btn-primary journey-cta" href="#mentors"><span class="material-symbols-outlined" style="font-size:17px">support_agent</span>Pressure-test with a mentor</a>`}
+    </div>
+    <div class="journey-track">${cards}</div>
+    ${!synced && hasData
+      ? `<a class="journey-nudge" href="#account"><span class="material-symbols-outlined" style="font-size:17px">cloud_sync</span><span>You’ve built real progress — <strong>create a free account</strong> to keep it safe across devices.</span><span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span></a>`
+      : ''}
+  </section>`;
+}
+
+/* keep the sidebar journey meter in sync after every route */
+function updateJourneyMeter() {
+  const el = document.getElementById('journey-meter');
+  if (!el) return;
+  const J = journeyModel();
+  const bar = el.querySelector('.jm-bar span'); if (bar) bar.style.width = J.overall + '%';
+  const pct = el.querySelector('.jm-pct'); if (pct) pct.textContent = J.overall + '%';
+  const lbl = el.querySelector('.jm-lbl'); if (lbl) lbl.textContent = J.overall >= 100 ? 'Journey complete' : 'In ' + J.current.label;
 }
 
 /* contextual mentor hook — quiet, helpful, pre-fills the topic. Now an
@@ -307,9 +456,19 @@ function finishAssessment(main) {
   const result = computeResult(asmState.answers);
   PFStore.setAssessment({ answers: asmState.answers, result, completedAt: Date.now() });
   asmState = { step: 0, answers: {} };
+  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
   main.innerHTML = viewHead('celebration', 'Assessment complete', 'Your personalized result',
     'Saved to your dashboard. Your roadmap has been generated from these answers.') +
     resultCard(result) +
+    // Endowed-progress login moment: the student now HAS a result worth
+    // keeping — the strongest point to offer a free account (never forced).
+    (cloudOn() && !synced
+      ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
+          <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
+          <span>You’re <strong>${result.readiness}% PhD-ready</strong>. Create a free account to lock in your result and roadmap across every device.</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+        </a>`
+      : '') +
     `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
       <a class="btn btn-primary" href="#roadmap">Open my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
       <a class="btn btn-ghost" href="#explore">Explore matched labs</a>
@@ -1452,12 +1611,11 @@ function renderDashboard(main) {
   const inProg = apps.filter(x => ['Contacted Supervisor', 'Preparing Documents', 'Applied', 'Interview'].includes(x.status)).length;
   const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
   const activeReqs = reqs.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  const nextAction =
-    !a                    ? ['quiz', 'Take the 5-minute assessment to unlock your roadmap', '#assessment'] :
-    !saved.length         ? ['travel_explore', 'Save a few labs & scholarships that fit your field', '#explore'] :
-    !apps.length          ? ['folder_managed', 'Start tracking your first application', '#dashboard'] :
-    vp.done < vp.total    ? ['flight_takeoff', `Continue your visa checklist — ${vp.total - vp.done} step${vp.total - vp.done === 1 ? '' : 's'} left`, '#visa'] :
-                            ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
+  // single source of truth — same engine that drives the Journey Map + meter
+  const J = journeyModel();
+  const nextAction = J.nextStep
+    ? [J.current.icon, J.nextStep[0], J.nextStep[2]]
+    : ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
   const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
 
   const savedHtml = saved.length ? saved.map(s => {
@@ -1477,7 +1635,9 @@ function renderDashboard(main) {
     a ? `Pathway: <strong>${a.result.pathway}</strong> in ${a.result.field}.`
       : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> to unlock your personalized roadmap.') +
 
-    `<div class="grid-4" style="margin-bottom:40px">
+    renderJourneyMap() +
+
+    `<div class="grid-4" style="margin:40px 0">
       ${[['quiz', a ? a.result.readiness + '%' : '—', 'Readiness score', '#assessment'],
          ['bookmark', saved.length, 'Saved opportunities', '#explore'],
          ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
