@@ -90,6 +90,7 @@ const ROUTES = {
   research:   renderResearch,
   explore:    renderExplore,
   funding:    renderFunding,
+  funds:      renderFunds,
   news:       renderNews,
   dashboard:  renderDashboard,
   kit:        renderKit,
@@ -155,6 +156,7 @@ function journeyModel() {
   const research = (PFStore.getResearch && PFStore.getResearch()) || null;
   const plans = (PFStore.getFundsPlans && PFStore.getFundsPlans()) || [];
   const fm = (PFStore.getFirstMonthsProgress && PFStore.getFirstMonthsProgress()) || null;
+  const fundsCheck = PFStore.get('fundsCheck', null);
   const seen = PFStore.get('journey.seen', {}) || {};
   const ST = PFStore.APP_STATUSES;
   const furthest = apps.reduce((m, x) => Math.max(m, ST.indexOf(x.status) + 1), 0);
@@ -190,11 +192,11 @@ function journeyModel() {
         ['Finish the visa checklist', !!vp.total && vp.done >= vp.total, '#visa'],
       ] },
     { id: 'settle', label: 'Settle in', icon: 'luggage', view: 'settlement', color: 'teal',
-      blurb: 'Plan funds, first months and the move itself.',
+      blurb: 'Check your visa funds, plan the first months and the move.',
       steps: [
-        ['Plan your funds', plans.length >= 1, '#settlement'],
+        ['Check your visa-funds readiness', !!(fundsCheck && fundsCheck.result), '#funds'],
         ['Map your first 90 days', !!fm, '#settlement'],
-        ['Read the settling-in guides', !!seen.settlement, '#settlement'],
+        ['Read the settling-in guides', !!seen.settlement || plans.length >= 1, '#settlement'],
       ] },
   ];
 
@@ -1739,6 +1741,7 @@ function renderFunding(main) {
   main.innerHTML = viewHead('payments', 'Scholarship & Funding Hub', 'Fund your PhD',
     'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend.' +
     (matched ? ' Scholarships matching your assessment are highlighted.' : '')) +
+    fundsCheckBanner() +
     `<div class="grid-2">${PF_SCHOLARSHIPS.map(s => `
       <div class="card" ${matched && matched.has(s.id) ? 'style="border-color:var(--route)"' : ''}>
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
@@ -1770,6 +1773,274 @@ function renderFunding(main) {
         </div>
       </div>`).join('')}
     </div>`;
+}
+
+/* ── Visa funds-readiness check (#funds) ────────────────────────────
+   A self-assessment, like the pathway assessment, but for the scariest
+   visa gate: "do I have the money INZ wants to see?" A few questions →
+   a readiness score, a required-vs-covered breakdown (NZ$ + LKR), the
+   exact gap, genuine-funds risk flags, and tailored next steps. Pure
+   client-side maths off PF_CONFIG benchmarks — no backend. Natural
+   upsell to a mentor funds-evidence review + forex partner. */
+let fundsState = { step: 0, answers: {}, retake: false };
+
+const FUNDS_Q = [
+  { id: 'tuition', q: 'Will a scholarship cover your PhD tuition?',
+    help: 'Good news: international PhD students in NZ pay domestic fees (~NZ$7–9k/yr), far below other countries.',
+    opts: [
+      { t: 'Yes — a scholarship covers my fees', v: 'scholarship' },
+      { t: 'No — I’ll pay the domestic PhD fees myself', v: 'self' },
+      { t: 'Not sure yet', v: 'unsure' },
+    ] },
+  { id: 'stipend', q: 'Do you have a doctoral stipend for living costs?',
+    help: 'NZ doctoral scholarships often include a NZ$28–33k/yr living stipend, which INZ accepts toward your living-cost evidence.',
+    opts: [
+      { t: 'Yes — a full stipend (~NZ$28–33k/yr)', v: 'full' },
+      { t: 'Partial / a smaller award', v: 'partial' },
+      { t: 'None — I’ll show my own funds', v: 'none' },
+    ] },
+  { id: 'who', q: 'Who is moving to New Zealand with you?',
+    help: 'INZ expects extra maintenance funds for an accompanying partner or children.',
+    opts: [
+      { t: 'Just me', v: 'single' },
+      { t: 'Me + my partner', v: 'couple' },
+      { t: 'Me + partner + children', v: 'family' },
+    ] },
+  { id: 'source', q: 'Where do these funds mainly come from?',
+    help: 'INZ checks funds are genuine and available to you — the source changes what evidence you’ll need.',
+    opts: [
+      { t: 'My own savings (held for a while)', v: 'savings' },
+      { t: 'A family sponsor', v: 'sponsor' },
+      { t: 'An education / bank loan', v: 'loan' },
+      { t: 'A scholarship body', v: 'scholarship' },
+    ] },
+  { id: 'timeline', q: 'When do you intend to start?',
+    help: 'Funds usually need to be in place — and “seasoned” — before you apply.',
+    opts: [
+      { t: 'Within 3 months', v: 'lt3' },
+      { t: '3–6 months', v: 'm36' },
+      { t: '6–12 months', v: 'm612' },
+      { t: '12+ months away', v: 'gt12' },
+    ] },
+];
+
+const fundsMoney = n => 'NZ$' + Math.round(n).toLocaleString();
+const fundsLkr = n => 'LKR ' + Math.round(n * (PF_CONFIG.nzdToLkr || 185)).toLocaleString();
+
+function computeFunds(a) {
+  const C = PF_CONFIG;
+  const fx = C.nzdToLkr || 185;
+  const amount = Number(a.fundsAmount) || 0;
+  const fundsNZD = a.fundsCurrency === 'NZD' ? amount : amount / fx;
+
+  const tuition = a.tuition === 'scholarship' ? 0 : (C.phdFeesDomesticPerYear || 8500);
+  const depMult = (C.dependentFundsMult && C.dependentFundsMult[a.who]) || 1;
+  const livingReq = (C.visaFundsPerYear || 20000) * depMult;
+  const heads = a.who === 'single' ? 1 : a.who === 'couple' ? 2 : 3;
+  const airfare = (C.returnAirfareBuffer || 2500) * heads;
+  const requiredTotal = tuition + livingReq + airfare;
+
+  const stipendCover = a.stipend === 'full' ? livingReq : a.stipend === 'partial' ? livingReq * 0.5 : 0;
+  const livingCovered = Math.min(stipendCover, livingReq);
+  const counted = fundsNZD + livingCovered;
+  const gap = Math.max(0, requiredTotal - counted);
+  const ratio = requiredTotal > 0 ? counted / requiredTotal : 1;
+
+  const flags = [];
+  if (a.tuition === 'unsure') flags.push('Confirm whether your scholarship covers tuition — it changes your total by ~' + fundsMoney(C.phdFeesDomesticPerYear || 8500) + '.');
+  if (a.source === 'loan') flags.push('Loans need a clear approval + availability trail; INZ wants funds that are genuinely yours to use, not just promised.');
+  if (a.source === 'sponsor') flags.push('A family sponsor must sign a financial undertaking and prove the money is theirs and available to you.');
+  if (a.timeline === 'lt3') flags.push('Under 3 months to start — arrange and “season” your funds now (INZ prefers funds held for a period, not just deposited).');
+
+  let penalty = 0;
+  if (a.tuition === 'unsure') penalty += 5;
+  if (a.source === 'loan') penalty += 8;
+  if (a.source === 'sponsor') penalty += 4;
+  if (a.timeline === 'lt3') penalty += 5;
+  const score = Math.max(0, Math.min(100, Math.round(Math.min(1, ratio) * 100) - penalty));
+
+  let band, bandCls, verdict;
+  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-teal'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
+  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-gold'; verdict = 'A small gap stands between you and a strong funds case — very closeable.'; }
+  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-violet'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
+  else { band = 'Significant gap'; bandCls = 'chip-rose'; verdict = 'A sizeable gap today — a funded scholarship route is likely your strongest path.'; }
+
+  return { fundsNZD, tuition, livingReq, airfare, requiredTotal, livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads };
+}
+
+/* small CTA used on the Funding view + dashboard to enter the check */
+function fundsCheckBanner() {
+  const fc = PFStore.get('fundsCheck', null);
+  const done = fc && fc.result;
+  return `<a class="journey-nudge" href="#funds" style="margin:0 0 28px;background:var(--surface)">
+    <span class="material-symbols-outlined" style="font-size:19px">savings</span>
+    <span>${done
+      ? `Your visa-funds readiness: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>. Re-check anytime.`
+      : `<strong>Can you meet the visa funds requirement?</strong> Take the 2-minute Funds Readiness Check and see exactly what INZ wants to see.`}</span>
+    <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+  </a>`;
+}
+
+/* contextual CTA for the Visa Hub's Document Gathering stage (vs2), where
+   funds evidence (vs2c) is compiled — the exact moment the check matters most */
+function fundsStageCTA() {
+  const fc = PFStore.get('fundsCheck', null);
+  const done = fc && fc.result;
+  return `<a class="journey-nudge" href="#funds" style="margin:16px 0 0;background:var(--surface)">
+    <span class="material-symbols-outlined" style="font-size:19px">savings</span>
+    <span>${done
+      ? `Your funds readiness: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>${fc.result.gap > 0 ? ` · about ${fundsMoney(fc.result.gap)} short` : ''}. Re-check before you compile your evidence.`
+      : `<strong>Before you gather funds evidence,</strong> run the 2-minute Funds Readiness Check — see exactly what INZ wants to see and whether you meet it.`}</span>
+    <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+  </a>`;
+}
+
+function renderFunds(main) {
+  const saved = PFStore.get('fundsCheck', null);
+
+  // landing on a completed check → show the result (with re-check)
+  if (saved && saved.result && fundsState.step === 0 && !fundsState.retake) {
+    main.innerHTML = viewHead('savings', 'Funds Readiness Check', 'Your visa-funds readiness',
+      'How your money stacks up against what Immigration New Zealand expects to see. Indicative — always confirm current figures with INZ.') +
+      fundsResultCard(saved.result) +
+      `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="fc-redo">Re-check my funds</button>
+        <a class="btn btn-ghost" href="#settlement">Detailed funds planner</a>
+      </div>`;
+    $('#fc-redo').onclick = () => { fundsState = { step: 0, answers: {}, retake: true }; route(); };
+    return;
+  }
+
+  const i = fundsState.step;
+  if (i >= FUNDS_Q.length) {
+    // funds-amount step sits at the end (needs an input, not a radio)
+    return renderFundsAmount(main);
+  }
+  const q = FUNDS_Q[i];
+  const pct = Math.round((i / (FUNDS_Q.length + 1)) * 100);
+
+  main.innerHTML = viewHead('savings', `Funds check · ${i + 1} of ${FUNDS_Q.length + 1}`, 'Funds Readiness Check',
+    'A quick self-check of your visa funds — answers stay on your device.') +
+    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
+     <div class="card" style="max-width:680px">
+       <h2 style="font-size:1.25rem;margin-bottom:8px">${q.q}</h2>
+       <p class="muted" style="font-size:13.5px;margin-bottom:20px">${q.help}</p>
+       <div class="asm-opts">${q.opts.map((o, k) =>
+         `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
+       </div>
+       ${i > 0 ? `<button class="btn btn-ghost btn-sm" id="fc-back" style="margin-top:22px">← Back</button>` : ''}
+     </div>`;
+
+  $$('.asm-opt', main).forEach(b => b.onclick = () => {
+    fundsState.answers[q.id] = q.opts[+b.dataset.k].v;
+    fundsState.step++;
+    route();
+  });
+  const back = $('#fc-back', main);
+  if (back) back.onclick = () => { fundsState.step--; route(); };
+}
+
+function renderFundsAmount(main) {
+  const a = fundsState.answers;
+  const cur = a.fundsCurrency || 'LKR';
+  const pct = Math.round((FUNDS_Q.length / (FUNDS_Q.length + 1)) * 100);
+
+  main.innerHTML = viewHead('savings', `Funds check · ${FUNDS_Q.length + 1} of ${FUNDS_Q.length + 1}`, 'Funds Readiness Check',
+    'A quick self-check of your visa funds — answers stay on your device.') +
+    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
+     <div class="card" style="max-width:680px">
+       <h2 style="font-size:1.25rem;margin-bottom:8px">Roughly how much in liquid funds can you show?</h2>
+       <p class="muted" style="font-size:13.5px;margin-bottom:20px">Money you (or your sponsor) can actually evidence in a bank account — savings, fixed deposits, scholarship funds. A rough figure is fine.</p>
+       <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
+         <div style="display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden">
+           <button class="fc-cur ${cur === 'LKR' ? 'active' : ''}" data-cur="LKR">LKR</button>
+           <button class="fc-cur ${cur === 'NZD' ? 'active' : ''}" data-cur="NZD">NZ$</button>
+         </div>
+         <input class="field" id="fc-amount" type="number" inputmode="numeric" min="0" step="10000"
+           placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}"
+           style="flex:1;min-width:160px;font-size:16px">
+       </div>
+       <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+         <button class="btn btn-primary" id="fc-finish">See my readiness <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></button>
+         <button class="btn btn-ghost btn-sm" id="fc-back">← Back</button>
+       </div>
+     </div>`;
+
+  $$('.fc-cur', main).forEach(b => b.onclick = () => {
+    fundsState.answers.fundsCurrency = b.dataset.cur;
+    fundsState.answers.fundsAmount = $('#fc-amount').value ? Number($('#fc-amount').value) : fundsState.answers.fundsAmount;
+    route();
+  });
+  $('#fc-back').onclick = () => { fundsState.step--; route(); };
+  $('#fc-finish').onclick = () => {
+    const v = Number($('#fc-amount').value);
+    if (!v || v <= 0) return toast('Enter the funds you can show (a rough figure is fine)');
+    fundsState.answers.fundsAmount = v;
+    fundsState.answers.fundsCurrency = cur;
+    const result = computeFunds(fundsState.answers);
+    PFStore.set('fundsCheck', { answers: fundsState.answers, result, completedAt: Date.now() });
+    fundsState = { step: 0, answers: {}, retake: false };
+    route();
+  };
+}
+
+function fundsResultCard(r) {
+  const ring = 2 * Math.PI * 42;
+  const row = (label, nzd, strong) => `<div class="fc-row ${strong ? 'fc-row-strong' : ''}">
+    <span>${label}</span><strong>${fundsMoney(nzd)} <em style="font-style:normal;color:var(--ink-faint);font-weight:400">· ${fundsLkr(nzd)}</em></strong></div>`;
+
+  return `<div class="card" style="max-width:760px">
+    <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+      <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
+          stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.score / 100)}" transform="rotate(-90 50 50)"/>
+        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.score}%</text>
+      </svg>
+      <div style="flex:1;min-width:240px">
+        <span class="chip ${r.bandCls}">${r.band}</span>
+        <h3 style="font-size:1.2rem;margin:8px 0 6px">${r.gap > 0 ? fundsMoney(r.gap) + ' gap to close' : 'Funds bar met'}</h3>
+        <p class="muted" style="font-size:14px">${r.verdict}</p>
+      </div>
+    </div>
+
+    <div class="fc-break" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
+      <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">What INZ expects to see (indicative)</div>
+      ${row('Tuition — first year (domestic PhD rate)', r.tuition)}
+      ${row(`Living costs — 12 months${r.depMult > 1 ? ` (incl. family ×${r.depMult})` : ''}`, r.livingReq)}
+      ${row(`Travel evidence buffer${r.heads > 1 ? ` (×${r.heads})` : ''}`, r.airfare)}
+      ${row('Total required', r.requiredTotal, true)}
+      <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:18px 0 8px">What you can cover</div>
+      ${row('Your liquid funds', r.fundsNZD)}
+      ${row('Stipend / scholarship toward living', r.livingCovered)}
+      ${row('Total you can evidence', r.counted, true)}
+      ${r.gap > 0 ? `<div class="fc-row fc-row-gap"><span>Shortfall</span><strong>${fundsMoney(r.gap)} · ${fundsLkr(r.gap)}</strong></div>` : ''}
+    </div>
+
+    ${r.flags.length ? `<div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
+      <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Make sure your funds count</div>
+      <ul class="fc-flags">${r.flags.map(f => `<li><span class="material-symbols-outlined">info</span><span>${esc(f)}</span></li>`).join('')}</ul>
+    </div>` : ''}
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      ${r.gap > 0
+        ? `<p style="font-size:14px;margin:0 0 12px">You’re about <strong>${fundsMoney(r.gap)}</strong> (~${fundsLkr(r.gap)}) short. The strongest fixes: win a <a href="#funding" style="color:var(--route)">doctoral scholarship + stipend</a> (covers fees and most living costs), add a documented family sponsor, or start building evidenced savings now.</p>${partnerRow('forex')}`
+        : `<p style="font-size:14px;margin:0 0 12px">You meet the indicative bar. Now organise the <strong>evidence</strong>: 6 months of bank statements, your scholarship/sponsor letters, and proof the funds are available to you. Get it checked before you submit — a rejected funds case can cost you an intake.</p>`}
+    </div>
+
+    <!-- premium upsell: a mentor who passed the same check reviews the evidence -->
+    <div class="fc-upsell" style="margin-top:16px;padding:16px;border:1px dashed var(--line-2);border-radius:6px;background:var(--gold-soft)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span class="material-symbols-outlined" style="color:var(--route);font-size:19px">verified</span>
+        <strong style="font-size:14.5px">Funds Evidence Review</strong>
+        <span class="chip chip-gold" style="margin-left:auto">First 15 min free</span>
+      </div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">A Sri Lankan postgrad who has already cleared the NZ visa funds check looks over your bank statements, sponsor letter and figures — and flags anything INZ would query — before you submit.</p>
+      <a class="btn btn-primary btn-sm" href="#mentors?topic=visa-funds" style="width:100%;justify-content:center">Get my funds evidence reviewed</a>
+    </div>
+
+    <p class="faint" style="font-size:11.5px;margin-top:18px">Figures are indicative and change with policy — always confirm the current living-cost minimum, fees and dependent requirements with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a> and your university.</p>
+  </div>`;
 }
 
 /* ── 5 · Dashboard (saved + tracker) ────────────────────── */
@@ -2068,6 +2339,7 @@ function renderVisa(main) {
               </li>`;
             }).join('')}</ul>
             ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
+            ${s.id === 'vs2' ? fundsStageCTA() : ''}
             ${consultCTA(s.consult)}
           </div>
         </div>
