@@ -1108,6 +1108,7 @@ const PF_CONSULT_TOPICS = {
   'roadmap-supervisor':'Supervisor outreach',
   'roadmap-proposal':  'Research proposal',
   'research-proposal': 'Research proposal review',
+  'visa-funds':        'Visa funds & financial evidence',
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -1342,6 +1343,18 @@ const PF_CONFIG = {
   // VERIFY on immigration.govt.nz — INZ adjusts this periodically.
   visaFundsPerYear: 20000,
   visaFundsPerMonth: 1667,           // 20000 ÷ 12, rounded
+
+  /* ── Visa funds-readiness check (#funds) ─────────────────────────────
+     PhD international students pay DOMESTIC tuition in NZ — one of the few
+     countries with this policy, and a core PathFinder selling point.
+     Figures are indicative; the tool always tells the student to confirm
+     with Immigration NZ and the university. */
+  phdFeesDomesticPerYear: 8500,      // ~NZ$7,500–9,500 across the eight unis; midpoint
+  returnAirfareBuffer: 2500,         // INZ wants onward/return-travel evidence (NZ$)
+  // Extra living-cost funds INZ expects for accompanying family, on top of
+  // the student's own requirement (indicative multipliers — verify exact
+  // dependent figures with INZ). couple = +partner, family = +partner+kids.
+  dependentFundsMult: { single: 1, couple: 1.5, family: 2.0 },
 
   // Typical NZ doctoral scholarship stipend band (NZ$/month).
   // ~NZ$28k–33k per year across the eight universities.
