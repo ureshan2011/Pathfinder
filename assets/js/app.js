@@ -1881,6 +1881,20 @@ function fundsCheckBanner() {
   </a>`;
 }
 
+/* contextual CTA for the Visa Hub's Document Gathering stage (vs2), where
+   funds evidence (vs2c) is compiled — the exact moment the check matters most */
+function fundsStageCTA() {
+  const fc = PFStore.get('fundsCheck', null);
+  const done = fc && fc.result;
+  return `<a class="journey-nudge" href="#funds" style="margin:16px 0 0;background:var(--surface)">
+    <span class="material-symbols-outlined" style="font-size:19px">savings</span>
+    <span>${done
+      ? `Your funds readiness: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>${fc.result.gap > 0 ? ` · about ${fundsMoney(fc.result.gap)} short` : ''}. Re-check before you compile your evidence.`
+      : `<strong>Before you gather funds evidence,</strong> run the 2-minute Funds Readiness Check — see exactly what INZ wants to see and whether you meet it.`}</span>
+    <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+  </a>`;
+}
+
 function renderFunds(main) {
   const saved = PFStore.get('fundsCheck', null);
 
@@ -2325,6 +2339,7 @@ function renderVisa(main) {
               </li>`;
             }).join('')}</ul>
             ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
+            ${s.id === 'vs2' ? fundsStageCTA() : ''}
             ${consultCTA(s.consult)}
           </div>
         </div>
