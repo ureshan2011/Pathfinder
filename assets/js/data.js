@@ -292,6 +292,47 @@ const PF_VISA_UPDATES = [
     body:'Apply at least 3 months before your intended start date. Funds evidence: NZ$20,000+/yr living costs or scholarship letter.' },
 ];
 
+/* ── Live news (Briefing) ────────────────────────────────────────────
+   A frequently-updating feed of ONLY immigration and PhD/postgraduate
+   news, fetched client-side from free, no-key Google News RSS search
+   feeds (same "external servers, not Firestore" model as the Research
+   Studio — zero backend, zero Firestore cost). Each feed is a targeted
+   query so results stay on-topic; app.js further filters by an
+   allow-list and a max-age window, dedupes, and sorts newest-first.
+   Tune the queries/age here; nothing else needs to change. */
+const PF_NEWS = {
+  refreshHours: 3,     // re-fetch at most this often (cached locally between)
+  maxAgeDays: 90,      // drop anything older — keeps the feed "current"
+  perFeed: 12,         // items to read from each feed before merge/filter
+  // Free, no-key CORS proxies tried in order (resilient to one being down).
+  // They fetch the RSS XML the browser can't read cross-origin directly.
+  proxies: [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?url=',
+  ],
+  // Google News RSS search — NZ edition, English. Each entry is one lens.
+  feeds: [
+    { id: 'immigration', tag: 'Immigration & visa', accent: 'rose',
+      q: '("New Zealand" OR NZ) (immigration OR "student visa" OR "post-study work visa" OR "skilled migrant") international students' },
+    { id: 'policy', tag: 'Visa policy', accent: 'gold',
+      q: '"New Zealand" "Immigration New Zealand" (policy OR rules OR "processing times" OR settings) students' },
+    { id: 'phd', tag: 'PhD & postgrad', accent: 'violet',
+      q: '"New Zealand" (PhD OR doctoral OR postgraduate) (international students OR university)' },
+    { id: 'scholarships', tag: 'Scholarships', accent: 'teal',
+      q: '"New Zealand" (doctoral OR PhD OR postgraduate) scholarship international' },
+  ],
+  // Relevance safety net — an item must mention at least one of these
+  // (in title or summary) to survive, even if a feed returns noise.
+  keywords: ['visa', 'immigration', 'migrant', 'residence', 'inz', 'border',
+    'student', 'students', 'international', 'phd', 'doctoral', 'postgraduate',
+    'postgrad', 'scholarship', 'university', 'universities', 'study', 'tuition',
+    'fees', 'enrol', 'enrol', 'graduate', 'research'],
+  // Hard drops — obvious off-topic collisions of the query words.
+  blocklist: ['rugby', 'cricket', 'netball', 'all blacks', 'transfer window',
+    'football', 'recipe', 'weather', 'lotto'],
+  googleBase: 'https://news.google.com/rss/search?hl=en-NZ&gl=NZ&ceid=NZ:en&q=',
+};
+
 const PF_TEMPLATES = [
   /* ── Emails & Correspondence ── */
   { id:'t1', name:'Supervisor First-Contact Email', type:'Email template', icon:'mail', category:'Emails & Correspondence',

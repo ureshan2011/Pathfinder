@@ -90,6 +90,7 @@ const ROUTES = {
   research:   renderResearch,
   explore:    renderExplore,
   funding:    renderFunding,
+  news:       renderNews,
   dashboard:  renderDashboard,
   kit:        renderKit,
   visa:       renderVisa,
@@ -273,6 +274,179 @@ function updateJourneyMeter() {
   const bar = el.querySelector('.jm-bar span'); if (bar) bar.style.width = J.overall + '%';
   const pct = el.querySelector('.jm-pct'); if (pct) pct.textContent = J.overall + '%';
   const lbl = el.querySelector('.jm-lbl'); if (lbl) lbl.textContent = J.overall >= 100 ? 'Journey complete' : 'In ' + J.current.label;
+}
+
+/* ── Briefing: live immigration + PhD/postgrad news ─────────────────
+   Fetches ONLY on-topic news from free, no-key Google News RSS search
+   feeds (PF_NEWS in data.js) through a CORS proxy — the same
+   "external servers, never Firestore" model as the Research Studio, so
+   it adds zero backend and zero Firestore cost. Results are filtered to
+   relevant + recent, deduped, sorted newest-first, and cached locally
+   under a `__`-prefixed key the sync layer skips (no write quota used). */
+let newsState = { loading: false, items: null, fetchedAt: 0, error: null };
+let newsFilter = 'all';
+
+function newsCacheRead() {
+  if (newsState.items) return;
+  const c = PFStore.get('__newsCache', null);
+  if (c && Array.isArray(c.items)) { newsState.items = c.items; newsState.fetchedAt = c.fetchedAt || 0; }
+}
+function newsStale() {
+  const ms = (PF_NEWS.refreshHours || 3) * 3600e3;
+  return !newsState.fetchedAt || (Date.now() - newsState.fetchedAt) > ms;
+}
+
+/* try each free proxy in turn until one returns RSS XML */
+async function newsProxyFetch(url) {
+  for (const p of (PF_NEWS.proxies || [])) {
+    try {
+      const r = await fetch(p + encodeURIComponent(url));
+      if (!r.ok) continue;
+      const t = await r.text();
+      if (t && t.indexOf('<') !== -1) return t;
+    } catch {}
+  }
+  return null;
+}
+
+function newsRelevant(title, summary) {
+  const hay = (title + ' ' + summary).toLowerCase();
+  if ((PF_NEWS.blocklist || []).some(b => hay.includes(b))) return false;
+  return (PF_NEWS.keywords || []).some(k => hay.includes(k));
+}
+
+function parseNewsXML(xml, feed) {
+  const out = [];
+  try {
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    [...doc.querySelectorAll('item')].slice(0, PF_NEWS.perFeed || 12).forEach(it => {
+      const rawTitle = stripTags(it.querySelector('title')?.textContent || '');
+      const link = (it.querySelector('link')?.textContent || '').trim();
+      const desc = stripTags(it.querySelector('description')?.textContent || '');
+      const pub = it.querySelector('pubDate')?.textContent || '';
+      let src = (it.getElementsByTagName('source')[0]?.textContent || '').trim();
+      const ts = pub ? Date.parse(pub) : 0;
+      if (!rawTitle || !link) return;
+      // Google News appends " - Publisher" to titles — split it back out.
+      let title = rawTitle;
+      const dash = rawTitle.lastIndexOf(' - ');
+      if (dash > 0 && rawTitle.length - dash < 40) { if (!src) src = rawTitle.slice(dash + 3); title = rawTitle.slice(0, dash); }
+      if (!newsRelevant(title, desc)) return;
+      out.push({ title: title.trim(), link, source: src || 'News', summary: desc, ts, tag: feed.tag, accent: feed.accent });
+    });
+  } catch {}
+  return out;
+}
+
+async function fetchNews() {
+  const maxAge = (PF_NEWS.maxAgeDays || 90) * 86400e3;
+  const now = Date.now();
+  const all = [];
+  await Promise.all((PF_NEWS.feeds || []).map(async f => {
+    const xml = await newsProxyFetch(PF_NEWS.googleBase + encodeURIComponent(f.q));
+    if (xml) all.push(...parseNewsXML(xml, f));
+  }));
+  let items = all.filter(x => !x.ts || (now - x.ts) <= maxAge); // recency (keep undated)
+  const seen = new Set();                                        // dedupe by title
+  items = items.filter(x => {
+    const k = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+    if (seen.has(k)) return false; seen.add(k); return true;
+  });
+  items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  return items.slice(0, 40);
+}
+
+function loadNews(cb, force) {
+  newsCacheRead();
+  if (!force && newsState.items && newsState.items.length && !newsStale()) { cb && cb(); return; }
+  if (newsState.loading) { cb && cb(); return; }
+  newsState.loading = true; newsState.error = null;
+  if (cb) cb(); // let callers paint a loading state immediately
+  fetchNews().then(items => {
+    newsState.loading = false;
+    if (items && items.length) {
+      newsState.items = items; newsState.fetchedAt = Date.now();
+      PFStore.set('__newsCache', { items, fetchedAt: newsState.fetchedAt }); // local-only (__ skips sync)
+    } else if (!newsState.items || !newsState.items.length) {
+      newsState.error = 'empty';
+    }
+    cb && cb();
+  }).catch(() => { newsState.loading = false; newsState.error = 'fail'; cb && cb(); });
+}
+
+function relTime(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 3600) return Math.max(1, Math.floor(s / 60)) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  const d = Math.floor(s / 86400);
+  return d < 30 ? d + 'd ago' : new Date(ts).toLocaleDateString();
+}
+
+function newsItemRow(x, compact) {
+  const sum = x.summary && x.summary.length > 160 ? x.summary.slice(0, 160) + '…' : (x.summary || '');
+  return `<a class="news-row" href="${esc(x.link)}" target="_blank" rel="noopener">
+    <div class="news-main">
+      <div class="news-meta"><span class="chip chip-${x.accent || 'dim'}">${esc(x.tag)}</span>
+        <span class="news-src">${esc(x.source)}</span>${x.ts ? `<span class="news-time">· ${relTime(x.ts)}</span>` : ''}</div>
+      <strong class="news-title">${esc(x.title)}</strong>
+      ${!compact && sum ? `<p class="news-sum">${esc(sum)}</p>` : ''}
+    </div>
+    <span class="material-symbols-outlined news-go">north_east</span>
+  </a>`;
+}
+
+/* compact 3-item strip for the dashboard (a high-traffic, "good for
+   students" surface). Filled async by loadNews after first paint. */
+function newsStrip() {
+  const items = (newsState.items || []).slice(0, 3);
+  const inner = items.length ? items.map(x => newsItemRow(x, true)).join('')
+    : `<p class="muted" style="font-size:13.5px;margin:0">Loading the latest immigration & PhD news…</p>`;
+  return `<section class="card" style="margin-bottom:40px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="font-size:1.15rem;margin:0"><span class="material-symbols-outlined" style="font-size:19px;color:var(--route);vertical-align:-4px">newspaper</span> Latest briefing</h2>
+      <a href="#news" class="route-link" style="color:var(--route);font-size:13px">All news →</a>
+    </div>
+    <div id="dash-news" class="news-list">${inner}</div>
+  </section>`;
+}
+
+function renderNews(main) {
+  main.innerHTML = viewHead('newspaper', 'Briefing', 'Immigration & PhD news, live',
+    'Only what matters for a Sri Lankan student heading to New Zealand — visa & immigration changes and PhD / postgraduate news, pulled fresh from across the web and refreshed continuously.') +
+    `<div id="news-body"></div>`;
+  const body = $('#news-body', main);
+
+  const paint = () => {
+    const items = newsState.items || [];
+    const tags = ['all', ...new Set((PF_NEWS.feeds || []).map(f => f.tag))];
+    const chips = tags.map(t => `<button class="chip-filter news-fil ${newsFilter === t ? 'active' : ''}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
+    const shown = items.filter(x => newsFilter === 'all' || x.tag === newsFilter);
+    const updated = newsState.fetchedAt ? `Updated ${relTime(newsState.fetchedAt)}` : '';
+
+    let listHtml;
+    if (newsState.loading && !items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Fetching the latest immigration & PhD news…</p></div>`;
+    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-ghost btn-sm news-refresh">Try again</button></p></div>`;
+    else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
+      : `<div class="card"><p class="muted" style="margin:0">Nothing in this category right now — try “All”.</p></div>`;
+
+    body.innerHTML = `<div class="news-bar">
+        <div class="news-fils">${chips}</div>
+        <div class="news-upd">${updated}${newsState.loading ? ' · refreshing…' : ''}
+          <button class="btn btn-ghost btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
+      </div>
+      <div class="news-list">${listHtml}</div>
+      <p class="faint" style="font-size:11.5px;margin-top:20px;max-width:640px">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a>.</p>`;
+  };
+
+  paint();
+  loadNews(paint, false);
+
+  body.addEventListener('click', e => {
+    const fil = e.target.closest('.news-fil');
+    if (fil) { newsFilter = fil.dataset.fil; paint(); return; }
+    if (e.target.closest('.news-refresh')) { newsState.fetchedAt = 0; loadNews(paint, true); }
+  });
 }
 
 /* contextual mentor hook — quiet, helpful, pre-fills the topic. Now an
@@ -1671,6 +1845,8 @@ function renderDashboard(main) {
       </div>
     </div>
 
+    ${newsStrip()}
+
     <h2 style="font-size:1.3rem;margin-bottom:16px">Application tracker</h2>
     <div class="card" style="margin-bottom:18px">
       <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:10px;align-items:end" class="app-form">
@@ -1762,6 +1938,15 @@ function renderDashboard(main) {
     toast('Removed from this device');
     route();
   });
+
+  // fill the briefing strip async (won't block the dashboard render)
+  loadNews(() => {
+    const el = document.getElementById('dash-news');
+    if (!el) return;
+    const items = (newsState.items || []).slice(0, 3);
+    if (items.length) el.innerHTML = items.map(x => newsItemRow(x, true)).join('');
+    else if (!newsState.loading) el.innerHTML = `<p class="muted" style="font-size:13px;margin:0">News sources are unreachable right now — <a href="#news" style="color:var(--route)">open the Briefing</a> to retry.</p>`;
+  }, false);
 }
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */

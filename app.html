@@ -103,6 +103,30 @@
     .journey-nudge .material-symbols-outlined { color: var(--route); flex-shrink: 0; }
     .journey-nudge strong { color: var(--ink); }
 
+    /* ── Briefing (live news) ── */
+    .news-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .news-fils { display: flex; gap: 7px; flex-wrap: wrap; }
+    .news-upd { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em; color: var(--ink-faint); white-space: nowrap; }
+    .news-list { display: flex; flex-direction: column; }
+    .news-row {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 15px 4px; border-top: 1px solid var(--line);
+      transition: padding-left .2s cubic-bezier(.22,1,.36,1), background .2s;
+    }
+    .news-row:last-child { border-bottom: 1px solid var(--line); }
+    .news-row:hover { padding-left: 10px; }
+    .news-main { flex: 1; min-width: 0; }
+    .news-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+    .news-src { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em; color: var(--ink-faint); text-transform: uppercase; }
+    .news-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+    .news-title { display: block; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+    .news-row:hover .news-title { color: var(--route); }
+    .news-sum { margin: 5px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
+    .news-go { font-size: 16px; color: var(--ink-faint); flex-shrink: 0; margin-top: 2px; transition: color .2s, transform .2s; }
+    .news-row:hover .news-go { color: var(--route); transform: translate(2px, -2px); }
+    /* the dashboard strip uses the same rows but trims the top border of the first */
+    #dash-news .news-row:first-child { border-top: none; padding-top: 4px; }
+
     /* Main */
     .main { padding: 44px clamp(20px, 4vw, 60px) 96px; max-width: 1060px; width: 100%; background: var(--paper); }
     .vhead { margin-bottom: 40px; padding-top: 14px; border-top: 1px solid var(--ink); }
@@ -311,6 +335,7 @@
     </a>
 
     <a class="side-link" data-view="dashboard"  href="#dashboard"><span class="material-symbols-outlined">space_dashboard</span><span class="lbl">Home</span></a>
+    <a class="side-link" data-view="news"       href="#news"><span class="material-symbols-outlined">newspaper</span><span class="lbl">Briefing</span></a>
 
     <div class="side-group-h">① Discover</div>
     <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">my_location</span><span class="lbl">Assessment</span></a>
