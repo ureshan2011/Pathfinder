@@ -30,6 +30,20 @@ function toast(msg) {
   t._h = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
+/* Account gate for the two high-stakes, human-facing actions: connecting
+   with a mentor and any purchase. Explorers use everything else (assessment,
+   roadmap, explorer, funding, studio, templates) with no account — but the
+   moment they want a mentor or want to pay, they must have a real account and
+   be signed in (not the anonymous device session), so the request/order is
+   tied to a person and reachable across devices. Returns true when allowed;
+   otherwise nudges to #account and returns false. */
+function requireAccount(reason) {
+  if (window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn()) return true;
+  toast(reason || 'Create a free account to continue.');
+  location.hash = '#account';
+  return false;
+}
+
 /* Lightweight modal — the only one in the app. Returns { el, close } so
    callers can wire forms/buttons inside `el`. Closes on overlay click, the
    ✕ button, or Esc. Used by the payment flows (assets/js/pay.js). */
@@ -493,6 +507,7 @@ function payStatusChip(payment) {
 document.addEventListener('click', e => {
   const tgl = e.target.closest('.consult-hook-toggle');
   if (!tgl) return;
+  if (!requireAccount('Create a free account to connect with a mentor.')) return;
   const form = tgl.parentElement.querySelector('.consult-hook-form');
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) form.querySelector('.ch-name').focus();
@@ -501,6 +516,7 @@ document.addEventListener('submit', e => {
   const form = e.target.closest('.consult-hook-form');
   if (!form) return;
   e.preventDefault();
+  if (!requireAccount('Create a free account to connect with a mentor.')) return;
   const name = form.querySelector('.ch-name').value.trim();
   const contact = form.querySelector('.ch-contact').value.trim();
   const note = form.querySelector('.ch-note').value.trim();
@@ -2492,7 +2508,12 @@ function renderMentors(main) {
   const body = $('#mtr-body');
 
   function paintAsk() {
-    body.innerHTML = `
+    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+
+    // Connecting with a mentor is account-gated: the explorer browses the
+    // mentor network freely, but to actually ask one they create/sign into a
+    // free account first, so the request is tied to them and trackable.
+    const askCard = signedIn ? `
       <div class="card" style="max-width:680px;margin-bottom:24px">
         <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
         <p class="muted" style="font-size:13.5px;margin-bottom:16px">
@@ -2509,8 +2530,19 @@ function renderMentors(main) {
           <textarea class="field" id="ask-note" rows="3" placeholder="What do you want to ask? (a line or two)"></textarea>
           <button class="btn btn-primary" type="submit" style="align-self:flex-start">Ask a mentor</button>
         </form>
-      </div>
+      </div>` : `
+      <div class="card" style="max-width:680px;margin-bottom:24px">
+        <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
+        <p class="muted" style="font-size:13.5px;margin-bottom:16px">
+          Connecting with a mentor needs a free account, so your request is tied to you and you can follow it across devices. Exploring everything else stays free — no account needed.${topicLabel ? ` We’ll keep your topic: <strong>${topicLabel}</strong>.` : ''}
+        </p>
+        <a class="btn btn-primary" href="#account" style="align-self:flex-start">
+          <span class="material-symbols-outlined" style="font-size:16px">account_circle</span>
+          Create a free account to ask
+        </a>
+      </div>`;
 
+    body.innerHTML = askCard + `
       <div class="card" style="max-width:680px;margin-bottom:24px">
         <div class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">The mentor network</div>
         <p style="font-size:14px;margin:0 0 12px"><strong>${st.count} mentor${st.count === 1 ? '' : 's'}</strong> active across <strong>${st.fields.length} field${st.fields.length === 1 ? '' : 's'}</strong> — current PhD students and graduates from Sri Lanka, already in New Zealand.</p>
@@ -2519,8 +2551,10 @@ function renderMentors(main) {
         </div>
       </div>`;
 
-    $('#ask-form').addEventListener('submit', e => {
+    const askForm = $('#ask-form');
+    if (askForm) askForm.addEventListener('submit', e => {
       e.preventDefault();
+      if (!requireAccount('Create a free account to connect with a mentor.')) return;
       const name = $('#ask-name').value.trim();
       const contact = $('#ask-contact').value.trim();
       if (!name || !contact) return toast('Add your name and a way to reach you');

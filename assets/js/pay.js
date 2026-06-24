@@ -128,6 +128,13 @@ const PFPay = (() => {
 
   /* ── Mentor-session payment (student) ───────────────────────────────── */
   function startSession(request) {
+    // Every purchase requires a real account first, so the payment is tied to
+    // the student and reachable across devices (mirrors startOrder below).
+    if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn())) {
+      toast('Create a free account first so your session and payment stay with you.');
+      location.hash = '#account';
+      return;
+    }
     if (isPayHereLive()) {
       if (!PFPayHere.openCheckout(request)) toast('Payment isn’t set up yet — your mentor will share a link.');
       return;
