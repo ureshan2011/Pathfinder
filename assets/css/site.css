@@ -120,6 +120,7 @@ img, svg { display: block; max-width: 100%; }
 .btn-ghost:hover { border-color: var(--route); color: var(--route); }
 .btn-sm { padding: 9px 16px; font-size: 13px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, a:focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
 
 /* Text link with sliding underline */
 .tlink {
@@ -229,7 +230,14 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 @media (max-width: 640px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
 .hidden { display: none !important; }
 
-/* ── Pricing tiers (#pricing) — side-by-side plan comparison ── */
+/* ── Pricing tiers (#pricing) — side-by-side plan comparison ──
+   Breakpoint note: this page shares .main with a 232px fixed sidebar down
+   to a 880px viewport (see .shell in app.html), so a plain "does 3 columns
+   fit" check can't use the same width number the sidebar-collapse query
+   uses — the content column is ~230px narrower than the viewport above
+   880px. 1180px covers the with-sidebar case; below the sidebar's own
+   880px collapse the column is already full-width, so one query serves
+   both regimes without a cramped middle zone. */
 .price-tiers { display: flex; align-items: stretch; gap: 20px; }
 .price-tier {
   flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
@@ -237,7 +245,11 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   padding: 28px 24px; transition: border-color .25s, box-shadow .25s;
 }
 .price-tier:hover { border-color: var(--line-2); box-shadow: var(--shadow-1); }
-.price-tier-best { border-color: var(--route); border-width: 2px; padding: 27px 23px; }
+/* box-shadow ring instead of a thicker border — highlights the plan without
+   changing the box model, so no compensating padding is needed to keep
+   inner content aligned with the other two cards. */
+.price-tier-best { border-color: var(--route); box-shadow: 0 0 0 1px var(--route); }
+.price-tier-best:hover { box-shadow: 0 0 0 1px var(--route), var(--shadow-1); }
 .price-tier-icon {
   width: 48px; height: 48px; border-radius: 3px; margin-top: 14px;
   display: flex; align-items: center; justify-content: center;
@@ -246,6 +258,8 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .price-tier-teal .price-tier-icon { background: var(--teal-soft); color: var(--pine); }
 .price-tier-gold .price-tier-icon { background: var(--gold-soft); color: var(--ochre); }
 .price-tier-rose .price-tier-icon { background: rgba(194,64,28,.10); color: var(--route); }
+.price-tier-name { font-size: 13px; margin: 16px 0 6px; color: var(--ink); font-weight: 600; }
+.price-tier-sub { font-size: 13px; min-height: 38px; margin: 0 0 4px; }
 .price-tier-amount { font-family: var(--font-display); font-size: 2rem; font-weight: 500; margin: 4px 0 14px; display: flex; align-items: baseline; gap: 8px; }
 .price-tier-amount span { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .08em; }
 .price-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 4px 0 0; }
@@ -253,11 +267,19 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .price-list li .material-symbols-outlined { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
 .price-list li.yes { color: var(--ink); }
 .price-list li.yes .material-symbols-outlined { color: var(--pine); }
-.price-list li.no { color: var(--ink-faint); }
-.price-list li.no .material-symbols-outlined { color: var(--ink-faint); }
-@media (max-width: 860px) {
+/* Deliberately darker than --ink-faint (.42 alpha, ~2.9:1): these rows
+   still carry real information ("you don't get this"), not just muted
+   decoration, so they're set to clear WCAG AA contrast (~4.5:1+) against
+   --surface instead. */
+.price-list li.no { color: rgba(28,26,21,.58); }
+.price-list li.no .material-symbols-outlined { color: rgba(28,26,21,.58); }
+@media (max-width: 1180px) {
   .price-tiers { flex-direction: column; }
-  .price-tier-best { border-width: 1px; padding: 28px 24px; }
+}
+@media (max-width: 360px) {
+  /* The "one-time" unit tag no longer fits beside a 2rem price on the
+     narrowest phones without wrapping mid-word — stack it underneath. */
+  .price-tier-amount { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

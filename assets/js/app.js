@@ -2661,11 +2661,15 @@ function renderPricing(main) {
     'Priority mentor matching + final ready-to-submit review',
   ];
 
+  // Only the recommended plan gets a top ribbon — labelling every card
+  // ("Free" chip sitting right above a "FREE" heading, etc.) just repeats
+  // itself. The other two cards reserve the same slot height so all three
+  // icons still line up in a row.
   const plans = [
-    { accent: 'teal', chip: 'Free', icon: 'lightbulb', name: 'Free', included: 3,
+    { accent: 'teal', icon: 'lightbulb', name: 'Free', included: 3,
       price: 'LKR 0', unit: '', sub: 'No account needed — your work saves on this device.',
       cta: `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
-    { accent: 'gold', chip: 'One-time', icon: 'travel_explore', name: 'Explorer', included: 4,
+    { accent: 'gold', icon: 'travel_explore', name: 'Explorer', included: 4,
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
       cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
     { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
@@ -2674,12 +2678,15 @@ function renderPricing(main) {
   ];
 
   const card = pl => `<div class="price-tier price-tier-${pl.accent}${pl.best ? ' price-tier-best' : ''}">
-      <span class="chip chip-${pl.accent}" style="align-self:flex-start">${pl.chip}</span>
-      <div class="price-tier-icon"><span class="material-symbols-outlined">${pl.icon}</span></div>
-      <h2 class="mono" style="font-size:13px;margin:16px 0 6px">${pl.name}</h2>
-      <p class="muted" style="font-size:13px;min-height:38px;margin:0 0 4px">${pl.sub}</p>
+      <span class="chip chip-${pl.accent}" style="align-self:flex-start${pl.chip ? '' : ';visibility:hidden'}" aria-hidden="${pl.chip ? 'false' : 'true'}">${pl.chip || 'Best value'}</span>
+      <div class="price-tier-icon"><span class="material-symbols-outlined" aria-hidden="true">${pl.icon}</span></div>
+      <h2 class="price-tier-name mono">${pl.name}</h2>
+      <p class="muted price-tier-sub">${pl.sub}</p>
       <div class="price-tier-amount">${pl.price}${pl.unit ? `<span>${pl.unit}</span>` : ''}</div>
-      <ul class="price-list">${rows.map((r, i) => `<li class="${i < pl.included ? 'yes' : 'no'}"><span class="material-symbols-outlined">${i < pl.included ? 'check_circle' : 'remove_circle'}</span>${r}</li>`).join('')}</ul>
+      <ul class="price-list">${rows.map((r, i) => {
+        const yes = i < pl.included;
+        return `<li class="${yes ? 'yes' : 'no'}"><span class="material-symbols-outlined" aria-hidden="true">${yes ? 'check_circle' : 'remove'}</span>${r}</li>`;
+      }).join('')}</ul>
       <div style="margin-top:auto;padding-top:20px">${pl.cta}</div>
     </div>`;
 
