@@ -1264,15 +1264,16 @@ const PF_CONFIG = {
   defaultSessionPriceLKR: 4000,
   sessionTiers: { quick: 2500, standard: 4000 },
 
-  /* ── One-time premium unlocks (LKR) ──────────────────────────────────
-     Sold directly by the platform (no mentor). A paid `orders` doc grants
-     the matching entitlement; gating lives in app.js (renderKit). The
-     Sprint bundle also grants the Toolkit. */
+  /* ── One-time premium plans (LKR) ────────────────────────────────────
+     Two plans, sold directly by the platform (no mentor), each a single
+     one-time payment — no subscription. A paid `orders` doc grants the
+     matching entitlement; gating lives in app.js (renderKit). Premium
+     includes everything in Explorer (grants both entitlements). */
   pricing: {
-    toolkit:   1990,    // all premium templates + guides, one-time
-    sprint:    12900,   // toolkit + 2 sessions + 1 proposal review (anchor)
-    auditSop:  6000,    // SOP / proposal review (a mentor service)
-    auditFull: 10000,   // full CV + SOP + proposal audit (a mentor service)
+    explorer:  14990,   // premium templates + 1 mentor session + SOP audit
+    premium:   24990,   // + 3 sessions, full audit, interview prep, priority
+    auditSop:  6000,    // SOP / proposal review, bought separately from a mentor
+    auditFull: 10000,   // full CV + SOP + proposal audit, bought separately from a mentor
   },
 
   // Platform take-rate on paid mentor sessions (mentor keeps the rest).

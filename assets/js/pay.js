@@ -41,12 +41,12 @@ const PFPay = (() => {
     return { amount: Math.max(1, Math.round((Number(amountLKR) || 0) / rate)), currency: pp.currency || 'USD' };
   }
 
-  /* Catalogue of one-time platform products, priced from PF_CONFIG. */
+  /* Catalogue of one-time platform plans, priced from PF_CONFIG. */
   function items() {
     const p = cfg().pricing || {};
     return {
-      toolkit: { label: 'Premium Toolkit', amount: p.toolkit },
-      sprint:  { label: 'PhD Application Sprint', amount: p.sprint },
+      explorer: { label: 'Explorer plan', amount: p.explorer },
+      premium:  { label: 'Premium plan', amount: p.premium },
     };
   }
 
