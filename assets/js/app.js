@@ -73,10 +73,11 @@ function modal(title, bodyHTML) {
   return { el: root, close };
 }
 
-/* ── Entitlements (one-time premium unlocks) ─────────────────────────────
+/* ── Entitlements (one-time premium plans) ───────────────────────────────
    Derived once per session from the signed-in user's paid `orders`, cached
    in a JS variable so gating reads (renderKit etc.) cost zero Firestore
-   reads on navigation. The Sprint bundle also grants the Toolkit. */
+   reads on navigation. Premium includes everything in Explorer, and both
+   plans unlock the premium templates (the `toolkit` flag). */
 let entState = { loaded: false, items: {} };
 function entitlements() { return entState.items; }
 function cloudOn() { return !!(window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey); }
@@ -90,7 +91,8 @@ function loadEntitlements(cb) {
     const items = {};
     (orders || []).filter(o => o.status === 'paid').forEach(o => {
       items[o.item] = true;
-      if (o.item === 'sprint') items.toolkit = true;   // bundle grants toolkit
+      if (o.item === 'premium') items.explorer = true;  // Premium includes Explorer
+      if (o.item === 'explorer' || o.item === 'premium') items.toolkit = true;
     });
     entState = { loaded: true, items };
     if (cb) cb();
@@ -2238,13 +2240,13 @@ function renderDashboard(main) {
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
 function renderKit(main) {
-  // Gate the advanced templates behind the Premium Toolkit — but only when
+  // Gate the advanced templates behind Explorer/Premium — but only when
   // the cloud (accounts/orders) is configured. Offline/static deploys keep
   // every template free, preserving the original behaviour.
   const premiumIds = (PF_CONFIG.premiumTemplateIds || []);
   const gate = cloudOn() && premiumIds.length > 0;
   const unlocked = !gate || entitlements().toolkit === true;
-  const price = (PF_CONFIG.pricing && PF_CONFIG.pricing.toolkit) || 0;
+  const price = (PF_CONFIG.pricing && PF_CONFIG.pricing.explorer) || 0;
 
   const freeCard = t => `<div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
@@ -2272,14 +2274,14 @@ function renderKit(main) {
         <div><strong style="font-size:14.5px">${t.name}</strong>
           <div class="faint" style="font-size:12px">${t.type}</div></div>
       </div>
-      <p class="muted" style="font-size:13px;margin:0 0 14px">Part of the Premium Toolkit — unlock all ${premiumIds.length} advanced templates plus the application guides.</p>
-      <button class="btn btn-primary btn-sm pf-buy" data-item="toolkit" style="width:100%;justify-content:center">
-        <span class="material-symbols-outlined" style="font-size:15px">lock_open</span> Unlock Premium Toolkit · LKR ${price.toLocaleString()}</button>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">Part of the <strong>Explorer</strong> plan — unlock all ${premiumIds.length} advanced templates plus a mentor session and SOP audit.</p>
+      <button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">
+        <span class="material-symbols-outlined" style="font-size:15px">lock_open</span> Unlock with Explorer · LKR ${price.toLocaleString()}</button>
     </div>`;
 
   const banner = (gate && !unlocked) ? `<div class="card" style="margin-bottom:24px;border-color:var(--ochre);display:flex;gap:14px;flex-wrap:wrap;align-items:center">
       <span class="material-symbols-outlined" style="color:var(--ochre)">workspace_premium</span>
-      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${PF_TEMPLATES.length - premiumIds.length} templates are free. Unlock the ${premiumIds.length} advanced ones (research proposal, interview prep, 3-year plan, budgets &amp; more) with the <strong>Premium Toolkit</strong>.</p>
+      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${PF_TEMPLATES.length - premiumIds.length} templates are free. Unlock the ${premiumIds.length} advanced ones (research proposal, interview prep, 3-year plan, budgets &amp; more) with the <strong>Explorer</strong> plan.</p>
       <a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>
     </div>` : '';
 
@@ -2637,42 +2639,54 @@ document.addEventListener('click', e => {
 });
 
 /* ── 9d · Pricing (#pricing) — what's free, what's paid ─────────────────
-   Freemium model: discovery is free; pay only for high-stakes human help
-   (mentor sessions) and one-time premium unlocks. No subscription. */
+   Freemium model: three plans, side by side — Free, Explorer, Premium.
+   Each paid plan is a single one-time payment (no subscription) that
+   bundles templates with mentor time, so the price is easy to justify
+   next to a migration agent's LKR 50k-200k+ fee. Mentor pay-per-session
+   add-ons remain available separately via #mentors for students who want
+   more time beyond their plan. */
 function renderPricing(main) {
   const p = PF_CONFIG.pricing || {};
   const t = PF_CONFIG.sessionTiers || {};
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
-  const freeList = ['Eligibility assessment & roadmap', 'University, lab & supervisor explorer',
-    'Scholarships hub & visa checklist', 'Research Studio (topic & proposal help)', '12 starter templates'];
 
-  const tier = (badge, badgeCls, title, price, sub, lines, cta) => `<div class="card" style="display:flex;flex-direction:column">
-      <span class="chip ${badgeCls}" style="align-self:flex-start;margin-bottom:12px">${badge}</span>
-      <h2 style="font-size:1.2rem;margin:0 0 2px">${title}</h2>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0">${price}</div>
-      <p class="muted" style="font-size:13px;margin:0 0 14px">${sub}</p>
-      <ul class="price-list">${lines.map(l => `<li>${l}</li>`).join('')}</ul>
-      <div style="margin-top:auto;padding-top:16px">${cta}</div>
+  // Same feature list on every card; each plan lights up more of it than
+  // the last, so comparing plans is a glance, not a puzzle.
+  const rows = [
+    'Eligibility assessment, roadmap &amp; university/supervisor explorer',
+    'Scholarships &amp; visa hub, Research Studio, 12 starter templates',
+    'Free 15-min mentor intro call',
+    'All 7 premium templates + 1 mentor session + SOP/proposal audit',
+    '3 mentor sessions + full CV/SOP/proposal audit + interview prep',
+    'Priority mentor matching + final ready-to-submit review',
+  ];
+
+  const plans = [
+    { accent: 'teal', chip: 'Free', icon: 'lightbulb', name: 'Free', included: 3,
+      price: 'LKR 0', unit: '', sub: 'No account needed — your work saves on this device.',
+      cta: `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
+    { accent: 'gold', chip: 'One-time', icon: 'travel_explore', name: 'Explorer', included: 4,
+      price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
+      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
+    { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
+      price: money(p.premium), unit: 'one-time', sub: 'Every advantage — from first draft to a submitted application.',
+      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
+  ];
+
+  const card = pl => `<div class="price-tier price-tier-${pl.accent}${pl.best ? ' price-tier-best' : ''}">
+      <span class="chip chip-${pl.accent}" style="align-self:flex-start">${pl.chip}</span>
+      <div class="price-tier-icon"><span class="material-symbols-outlined">${pl.icon}</span></div>
+      <h2 class="mono" style="font-size:13px;margin:16px 0 6px">${pl.name}</h2>
+      <p class="muted" style="font-size:13px;min-height:38px;margin:0 0 4px">${pl.sub}</p>
+      <div class="price-tier-amount">${pl.price}${pl.unit ? `<span>${pl.unit}</span>` : ''}</div>
+      <ul class="price-list">${rows.map((r, i) => `<li class="${i < pl.included ? 'yes' : 'no'}"><span class="material-symbols-outlined">${i < pl.included ? 'check_circle' : 'remove_circle'}</span>${r}</li>`).join('')}</ul>
+      <div style="margin-top:auto;padding-top:20px">${pl.cta}</div>
     </div>`;
 
-  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay only for the big moments.',
-    'Everything you need to find a funded PhD in New Zealand is free. Pay only when you want a mentor who has done it, or the premium toolkit that sharpens your application.') +
-    `<div class="grid-2" style="align-items:stretch">
-      ${tier('Free', 'chip-teal', 'Explorer', 'LKR 0', 'No account needed — your work saves on this device.',
-        freeList, `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start the assessment</a>`)}
-      ${tier('One-time', 'chip-gold', 'Premium Toolkit', money(p.toolkit), 'Unlock every advanced template + the application guides.',
-        ['All 7 premium templates', 'Research proposal & interview prep', '3-year plan & budget planners', 'Yours for good — no subscription'],
-        `<button class="btn btn-primary btn-sm pf-buy" data-item="toolkit" style="width:100%;justify-content:center">Unlock for ${money(p.toolkit)}</button>`)}
-    </div>
-    <div class="grid-2" style="align-items:stretch;margin-top:18px">
-      ${tier('Mentorship', 'chip-violet', 'Talk to a mentor', `Free + ${money(t.quick)}–${money(t.standard)}`, 'A Sri Lankan postgrad already in NZ. First 15 minutes free.',
-        ['Free 15-min intro call', `Follow-on session ${money(t.quick)}–${money(t.standard)}`, `Application audit ${money(p.auditSop)}–${money(p.auditFull)}`, 'Pay only if you continue'],
-        `<a class="btn btn-primary btn-sm" href="#mentors" style="width:100%;justify-content:center">Ask a mentor</a>`)}
-      ${tier('Best value', 'chip-rose', 'Application Sprint', money(p.sprint), 'Everything to go from idea to submitted application.',
-        ['Premium Toolkit included', '2 mentor sessions', '1 full proposal review', 'Cheaper than a single agent fee'],
-        `<button class="btn btn-primary btn-sm pf-buy" data-item="sprint" style="width:100%;justify-content:center">Get the Sprint · ${money(p.sprint)}</button>`)}
-    </div>
-    <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay once for the big moments.',
+    'Discovery is always free. Explorer and Premium are single one-time payments — no subscription — that bundle the premium templates with real mentor time from someone who’s already done this.') +
+    `<div class="price-tiers">${plans.map(card).join('')}</div>
+    <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Want more mentor time beyond your plan? Extra sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors" class="route-link" style="color:var(--route)">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
 }
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
@@ -2695,7 +2709,7 @@ function renderBilling(main) {
 
   PFCloud.fetchMyOrders().then(orders => {
     if (!orders.length) {
-      body.innerHTML = `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to unlock the Premium Toolkit or Sprint.</p></div>`;
+      body.innerHTML = `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to get Explorer or Premium.</p></div>`;
       return;
     }
     body.innerHTML = orders.map(o => `<div class="card" style="margin-bottom:12px">

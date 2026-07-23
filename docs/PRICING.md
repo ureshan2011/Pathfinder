@@ -25,10 +25,13 @@ New Zealand). That shapes everything:
 
 1. **Free tier (the funnel)** — assessment, roadmap, explorer, scholarships,
    visa hub, Research Studio, and 12 starter templates. Drives volume + trust.
-2. **Mentor marketplace (anchor, already built)** — free 15-min intro, then paid
-   follow-on sessions. Platform take-rate **20%**, mentor keeps **80%**.
-3. **One-time premium unlocks** — Premium Toolkit, Application Sprint. High
-   willingness-to-pay, no recurring commitment.
+2. **Two paid plans, one-time (the anchor)** — **Explorer** and **Premium**.
+   Each is a single payment (no subscription) that bundles the premium
+   templates with real mentor time, so the price reads as "get this problem
+   solved," not "unlock a feature."
+3. **Mentor marketplace (à la carte, already built)** — free 15-min intro,
+   then paid follow-on sessions/audits for anyone who wants more time beyond
+   their plan. Platform take-rate **20%**, mentor keeps **80%**.
 4. **Affiliate (frictionless)** — IELTS, Wise, insurance, flights. Free to the
    student; commission to the platform.
 5. **Subscription — *Phase 2 only*** ("PathFinder Plus": deadline alerts,
@@ -38,26 +41,42 @@ New Zealand). That shapes everything:
 
 ## 2. Pricing (LKR, 2026)
 
+Three plans, side by side, each showing the same feature list so comparing
+them is a glance, not a puzzle (see the `#pricing` page).
+
+| Plan | Price (LKR) | What it includes |
+|------|-------------|-------------------|
+| **Free** | 0 | Assessment & roadmap, university/supervisor explorer, scholarships & visa hub, Research Studio, 12 starter templates, free 15-min mentor intro |
+| **Explorer** (one-time) | **14,990** | Everything in Free **+** all 7 premium templates, 1 mentor session, and an SOP/proposal audit |
+| **Premium** (one-time) | **24,990** | Everything in Explorer **+** 3 mentor sessions (instead of 1), a full CV/SOP/proposal audit, an interview-prep session, and a final ready-to-submit review with priority matching |
+
+À la carte, for students who want more than their plan (unchanged, sold by
+mentors individually):
+
 | Item | Price (LKR) | Notes |
 |------|-------------|-------|
-| Free **Explorer** tier | 0 | Discovery + 12 templates + Research Studio |
-| Mentor **intro** call (15 min) | Free | Builds trust, qualifies the lead |
 | Mentor **follow-on** session | 2,500 (quick) / 4,000 (standard) | Mentor-editable. Platform 20% |
-| **Premium Toolkit** (one-time) | **1,990** | All 7 advanced templates + guides |
 | **Application Audit** | 6,000 (SOP-only) / 10,000 (full) | A mentor service |
-| **Application Sprint** bundle | **12,900** | Toolkit + 2 sessions + 1 proposal review |
 | Affiliate placements | 0 to student | Commission revenue |
 | *(Phase 2)* PathFinder Plus | 990/mo or 7,900/yr | Deferred |
 
-**Anchoring:** migration agents in Sri Lanka charge LKR 50k–200k+, so a LKR
-12,900 Sprint reads as a steal; LKR 990/mo sits in the Netflix/data-package
-comfort band. These live in `PF_CONFIG.pricing` / `PF_CONFIG.sessionTiers`
+**Anchoring:** migration agents in Sri Lanka charge LKR 50k–200k+, so LKR
+14,990–24,990 for templates *plus* real mentor time reads as a steal by
+comparison, while still being a meaningful, profitable one-time ticket for
+the platform. These live in `PF_CONFIG.pricing` / `PF_CONFIG.sessionTiers`
 (`assets/js/data.js`) and can be changed in one place.
 
-**Unit economics (illustration).** 25 mentors × ~3 paid sessions/month ×
-LKR 4,000 ≈ LKR 300k gross → ~LKR 60k/month platform take at 20%, on top of
-one-time Toolkit/Sprint sales — all on ~LKR 0/month infrastructure (Firebase
-Spark).
+**Fulfilling the bundled mentor sessions/audits.** The app tracks *plan*
+entitlements (`explorer` / `premium` unlock the templates), but — like the
+former Sprint bundle before it — it does not yet track individual session
+or audit credits. Once you mark an Explorer/Premium order as paid, arrange
+the included session(s) and audit with a mentor manually (email/WhatsApp),
+the same way mentor sessions are already coordinated today. Because Toolkit
+templates cost nothing marginal and the platform sets which mentor rate
+applies to each bundled session, most of the 14,990/24,990 price is margin
+before whatever you choose to pay the mentor for their time — but there is
+no automated split for bundled sessions yet, so track what you owe mentors
+for plan-included work yourself until a credit-ledger feature exists.
 
 ---
 

@@ -229,6 +229,37 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 @media (max-width: 640px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
 .hidden { display: none !important; }
 
+/* ── Pricing tiers (#pricing) — side-by-side plan comparison ── */
+.price-tiers { display: flex; align-items: stretch; gap: 20px; }
+.price-tier {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 3px;
+  padding: 28px 24px; transition: border-color .25s, box-shadow .25s;
+}
+.price-tier:hover { border-color: var(--line-2); box-shadow: var(--shadow-1); }
+.price-tier-best { border-color: var(--route); border-width: 2px; padding: 27px 23px; }
+.price-tier-icon {
+  width: 48px; height: 48px; border-radius: 3px; margin-top: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.price-tier-icon .material-symbols-outlined { font-size: 24px; }
+.price-tier-teal .price-tier-icon { background: var(--teal-soft); color: var(--pine); }
+.price-tier-gold .price-tier-icon { background: var(--gold-soft); color: var(--ochre); }
+.price-tier-rose .price-tier-icon { background: rgba(194,64,28,.10); color: var(--route); }
+.price-tier-amount { font-family: var(--font-display); font-size: 2rem; font-weight: 500; margin: 4px 0 14px; display: flex; align-items: baseline; gap: 8px; }
+.price-tier-amount span { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .08em; }
+.price-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 4px 0 0; }
+.price-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.4; }
+.price-list li .material-symbols-outlined { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+.price-list li.yes { color: var(--ink); }
+.price-list li.yes .material-symbols-outlined { color: var(--pine); }
+.price-list li.no { color: var(--ink-faint); }
+.price-list li.no .material-symbols-outlined { color: var(--ink-faint); }
+@media (max-width: 860px) {
+  .price-tiers { flex-direction: column; }
+  .price-tier-best { border-width: 1px; padding: 28px 24px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   html { scroll-behavior: auto; }
