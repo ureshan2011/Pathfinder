@@ -3,9 +3,9 @@
    sync-astra-catalogue.js — builds the NZQA postgraduate course catalogue.
 
    Pulls the live NZQA dataset out of AstraDB (qualifications, providers,
-   programmes, scholarships), keeps the POSTGRADUATE slice offered by NZ
-   universities and polytechnics, joins it to the NZQA subject-area taxonomy
-   in data/subject_areas.json, and writes:
+   programmes, scholarships), keeps the POSTGRADUATE slice and every provider
+   that teaches any of it, joins it to the NZQA subject-area taxonomy in
+   data/subject_areas.json, and writes:
 
      assets/js/catalogue.js                  — index (taxonomy + quals + providers)
      assets/js/catalogue/<subject-slug>.js   — one detail shard per subject area
@@ -50,8 +50,16 @@ const INDEX_OUT = path.join(JS_DIR, 'catalogue.js');
    under-qualified applicant actually needs (PGDip / PGCert / GradDip /
    Honours), level 9 is the master's degrees, level 10 the doctorates. */
 const KEEP_LEVELS = ['8', '9', '10', '8 - 9'];
-const KEEP_PROVIDER_TYPES = ['universities', 'polytechnics'];
 const KEEP_SCHOLARSHIP_LEVELS = ['Masters', 'Postgraduate', 'PhD / Doctorate', 'General'];
+
+/* Providers are derived FROM THE DATA, not filtered by NZQA's category.
+   Category is a bad proxy: most private training establishments only teach
+   level 1–5 certificates, but 29 of them teach master's-level study —
+   Yoobee has three master's degrees, Whitecliffe ten postgraduate
+   qualifications, Media Design School six. Filtering by `type` dropped all of
+   those along with the certificates. So: keep every provider that teaches at
+   least one postgraduate qualification, whatever category it files under.
+   Providers offering nothing above level 7 fall out on their own. */
 
 /* Fields worth shipping. Everything else in a qualification document is either
    empty across the board (linkProgramme_*, opening_*, deadline,
@@ -159,14 +167,19 @@ function writeGenerated(file, header, body) {
   console.log('Fetching from AstraDB…');
   const [rawQuals, rawProviders, rawProgrammes, rawScholarships] = [
     await findAll('qualifications', { level: { $in: KEEP_LEVELS } }),
-    await findAll('providers', { type: { $in: KEEP_PROVIDER_TYPES } }),
+    await findAll('providers'),
     await findAll('programmes', { level: { $in: KEEP_LEVELS.concat(['7 - 8']) } }),
     await findAll('scholarships', { studyLevels: { $in: KEEP_SCHOLARSHIP_LEVELS } }),
   ];
 
-  /* ── Providers ── */
+  /* ── Providers ──
+     Only those that actually teach something postgraduate. */
+  const teaching = new Set();
+  for (const q of rawQuals) for (const o of q.offering_org || []) if (o) teaching.add(o);
+
   const providers = {};
   for (const p of rawProviders) {
+    if (!teaching.has(p.id)) continue;
     providers[p.id] = {
       name: p.name, type: p.type, location: p.location || '', address: p.address || '',
       phone: p.phone || '', email: p.email || '', website: p.website || '',
@@ -281,8 +294,11 @@ function writeGenerated(file, header, body) {
     `window.PF_CATALOGUE=${JSON.stringify(catalogue)};`);
 
   const byLevel = index.reduce((m, q) => (m[q.l] = (m[q.l] || 0) + 1, m), {});
+  const byType = Object.values(providers).reduce((m, p) => (m[p.type] = (m[p.type] || 0) + 1, m), {});
   console.log(`\nScholarships: ${scholarships.length} · ${schKb} KB`);
   console.log(`Programmes:   ${programmes.length} (${programmes.filter(p => p.intlFee).length} with a published international fee) · ${prgKb} KB`);
+  console.log(`Providers:    ${Object.keys(providers).length} teaching postgraduate study — ` +
+    Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}=${n}`).join(' '));
   console.log(`Index:        ${index.length} qualifications · ${idxKb} KB`);
   console.log(`  by level: ${Object.entries(byLevel).sort().map(([l, n]) => `L${l}=${n}`).join(' ')}`);
   console.log(`  dropped: ${droppedNoProvider} with no in-scope provider, ${droppedNoSubject} with no usable subject area, ${droppedSubjectIds} malformed subject ids`);
