@@ -1,0 +1,2934 @@
+[
+  {
+    "id": "76453",
+    "name": "Agriculture, Environmental and Related Studies",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76453&searchSubject=Agriculture,+Environmental+and+Related+Studies&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76479",
+        "name": "Agriculture",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76479&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76540",
+            "name": "Agricultural Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76540&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Agricultural+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258760",
+            "name": "Agriculture not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258760&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Agriculture+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76658",
+            "name": "Animal Husbandry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76658&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Animal+Husbandry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76638",
+            "name": "Beekeeping",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76638&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Beekeeping&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76679",
+            "name": "Crop Production",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76679&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Crop+Production&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76712",
+            "name": "Equine Trades",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76712&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Equine+Trades&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76753",
+            "name": "General Land Skills",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76753&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+General+Land+Skills&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76736",
+            "name": "Wool and Fibre Harvesting",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76736&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Wool+and+Fibre+Harvesting&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76605",
+            "name": "Wool and Fibre Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76605&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture+%C2%BB+Wool+and+Fibre+Science&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76483",
+        "name": "Environmental Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76483&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Environmental+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258762",
+            "name": "Environmental Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258762&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Environmental+Studies+%C2%BB+Environmental+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "2698539715",
+            "name": "Environmental Sustainability",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=2698539715&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Environmental+Studies+%C2%BB+Environmental+Sustainability&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76544",
+            "name": "Land, Parks and Wildlife Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76544&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Environmental+Studies+%C2%BB+Land,+Parks+and+Wildlife+Management&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76482",
+        "name": "Fisheries Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76482&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Fisheries+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76543",
+            "name": "Aquaculture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76543&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Fisheries+Studies+%C2%BB+Aquaculture&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258761",
+            "name": "Fisheries  Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258761&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Fisheries+Studies+%C2%BB+Fisheries++Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76584",
+            "name": "Seafood Harvesting (Fishing)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76584&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Fisheries+Studies+%C2%BB+Seafood+Harvesting+(Fishing)&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76481",
+        "name": "Forestry Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76481&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Forestry+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76542",
+            "name": "Forestry Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76542&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Forestry+Studies+%C2%BB+Forestry+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76583",
+            "name": "Solid Wood Processing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76583&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Forestry+Studies+%C2%BB+Solid+Wood+Processing&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76480",
+        "name": "Horticulture and Viticulture",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76480&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Horticulture+and+Viticulture&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76541",
+            "name": "Horticulture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76541&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Horticulture+and+Viticulture+%C2%BB+Horticulture&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76606",
+            "name": "Viticulture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76606&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Horticulture+and+Viticulture+%C2%BB+Viticulture&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258721",
+        "name": "Other Agriculture, Environmental and Related Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258721&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Other+Agriculture,+Environmental+and+Related+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258764",
+            "name": "Agriculture, Environmental and Related Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258764&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Other+Agriculture,+Environmental+and+Related+Studies+%C2%BB+Agriculture,+Environmental+and+Related+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258763",
+            "name": "Pest and Weed Control",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258763&searchSubject=Agriculture,+Environmental+and+Related+Studies+%C2%BB+Other+Agriculture,+Environmental+and+Related+Studies+%C2%BB+Pest+and+Weed+Control&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76452",
+    "name": "Architecture and Building",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76452&searchSubject=Architecture+and+Building&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76477",
+        "name": "Architecture and Urban Environment",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76477&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76538",
+            "name": "Architecture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76538&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment+%C2%BB+Architecture&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258758",
+            "name": "Architecture and Urban Environment not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258758&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment+%C2%BB+Architecture+and+Urban+Environment+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76697",
+            "name": "Interior and Environmental Design",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76697&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment+%C2%BB+Interior+and+Environmental+Design&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76656",
+            "name": "Landscape Architecture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76656&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment+%C2%BB+Landscape+Architecture&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76603",
+            "name": "Urban Design and Regional Planning",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76603&searchSubject=Architecture+and+Building+%C2%BB+Architecture+and+Urban+Environment+%C2%BB+Urban+Design+and+Regional+Planning&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76478",
+        "name": "Building",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76478&searchSubject=Architecture+and+Building+%C2%BB+Building&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76724",
+            "name": "Bricklaying and Stonemasonry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76724&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Bricklaying+and+Stonemasonry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76698",
+            "name": "Building Construction Economics (including Quantity Surveying)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76698&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Building+Construction+Economics+(including+Quantity+Surveying)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76604",
+            "name": "Building Construction Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76604&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Building+Construction+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258759",
+            "name": "Building not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258759&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Building+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76539",
+            "name": "Building Science and Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76539&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Building+Science+and+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76657",
+            "name": "Building Surveying (Inspection)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76657&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Building+Surveying+(Inspection)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76745",
+            "name": "Carpentry and Joinery",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76745&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Carpentry+and+Joinery&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76763",
+            "name": "Ceiling, Wall and Floor Fixing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76763&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Ceiling,+Wall+and+Floor+Fixing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76800",
+            "name": "Floor Coverings",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76800&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Floor+Coverings&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76794",
+            "name": "Furnishing Installation",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76794&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Furnishing+Installation&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76804",
+            "name": "Glazing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76804&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Glazing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76808",
+            "name": "Painting, Decorating, Sign Writing and Other Finishes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76808&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Painting,+Decorating,+Sign+Writing+and+Other+Finishes&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76789",
+            "name": "Plastering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76789&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Plastering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76810",
+            "name": "Plumbing, Gasfitting and Drainlaying",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76810&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Plumbing,+Gasfitting+and+Drainlaying&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76777",
+            "name": "Roof Fixing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76777&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Roof+Fixing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76812",
+            "name": "Scaffolding and Rigging",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76812&searchSubject=Architecture+and+Building+%C2%BB+Building+%C2%BB+Scaffolding+and+Rigging&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76458",
+    "name": "Creative Arts",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76458&searchSubject=Creative+Arts&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76516",
+        "name": "Communication and Media Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76516&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76577",
+            "name": "Audio Visual Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76577&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Audio+Visual+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258803",
+            "name": "Communication and Media Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258803&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Communication+and+Media+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76631",
+            "name": "Journalism, Communication and Media Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76631&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Journalism,+Communication+and+Media+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "2698539753",
+            "name": "Multimedia Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=2698539753&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Multimedia+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76708",
+            "name": "Verbal Communication",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76708&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Verbal+Communication&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76674",
+            "name": "Written Communication",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76674&searchSubject=Creative+Arts+%C2%BB+Communication+and+Media+Studies+%C2%BB+Written+Communication&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76515",
+        "name": "Graphic and Design Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76515&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76673",
+            "name": "Fashion Design",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76673&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies+%C2%BB+Fashion+Design&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258802",
+            "name": "Graphic and Design Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258802&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies+%C2%BB+Graphic+and+Design+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76576",
+            "name": "Graphic Arts and Design Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76576&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies+%C2%BB+Graphic+Arts+and+Design+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76685",
+            "name": "Nga Mahi a te Whare Pora (Maori Weaving)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76685&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies+%C2%BB+Nga+Mahi+a+te+Whare+Pora+(Maori+Weaving)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76630",
+            "name": "Textile Design",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76630&searchSubject=Creative+Arts+%C2%BB+Graphic+and+Design+Studies+%C2%BB+Textile+Design&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258726",
+        "name": "Other Creative Arts",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258726&searchSubject=Creative+Arts+%C2%BB+Other+Creative+Arts&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258804",
+            "name": "Creative Arts not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258804&searchSubject=Creative+Arts+%C2%BB+Other+Creative+Arts+%C2%BB+Creative+Arts+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76513",
+        "name": "Performing Arts",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76513&searchSubject=Creative+Arts+%C2%BB+Performing+Arts&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76671",
+            "name": "Dance",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76671&searchSubject=Creative+Arts+%C2%BB+Performing+Arts+%C2%BB+Dance&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76628",
+            "name": "Drama and Theatre Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76628&searchSubject=Creative+Arts+%C2%BB+Performing+Arts+%C2%BB+Drama+and+Theatre+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76574",
+            "name": "Music",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76574&searchSubject=Creative+Arts+%C2%BB+Performing+Arts+%C2%BB+Music&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76683",
+            "name": "Nga Mahi a Rehia (Maori Performing Arts)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76683&searchSubject=Creative+Arts+%C2%BB+Performing+Arts+%C2%BB+Nga+Mahi+a+Rehia+(Maori+Performing+Arts)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258800",
+            "name": "Performing Arts not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258800&searchSubject=Creative+Arts+%C2%BB+Performing+Arts+%C2%BB+Performing+Arts+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76514",
+        "name": "Visual Arts and Crafts",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76514&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76672",
+            "name": "Crafts",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76672&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Crafts&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76575",
+            "name": "Fine Arts",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76575&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Fine+Arts&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76733",
+            "name": "Floristry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76733&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Floristry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76707",
+            "name": "Jewellery Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76707&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Jewellery+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76684",
+            "name": "Mana Whakairo (Maori Carving)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76684&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Mana+Whakairo+(Maori+Carving)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76629",
+            "name": "Photography",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76629&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Photography&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258801",
+            "name": "Visual Arts and Crafts not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258801&searchSubject=Creative+Arts+%C2%BB+Visual+Arts+and+Crafts+%C2%BB+Visual+Arts+and+Crafts+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76455",
+    "name": "Education",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76455&searchSubject=Education&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76495",
+        "name": "Curriculum and Education Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76495&searchSubject=Education+%C2%BB+Curriculum+and+Education+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76556",
+            "name": "Curriculum Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76556&searchSubject=Education+%C2%BB+Curriculum+and+Education+Studies+%C2%BB+Curriculum+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76615",
+            "name": "Education Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76615&searchSubject=Education+%C2%BB+Curriculum+and+Education+Studies+%C2%BB+Education+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258723",
+        "name": "Other Education",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258723&searchSubject=Education+%C2%BB+Other+Education&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258779",
+            "name": "Education not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258779&searchSubject=Education+%C2%BB+Other+Education+%C2%BB+Education+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76494",
+        "name": "Teacher Education",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76494&searchSubject=Education+%C2%BB+Teacher+Education&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76792",
+            "name": "Bilingual Early Childhood Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76792&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Bilingual+Early+Childhood+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76803",
+            "name": "Bilingual Primary Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76803&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Bilingual+Primary+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76809",
+            "name": "Bilingual Secondary Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76809&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Bilingual+Secondary+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76779",
+            "name": "English Language Teaching(ESOL/EFL)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76779&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+English+Language+Teaching(ESOL/EFL)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76798",
+            "name": "Immersion Early Childhood Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76798&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Immersion+Early+Childhood+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76807",
+            "name": "Immersion Primary Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76807&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Immersion+Primary+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76811",
+            "name": "Immersion Secondary Teacher Training (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76811&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Immersion+Secondary+Teacher+Training+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76783",
+            "name": "Te Matauranga Maori me te Whakangungu (Maori Education)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76783&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Te+Matauranga+Maori+me+te+Whakangungu+(Maori+Education)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258778",
+            "name": "Teacher Education not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258778&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76680",
+            "name": "Teacher Education:  Tertiary",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76680&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:++Tertiary&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76555",
+            "name": "Teacher Education: Early Childhood (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76555&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:+Early+Childhood+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76714",
+            "name": "Teacher Education: General (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76714&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:+General+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76614",
+            "name": "Teacher Education: Primary (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76614&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:+Primary+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76663",
+            "name": "Teacher Education: Secondary (Pre-Service)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76663&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:+Secondary+(Pre-Service)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76766",
+            "name": "Teacher Education: Special Education",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76766&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Education:+Special+Education&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76813",
+            "name": "Teacher Professional Development",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76813&searchSubject=Education+%C2%BB+Teacher+Education+%C2%BB+Teacher+Professional+Development&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76451",
+    "name": "Engineering and Related Technologies",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76451&searchSubject=Engineering+and+Related+Technologies&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76475",
+        "name": "Aerospace Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76475&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76536",
+            "name": "Aerospace Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76536&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology+%C2%BB+Aerospace+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258749",
+            "name": "Aerospace Engineering and Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258749&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology+%C2%BB+Aerospace+Engineering+and+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76696",
+            "name": "Air Traffic Control",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76696&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology+%C2%BB+Air+Traffic+Control&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76601",
+            "name": "Aircraft Maintenance Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76601&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology+%C2%BB+Aircraft+Maintenance+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76654",
+            "name": "Aircraft Operation",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76654&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Aerospace+Engineering+and+Technology+%C2%BB+Aircraft+Operation&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76470",
+        "name": "Automotive Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76470&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76720",
+            "name": "Automotive Body Construction",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76720&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Body+Construction&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76650",
+            "name": "Automotive Electrics and Electronics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76650&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Electrics+and+Electronics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76531",
+            "name": "Automotive Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76531&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258744",
+            "name": "Automotive Engineering and Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258744&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Engineering+and+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76774",
+            "name": "Automotive Vehicle Operations",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76774&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Vehicle+Operations&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76692",
+            "name": "Automotive Vehicle Refinishing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76692&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Automotive+Vehicle+Refinishing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76741",
+            "name": "Panel Beating",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76741&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Panel+Beating&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76759",
+            "name": "Upholstery and Vehicle Trimming",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76759&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Upholstery+and+Vehicle+Trimming&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76596",
+            "name": "Vehicle Mechanics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76596&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Automotive+Engineering+and+Technology+%C2%BB+Vehicle+Mechanics&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76472",
+        "name": "Civil Engineering",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76472&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76652",
+            "name": "Building Services Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76652&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Building+Services+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258746",
+            "name": "Civil Engineering not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258746&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Civil+Engineering+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76533",
+            "name": "Construction Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76533&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Construction+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76743",
+            "name": "Geotechnical Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76743&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Geotechnical+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76761",
+            "name": "Ocean Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76761&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Ocean+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76735",
+            "name": "Road Construction",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76735&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Road+Construction&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76598",
+            "name": "Structural Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76598&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Structural+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76722",
+            "name": "Transport Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76722&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Transport+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76694",
+            "name": "Water and Sanitary Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76694&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Civil+Engineering+%C2%BB+Water+and+Sanitary+Engineering&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76474",
+        "name": "Electrical and Electronic Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76474&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76723",
+            "name": "Communications Equipment Installation and Maintenance",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76723&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Communications+Equipment+Installation+and+Maintenance&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76695",
+            "name": "Communications Technologies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76695&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Communications+Technologies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76653",
+            "name": "Computer Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76653&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Computer+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258748",
+            "name": "Electrical and Electronic Engineering and Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258748&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76535",
+            "name": "Electrical Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76535&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Electrical+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76762",
+            "name": "Electrical Fitting, Electrical Mechanics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76762&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Electrical+Fitting,+Electrical+Mechanics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76600",
+            "name": "Electronic Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76600&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Electronic+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76788",
+            "name": "Electronic Equipment Servicing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76788&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Electronic+Equipment+Servicing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76744",
+            "name": "Power Line Installation and Maintenance",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76744&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Power+Line+Installation+and+Maintenance&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76776",
+            "name": "Refrigeration, Heating and Air Conditioning",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76776&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Electrical+and+Electronic+Engineering+and+Technology+%C2%BB+Refrigeration,+Heating+and+Air+Conditioning&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76473",
+        "name": "Geomatic Engineering",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76473&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Geomatic+Engineering&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258747",
+            "name": "Geomatic Engineering not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258747&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Geomatic+Engineering+%C2%BB+Geomatic+Engineering+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76599",
+            "name": "Mapping Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76599&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Geomatic+Engineering+%C2%BB+Mapping+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76534",
+            "name": "Surveying",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76534&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Geomatic+Engineering+%C2%BB+Surveying&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76468",
+        "name": "Manufacturing, Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76468&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76758",
+            "name": "Cabinet Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76758&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Cabinet+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76719",
+            "name": "Footwear Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76719&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Footwear+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76786",
+            "name": "Furniture Polishing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76786&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Furniture+Polishing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76773",
+            "name": "Furniture Upholstery and Renovation",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76773&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Furniture+Upholstery+and+Renovation&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76690",
+            "name": "Garment Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76690&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Garment+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76529",
+            "name": "Manufacturing Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76529&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Manufacturing+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258742",
+            "name": "Manufacturing Engineering and Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258742&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Manufacturing+Engineering+and+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76710",
+            "name": "Plastics Processing Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76710&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Plastics+Processing+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76594",
+            "name": "Printing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76594&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Printing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76648",
+            "name": "Textile Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76648&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Textile+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76740",
+            "name": "Wood Machining and Turning",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76740&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Manufacturing,+Engineering+and+Technology+%C2%BB+Wood+Machining+and+Turning&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76476",
+        "name": "Maritime Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76476&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Maritime+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76602",
+            "name": "Marine Construction",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76602&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Maritime+Engineering+and+Technology+%C2%BB+Marine+Construction&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76655",
+            "name": "Marine Craft Operation",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76655&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Maritime+Engineering+and+Technology+%C2%BB+Marine+Craft+Operation&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76537",
+            "name": "Maritime Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76537&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Maritime+Engineering+and+Technology+%C2%BB+Maritime+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258750",
+            "name": "Maritime Engineering and Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258750&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Maritime+Engineering+and+Technology+%C2%BB+Maritime+Engineering+and+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76471",
+        "name": "Mechanical and Industrial Engineering and Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76471&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76742",
+            "name": "Boiler-making and Welding",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76742&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Boiler-making+and+Welding&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76597",
+            "name": "Industrial Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76597&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Industrial+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258745",
+            "name": "Mechanical and Industrial Engineering & Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258745&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Mechanical+and+Industrial+Engineering+&+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76532",
+            "name": "Mechanical Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76532&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Mechanical+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76760",
+            "name": "Metal Casting and Pattern Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76760&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Metal+Casting+and+Pattern+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76693",
+            "name": "Metal Fitting, Turning and Machining",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76693&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Metal+Fitting,+Turning+and+Machining&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76787",
+            "name": "Plant and Machine Operations",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76787&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Plant+and+Machine+Operations&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76775",
+            "name": "Precision Metalworking",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76775&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Precision+Metalworking&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76721",
+            "name": "Sheetmetal Working",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76721&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Sheetmetal+Working&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76651",
+            "name": "Toolmaking",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76651&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Mechanical+and+Industrial+Engineering+and+Technology+%C2%BB+Toolmaking&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258720",
+        "name": "Other Engineering and Related Technologies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258720&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258753",
+            "name": "Biomedical Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258753&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Biomedical+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258756",
+            "name": "Cleaning",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258756&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Cleaning&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258757",
+            "name": "Engineering and Related Technologies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258757&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Engineering+and+Related+Technologies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258751",
+            "name": "Environmental Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258751&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Environmental+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258754",
+            "name": "Fire Technology and Rescue Services",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258754&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Fire+Technology+and+Rescue+Services&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258752",
+            "name": "Orthotics and Prosthetics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258752&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Orthotics+and+Prosthetics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258755",
+            "name": "Rail Operations",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258755&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Other+Engineering+and+Related+Technologies+%C2%BB+Rail+Operations&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76469",
+        "name": "Process and Resources Engineering",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76469&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76678",
+            "name": "Ceramics, Industrial Glass and Rubber Manufacturing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76678&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Ceramics,+Industrial+Glass+and+Rubber+Manufacturing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76530",
+            "name": "Chemical Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76530&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Chemical+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76691",
+            "name": "Food (excluding Seafood) Processing Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76691&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Food+(excluding+Seafood)+Processing+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76649",
+            "name": "Materials Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76649&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Materials+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76595",
+            "name": "Mining and Resources Engineering",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76595&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Mining+and+Resources+Engineering&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258743",
+            "name": "Process and Resources Engineering not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258743&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Process+and+Resources+Engineering+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76711",
+            "name": "Seafood Processing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76711&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Seafood+Processing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76637",
+            "name": "Wood Based Manufacturing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76637&searchSubject=Engineering+and+Related+Technologies+%C2%BB+Process+and+Resources+Engineering+%C2%BB+Wood+Based+Manufacturing&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76459",
+    "name": "Food, Hospitality and Personal Services",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76459&searchSubject=Food,+Hospitality+and+Personal+Services&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76517",
+        "name": "Food and Hospitality",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76517&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76709",
+            "name": "Baking and Pastry Making",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76709&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Baking+and+Pastry+Making&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76675",
+            "name": "Butchery",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76675&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Butchery&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76734",
+            "name": "Cookery",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76734&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Cookery&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76632",
+            "name": "Food and Beverage Service",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76632&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Food+and+Beverage+Service&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258805",
+            "name": "Food and Hospitality not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258805&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Food+and+Hospitality+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76752",
+            "name": "Food Hygiene",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76752&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Food+Hygiene&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76578",
+            "name": "Hospitality",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76578&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Food+and+Hospitality+%C2%BB+Hospitality&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76518",
+        "name": "Personal Services",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76518&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Personal+Services&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76579",
+            "name": "Beauty Therapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76579&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Personal+Services+%C2%BB+Beauty+Therapy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76633",
+            "name": "Hairdressing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76633&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Personal+Services+%C2%BB+Hairdressing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258806",
+            "name": "Personal Services not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258806&searchSubject=Food,+Hospitality+and+Personal+Services+%C2%BB+Personal+Services+%C2%BB+Personal+Services+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76454",
+    "name": "Health",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76454&searchSubject=Health&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76493",
+        "name": "Complementary Therapies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76493&searchSubject=Health+%C2%BB+Complementary+Therapies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76613",
+            "name": "Acupuncture",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76613&searchSubject=Health+%C2%BB+Complementary+Therapies+%C2%BB+Acupuncture&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258772",
+            "name": "Complementary Therapies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258772&searchSubject=Health+%C2%BB+Complementary+Therapies+%C2%BB+Complementary+Therapies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76554",
+            "name": "Naturopathy and Homeopathy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76554&searchSubject=Health+%C2%BB+Complementary+Therapies+%C2%BB+Naturopathy+and+Homeopathy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76662",
+            "name": "Traditional Chinese Medicine",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76662&searchSubject=Health+%C2%BB+Complementary+Therapies+%C2%BB+Traditional+Chinese+Medicine&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76487",
+        "name": "Dental Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76487&searchSubject=Health+%C2%BB+Dental+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76639",
+            "name": "Dental Hygiene and Therapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76639&searchSubject=Health+%C2%BB+Dental+Studies+%C2%BB+Dental+Hygiene+and+Therapy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258767",
+            "name": "Dental Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258767&searchSubject=Health+%C2%BB+Dental+Studies+%C2%BB+Dental+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76660",
+            "name": "Dental Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76660&searchSubject=Health+%C2%BB+Dental+Studies+%C2%BB+Dental+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76548",
+            "name": "Dentistry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76548&searchSubject=Health+%C2%BB+Dental+Studies+%C2%BB+Dentistry&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76484",
+        "name": "Medical Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76484&searchSubject=Health+%C2%BB+Medical+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76746",
+            "name": "Anaesthesiology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76746&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Anaesthesiology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76545",
+            "name": "General Medicine",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76545&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+General+Medicine&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76795",
+            "name": "General Practice Medicine",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76795&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+General+Practice+Medicine&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76790",
+            "name": "Internal Medicine",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76790&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Internal+Medicine&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258765",
+            "name": "Medical Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258765&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Medical+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76699",
+            "name": "Obstetrics and Gynaecology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76699&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Obstetrics+and+Gynaecology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76725",
+            "name": "Paediatrics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76725&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Paediatrics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76764",
+            "name": "Pathology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76764&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Pathology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76659",
+            "name": "Psychiatry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76659&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Psychiatry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76778",
+            "name": "Radiology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76778&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Radiology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76607",
+            "name": "Surgery",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76607&searchSubject=Health+%C2%BB+Medical+Studies+%C2%BB+Surgery&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76485",
+        "name": "Nursing",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76485&searchSubject=Health+%C2%BB+Nursing&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76713",
+            "name": "Health Care Assistant",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76713&searchSubject=Health+%C2%BB+Nursing+%C2%BB+Health+Care+Assistant&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76608",
+            "name": "Midwifery",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76608&searchSubject=Health+%C2%BB+Nursing+%C2%BB+Midwifery&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76546",
+            "name": "Nursing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76546&searchSubject=Health+%C2%BB+Nursing+%C2%BB+Nursing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258766",
+            "name": "Nursing not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258766&searchSubject=Health+%C2%BB+Nursing+%C2%BB+Nursing+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76488",
+        "name": "Optical Science",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76488&searchSubject=Health+%C2%BB+Optical+Science&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258768",
+            "name": "Optical Science not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258768&searchSubject=Health+%C2%BB+Optical+Science+%C2%BB+Optical+Science+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76609",
+            "name": "Optical Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76609&searchSubject=Health+%C2%BB+Optical+Science+%C2%BB+Optical+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76549",
+            "name": "Optometry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76549&searchSubject=Health+%C2%BB+Optical+Science+%C2%BB+Optometry&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258722",
+        "name": "Other Health",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258722&searchSubject=Health+%C2%BB+Other+Health&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258776",
+            "name": "First Aid",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258776&searchSubject=Health+%C2%BB+Other+Health+%C2%BB+First+Aid&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258777",
+            "name": "Health not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258777&searchSubject=Health+%C2%BB+Other+Health+%C2%BB+Health+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258774",
+            "name": "Human Movement and Sports Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258774&searchSubject=Health+%C2%BB+Other+Health+%C2%BB+Human+Movement+and+Sports+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258773",
+            "name": "Nutrition and Dietetics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258773&searchSubject=Health+%C2%BB+Other+Health+%C2%BB+Nutrition+and+Dietetics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258775",
+            "name": "Paramedical Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258775&searchSubject=Health+%C2%BB+Other+Health+%C2%BB+Paramedical+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76486",
+        "name": "Pharmacy",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76486&searchSubject=Health+%C2%BB+Pharmacy&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76547",
+            "name": "Pharmacy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76547&searchSubject=Health+%C2%BB+Pharmacy+%C2%BB+Pharmacy&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76490",
+        "name": "Public Health",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76490&searchSubject=Health+%C2%BB+Public+Health&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76726",
+            "name": "Community Health",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76726&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Community+Health&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76611",
+            "name": "Environmental Health",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76611&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Environmental+Health&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76747",
+            "name": "Epidemiology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76747&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Epidemiology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76640",
+            "name": "Hauora (Maori Health)",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76640&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Hauora+(Maori+Health)&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76700",
+            "name": "Health Education,  Promotion, Counselling",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76700&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Health+Education,++Promotion,+Counselling&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76551",
+            "name": "Occupational Health and Safety",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76551&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Occupational+Health+and+Safety&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258770",
+            "name": "Public Health not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258770&searchSubject=Health+%C2%BB+Public+Health+%C2%BB+Public+Health+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76491",
+        "name": "Radiography",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76491&searchSubject=Health+%C2%BB+Radiography&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76552",
+            "name": "Medical Imaging Technology (Radiography) and Radiation Therapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76552&searchSubject=Health+%C2%BB+Radiography+%C2%BB+Medical+Imaging+Technology+(Radiography)+and+Radiation+Therapy&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76492",
+        "name": "Rehabilitation Therapies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76492&searchSubject=Health+%C2%BB+Rehabilitation+Therapies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76727",
+            "name": "Audiology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76727&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Audiology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76661",
+            "name": "Chiropractic and Osteopathy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76661&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Chiropractic+and+Osteopathy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76748",
+            "name": "Massage Therapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76748&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Massage+Therapy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76612",
+            "name": "Occupational Therapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76612&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Occupational+Therapy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76553",
+            "name": "Physiotherapy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76553&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Physiotherapy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76765",
+            "name": "Podiatry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76765&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Podiatry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258771",
+            "name": "Rehabilitation Therapies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258771&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Rehabilitation+Therapies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76701",
+            "name": "Speech Pathology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76701&searchSubject=Health+%C2%BB+Rehabilitation+Therapies+%C2%BB+Speech+Pathology&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76489",
+        "name": "Veterinary Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76489&searchSubject=Health+%C2%BB+Veterinary+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76610",
+            "name": "Veterinary Assisting",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76610&searchSubject=Health+%C2%BB+Veterinary+Studies+%C2%BB+Veterinary+Assisting&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76550",
+            "name": "Veterinary Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76550&searchSubject=Health+%C2%BB+Veterinary+Studies+%C2%BB+Veterinary+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258769",
+            "name": "Veterinary Studies not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258769&searchSubject=Health+%C2%BB+Veterinary+Studies+%C2%BB+Veterinary+Studies+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76450",
+    "name": "Information Technology",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76450&searchSubject=Information+Technology&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76466",
+        "name": "Computer Science",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76466&searchSubject=Information+Technology+%C2%BB+Computer+Science&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76718",
+            "name": "Algorithms",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76718&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Algorithms&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76793",
+            "name": "Artificial Intelligence",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76793&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Artificial+Intelligence&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76688",
+            "name": "Compiler Construction",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76688&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Compiler+Construction&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76646",
+            "name": "Computational Theory",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76646&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Computational+Theory&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76592",
+            "name": "Computer Applications and Programming",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76592&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Computer+Applications+and+Programming&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258738",
+            "name": "Computer Science not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258738&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Computer+Science+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76739",
+            "name": "Data Structures",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76739&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Data+Structures&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76527",
+            "name": "Formal Language Theory",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76527&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Formal+Language+Theory&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76772",
+            "name": "Multimedia Computing Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76772&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Multimedia+Computing+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76757",
+            "name": "Networks and Communications",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76757&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Networks+and+Communications&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76785",
+            "name": "Operating Systems",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76785&searchSubject=Information+Technology+%C2%BB+Computer+Science+%C2%BB+Operating+Systems&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76467",
+        "name": "Information Systems",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76467&searchSubject=Information+Technology+%C2%BB+Information+Systems&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76528",
+            "name": "Conceptual Modelling",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76528&searchSubject=Information+Technology+%C2%BB+Information+Systems+%C2%BB+Conceptual+Modelling&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76593",
+            "name": "Database Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76593&searchSubject=Information+Technology+%C2%BB+Information+Systems+%C2%BB+Database+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76689",
+            "name": "Decision Support Systems",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76689&searchSubject=Information+Technology+%C2%BB+Information+Systems+%C2%BB+Decision+Support+Systems&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258739",
+            "name": "Information Systems not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258739&searchSubject=Information+Technology+%C2%BB+Information+Systems+%C2%BB+Information+Systems+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76647",
+            "name": "Systems Analysis and Design",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76647&searchSubject=Information+Technology+%C2%BB+Information+Systems+%C2%BB+Systems+Analysis+and+Design&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258719",
+        "name": "Other Information Technology",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258719&searchSubject=Information+Technology+%C2%BB+Other+Information+Technology&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258741",
+            "name": "Information Technology not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258741&searchSubject=Information+Technology+%C2%BB+Other+Information+Technology+%C2%BB+Information+Technology+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258740",
+            "name": "Security Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258740&searchSubject=Information+Technology+%C2%BB+Other+Information+Technology+%C2%BB+Security+Science&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76456",
+    "name": "Management and Commerce",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76456&searchSubject=Management+and+Commerce&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76496",
+        "name": "Accountancy",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76496&searchSubject=Management+and+Commerce+%C2%BB+Accountancy&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258780",
+            "name": "Accountancy not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258780&searchSubject=Management+and+Commerce+%C2%BB+Accountancy+%C2%BB+Accountancy+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76557",
+            "name": "Accounting",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76557&searchSubject=Management+and+Commerce+%C2%BB+Accountancy+%C2%BB+Accounting&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76501",
+        "name": "Banking, Finance and Related Fields",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76501&searchSubject=Management+and+Commerce+%C2%BB+Banking,+Finance+and+Related+Fields&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76562",
+            "name": "Banking and Finance",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76562&searchSubject=Management+and+Commerce+%C2%BB+Banking,+Finance+and+Related+Fields+%C2%BB+Banking+and+Finance&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258784",
+            "name": "Banking, Finance and Related Fields not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258784&searchSubject=Management+and+Commerce+%C2%BB+Banking,+Finance+and+Related+Fields+%C2%BB+Banking,+Finance+and+Related+Fields+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76618",
+            "name": "Insurance and Actuarial Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76618&searchSubject=Management+and+Commerce+%C2%BB+Banking,+Finance+and+Related+Fields+%C2%BB+Insurance+and+Actuarial+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76666",
+            "name": "Investment and Securities",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76666&searchSubject=Management+and+Commerce+%C2%BB+Banking,+Finance+and+Related+Fields+%C2%BB+Investment+and+Securities&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76497",
+        "name": "Business and Management",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76497&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258781",
+            "name": "Business and Management not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258781&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Business+and+Management+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76558",
+            "name": "Business Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76558&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Business+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76754",
+            "name": "Education Administration",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76754&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Education+Administration&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76801",
+            "name": "Farm Management and Agribusiness",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76801&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Farm+Management+and+Agribusiness&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76796",
+            "name": "Hospitality Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76796&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Hospitality+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76616",
+            "name": "Human Resource Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76616&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Human+Resource+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76728",
+            "name": "Industrial Relations",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76728&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Industrial+Relations&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76749",
+            "name": "International Business",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76749&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+International+Business&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76702",
+            "name": "Organisation Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76702&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Organisation+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76664",
+            "name": "Personal Management Training",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76664&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Personal+Management+Training&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76780",
+            "name": "Project Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76780&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Project+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76767",
+            "name": "Public and Health Care Administration",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76767&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Public+and+Health+Care+Administration&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76791",
+            "name": "Quality Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76791&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Quality+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76799",
+            "name": "Racing and Gaming Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76799&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Racing+and+Gaming+Management&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76805",
+            "name": "Tourism Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76805&searchSubject=Management+and+Commerce+%C2%BB+Business+and+Management+%C2%BB+Tourism+Management&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76500",
+        "name": "Office Administration",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76500&searchSubject=Management+and+Commerce+%C2%BB+Office+Administration&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76561",
+            "name": "General Office Administration",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76561&searchSubject=Management+and+Commerce+%C2%BB+Office+Administration+%C2%BB+General+Office+Administration&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258783",
+            "name": "Office Administration not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258783&searchSubject=Management+and+Commerce+%C2%BB+Office+Administration+%C2%BB+Office+Administration+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76641",
+            "name": "Text and Information Processing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76641&searchSubject=Management+and+Commerce+%C2%BB+Office+Administration+%C2%BB+Text+and+Information+Processing&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258724",
+        "name": "Other Management and Commerce",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258724&searchSubject=Management+and+Commerce+%C2%BB+Other+Management+and+Commerce&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "2698539749",
+            "name": "e-Commerce",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=2698539749&searchSubject=Management+and+Commerce+%C2%BB+Other+Management+and+Commerce+%C2%BB+e-Commerce&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258787",
+            "name": "Management and Commerce not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258787&searchSubject=Management+and+Commerce+%C2%BB+Other+Management+and+Commerce+%C2%BB+Management+and+Commerce+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258785",
+            "name": "Purchasing, Warehousing and Distribution",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258785&searchSubject=Management+and+Commerce+%C2%BB+Other+Management+and+Commerce+%C2%BB+Purchasing,+Warehousing+and+Distribution&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258786",
+            "name": "Valuation",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258786&searchSubject=Management+and+Commerce+%C2%BB+Other+Management+and+Commerce+%C2%BB+Valuation&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76498",
+        "name": "Sales and Marketing",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76498&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76703",
+            "name": "Advertising",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76703&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Advertising&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76665",
+            "name": "Marketing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76665&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Marketing&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76729",
+            "name": "Public Relations",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76729&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Public+Relations&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76617",
+            "name": "Real Estate",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76617&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Real+Estate&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76559",
+            "name": "Sales",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76559&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Sales&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258782",
+            "name": "Sales and Marketing not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258782&searchSubject=Management+and+Commerce+%C2%BB+Sales+and+Marketing+%C2%BB+Sales+and+Marketing+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76499",
+        "name": "Tourism",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76499&searchSubject=Management+and+Commerce+%C2%BB+Tourism&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76560",
+            "name": "Tourism Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76560&searchSubject=Management+and+Commerce+%C2%BB+Tourism+%C2%BB+Tourism+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76460",
+    "name": "Mixed Field Programmes",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76460&searchSubject=Mixed+Field+Programmes&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76521",
+        "name": "Employment Skills Programmes",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76521&searchSubject=Mixed+Field+Programmes+%C2%BB+Employment+Skills+Programmes&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76582",
+            "name": "Career Development Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76582&searchSubject=Mixed+Field+Programmes+%C2%BB+Employment+Skills+Programmes+%C2%BB+Career+Development+Programmes&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258809",
+            "name": "Employment Skills Programmes not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258809&searchSubject=Mixed+Field+Programmes+%C2%BB+Employment+Skills+Programmes+%C2%BB+Employment+Skills+Programmes+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76636",
+            "name": "Job Search Skills Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76636&searchSubject=Mixed+Field+Programmes+%C2%BB+Employment+Skills+Programmes+%C2%BB+Job+Search+Skills+Programmes&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76677",
+            "name": "Work Practices Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76677&searchSubject=Mixed+Field+Programmes+%C2%BB+Employment+Skills+Programmes+%C2%BB+Work+Practices+Programmes&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76519",
+        "name": "General Education Programmes",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76519&searchSubject=Mixed+Field+Programmes+%C2%BB+General+Education+Programmes&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258807",
+            "name": "General Education Programmes not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258807&searchSubject=Mixed+Field+Programmes+%C2%BB+General+Education+Programmes+%C2%BB+General+Education+Programmes+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76580",
+            "name": "General Primary and Secondary Education",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76580&searchSubject=Mixed+Field+Programmes+%C2%BB+General+Education+Programmes+%C2%BB+General+Primary+and+Secondary+Education&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76676",
+            "name": "Learning Skills Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76676&searchSubject=Mixed+Field+Programmes+%C2%BB+General+Education+Programmes+%C2%BB+Learning+Skills+Programmes&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76634",
+            "name": "Literacy and Numeracy Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76634&searchSubject=Mixed+Field+Programmes+%C2%BB+General+Education+Programmes+%C2%BB+Literacy+and+Numeracy+Programmes&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258727",
+        "name": "Other Mixed Field Programmes",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258727&searchSubject=Mixed+Field+Programmes+%C2%BB+Other+Mixed+Field+Programmes&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258810",
+            "name": "Mixed Field Programmes not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258810&searchSubject=Mixed+Field+Programmes+%C2%BB+Other+Mixed+Field+Programmes+%C2%BB+Mixed+Field+Programmes+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76520",
+        "name": "Social Skills Programmes",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76520&searchSubject=Mixed+Field+Programmes+%C2%BB+Social+Skills+Programmes&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76643",
+            "name": "Family/Whanau Education",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76643&searchSubject=Mixed+Field+Programmes+%C2%BB+Social+Skills+Programmes+%C2%BB+Family/Whanau+Education&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76635",
+            "name": "Life Skills",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76635&searchSubject=Mixed+Field+Programmes+%C2%BB+Social+Skills+Programmes+%C2%BB+Life+Skills&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76581",
+            "name": "Social and Interpersonal Skills Programmes",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76581&searchSubject=Mixed+Field+Programmes+%C2%BB+Social+Skills+Programmes+%C2%BB+Social+and+Interpersonal+Skills+Programmes&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258808",
+            "name": "Social Skills Programmes not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258808&searchSubject=Mixed+Field+Programmes+%C2%BB+Social+Skills+Programmes+%C2%BB+Social+Skills+Programmes+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76449",
+    "name": "Natural and Physical Sciences",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76449&searchSubject=Natural+and+Physical+Sciences&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76465",
+        "name": "Biological Sciences",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76465&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76526",
+            "name": "Biochemistry and Cell Biology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76526&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Biochemistry+and+Cell+Biology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258731",
+            "name": "Biological Sciences not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258731&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Biological+Sciences+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76591",
+            "name": "Botany",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76591&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Botany&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76645",
+            "name": "Ecology and Evolution",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76645&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Ecology+and+Evolution&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76717",
+            "name": "Genetics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76717&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Genetics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76756",
+            "name": "Human Biology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76756&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Human+Biology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76687",
+            "name": "Marine Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76687&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Marine+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76738",
+            "name": "Microbiology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76738&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Microbiology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76782",
+            "name": "Neuroscience",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76782&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Neuroscience&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76771",
+            "name": "Zoology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76771&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Biological+Sciences+%C2%BB+Zoology&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76463",
+        "name": "Chemical Sciences",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76463&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Chemical+Sciences&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258729",
+            "name": "Chemical Sciences not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258729&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Chemical+Sciences+%C2%BB+Chemical+Sciences+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76589",
+            "name": "Inorganic Chemistry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76589&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Chemical+Sciences+%C2%BB+Inorganic+Chemistry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76524",
+            "name": "Organic Chemistry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76524&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Chemical+Sciences+%C2%BB+Organic+Chemistry&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76464",
+        "name": "Earth Sciences",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76464&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76525",
+            "name": "Atmospheric Sciences",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76525&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Atmospheric+Sciences&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258730",
+            "name": "Earth Sciences not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258730&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Earth+Sciences+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76686",
+            "name": "Geochemistry",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76686&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Geochemistry&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76590",
+            "name": "Geology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76590&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Geology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76644",
+            "name": "Geophysics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76644&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Geophysics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76737",
+            "name": "Hydrology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76737&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Hydrology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76755",
+            "name": "Oceanography",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76755&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Oceanography&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76716",
+            "name": "Soil Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76716&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Earth+Sciences+%C2%BB+Soil+Science&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76461",
+        "name": "Mathematical Sciences",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76461&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Mathematical+Sciences&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258728",
+            "name": "Mathematical Sciences not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258728&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Mathematical+Sciences+%C2%BB+Mathematical+Sciences+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76522",
+            "name": "Mathematics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76522&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Mathematical+Sciences+%C2%BB+Mathematics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76587",
+            "name": "Statistics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76587&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Mathematical+Sciences+%C2%BB+Statistics&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258718",
+        "name": "Other Natural and Physical Sciences",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258718&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258734",
+            "name": "Food Science and Biotechnology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258734&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Food+Science+and+Biotechnology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258733",
+            "name": "Forensic Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258733&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Forensic+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258736",
+            "name": "Laboratory Technology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258736&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Laboratory+Technology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258732",
+            "name": "Medical Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258732&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Medical+Science&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258737",
+            "name": "Natural and Physical Sciences not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258737&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Natural+and+Physical+Sciences+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258735",
+            "name": "Pharmacology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258735&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Other+Natural+and+Physical+Sciences+%C2%BB+Pharmacology&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76462",
+        "name": "Physics and Astronomy",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76462&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Physics+and+Astronomy&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76588",
+            "name": "Astronomy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76588&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Physics+and+Astronomy+%C2%BB+Astronomy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76523",
+            "name": "Physics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76523&searchSubject=Natural+and+Physical+Sciences+%C2%BB+Physics+and+Astronomy+%C2%BB+Physics&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "76457",
+    "name": "Society and Culture",
+    "level": 1,
+    "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76457&searchSubject=Society+and+Culture&type=&lvl=&credit=&status=Current",
+    "subAreas": [
+      {
+        "id": "76505",
+        "name": "Behavioural Science",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76505&searchSubject=Society+and+Culture+%C2%BB+Behavioural+Science&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258790",
+            "name": "Behavioural Science not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258790&searchSubject=Society+and+Culture+%C2%BB+Behavioural+Science+%C2%BB+Behavioural+Science+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76566",
+            "name": "Psychology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76566&searchSubject=Society+and+Culture+%C2%BB+Behavioural+Science+%C2%BB+Psychology&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76511",
+        "name": "Economics and Econometrics",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76511&searchSubject=Society+and+Culture+%C2%BB+Economics+and+Econometrics&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76626",
+            "name": "Econometrics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76626&searchSubject=Society+and+Culture+%C2%BB+Economics+and+Econometrics+%C2%BB+Econometrics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76572",
+            "name": "Economics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76572&searchSubject=Society+and+Culture+%C2%BB+Economics+and+Econometrics+%C2%BB+Economics&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76504",
+        "name": "Human Welfare Studies and Services",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76504&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76731",
+            "name": "Care for People with Disabilities",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76731&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Care+for+People+with+Disabilities&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76585",
+            "name": "Children's Services",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76585&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Children's+Services&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76750",
+            "name": "Community Client Care",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76750&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Community+Client+Care&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76768",
+            "name": "Counselling",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76768&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Counselling&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258789",
+            "name": "Human Welfare Studies and Services not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258789&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Human+Welfare+Studies+and+Services+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76621",
+            "name": "Nannying and Early Childhood Care",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76621&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Nannying+and+Early+Childhood+Care&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76565",
+            "name": "Social Work",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76565&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Social+Work&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76705",
+            "name": "Support for the Older Person",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76705&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Support+for+the+Older+Person&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76781",
+            "name": "Welfare Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76781&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Welfare+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76668",
+            "name": "Youth Work",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76668&searchSubject=Society+and+Culture+%C2%BB+Human+Welfare+Studies+and+Services+%C2%BB+Youth+Work&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76507",
+        "name": "Justice and Law Enforcement",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76507&searchSubject=Society+and+Culture+%C2%BB+Justice+and+Law+Enforcement&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76568",
+            "name": "Justice Administration",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76568&searchSubject=Society+and+Culture+%C2%BB+Justice+and+Law+Enforcement+%C2%BB+Justice+Administration&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258792",
+            "name": "Justice and Law Enforcement not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258792&searchSubject=Society+and+Culture+%C2%BB+Justice+and+Law+Enforcement+%C2%BB+Justice+and+Law+Enforcement+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76623",
+            "name": "Legal Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76623&searchSubject=Society+and+Culture+%C2%BB+Justice+and+Law+Enforcement+%C2%BB+Legal+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76670",
+            "name": "Police Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76670&searchSubject=Society+and+Culture+%C2%BB+Justice+and+Law+Enforcement+%C2%BB+Police+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76509",
+        "name": "Language and Literature",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76509&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76682",
+            "name": "English for Speakers of Other Languages",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76682&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+English+for+Speakers+of+Other+Languages&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76570",
+            "name": "English Language",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76570&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+English+Language&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76642",
+            "name": "Foreign Languages",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76642&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Foreign+Languages&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258793",
+            "name": "Language and Literature not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258793&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Language+and+Literature+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76802",
+            "name": "Linguistics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76802&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Linguistics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76806",
+            "name": "Literature",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76806&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Literature&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76586",
+            "name": "Te Reo Maori",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76586&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Te+Reo+Maori&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76797",
+            "name": "Translating and Interpreting",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76797&searchSubject=Society+and+Culture+%C2%BB+Language+and+Literature+%C2%BB+Translating+and+Interpreting&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76506",
+        "name": "Law",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76506&searchSubject=Society+and+Culture+%C2%BB+Law&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76567",
+            "name": "Business and Commercial Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76567&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Business+and+Commercial+Law&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76622",
+            "name": "Constitutional Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76622&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Constitutional+Law&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76669",
+            "name": "Criminal Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76669&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Criminal+Law&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76706",
+            "name": "Family Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76706&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Family+Law&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76732",
+            "name": "International Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76732&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+International+Law&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258791",
+            "name": "Law not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258791&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Law+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76769",
+            "name": "Legal Practice",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76769&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Legal+Practice&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76751",
+            "name": "Taxation Law",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76751&searchSubject=Society+and+Culture+%C2%BB+Law+%C2%BB+Taxation+Law&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76508",
+        "name": "Librarianship, Information Management and Curatorial Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76508&searchSubject=Society+and+Culture+%C2%BB+Librarianship,+Information+Management+and+Curatorial+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76624",
+            "name": "Curatorial Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76624&searchSubject=Society+and+Culture+%C2%BB+Librarianship,+Information+Management+and+Curatorial+Studies+%C2%BB+Curatorial+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76569",
+            "name": "Librarianship and Information Management",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76569&searchSubject=Society+and+Culture+%C2%BB+Librarianship,+Information+Management+and+Curatorial+Studies+%C2%BB+Librarianship+and+Information+Management&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "778258725",
+        "name": "Other Society and Culture",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258725&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "778258795",
+            "name": "Community, Whanau, Family and Consumer Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258795&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture+%C2%BB+Community,+Whanau,+Family+and+Consumer+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258797",
+            "name": "Criminology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258797&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture+%C2%BB+Criminology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258796",
+            "name": "Cultural Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258796&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture+%C2%BB+Cultural+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258798",
+            "name": "Security Services",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258798&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture+%C2%BB+Security+Services&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258799",
+            "name": "Society and Culture not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258799&searchSubject=Society+and+Culture+%C2%BB+Other+Society+and+Culture+%C2%BB+Society+and+Culture+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76510",
+        "name": "Philosophy and Religious Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76510&searchSubject=Society+and+Culture+%C2%BB+Philosophy+and+Religious+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76571",
+            "name": "Philosophy",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76571&searchSubject=Society+and+Culture+%C2%BB+Philosophy+and+Religious+Studies+%C2%BB+Philosophy&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76625",
+            "name": "Religious Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76625&searchSubject=Society+and+Culture+%C2%BB+Philosophy+and+Religious+Studies+%C2%BB+Religious+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76502",
+        "name": "Political Science and Policy Studies",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76502&searchSubject=Society+and+Culture+%C2%BB+Political+Science+and+Policy+Studies&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76619",
+            "name": "Policy Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76619&searchSubject=Society+and+Culture+%C2%BB+Political+Science+and+Policy+Studies+%C2%BB+Policy+Studies&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76563",
+            "name": "Political Science",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76563&searchSubject=Society+and+Culture+%C2%BB+Political+Science+and+Policy+Studies+%C2%BB+Political+Science&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76512",
+        "name": "Sport and Recreation",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76512&searchSubject=Society+and+Culture+%C2%BB+Sport+and+Recreation&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76573",
+            "name": "Sport and Recreation Activities",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76573&searchSubject=Society+and+Culture+%C2%BB+Sport+and+Recreation+%C2%BB+Sport+and+Recreation+Activities&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258794",
+            "name": "Sport and Recreation not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258794&searchSubject=Society+and+Culture+%C2%BB+Sport+and+Recreation+%C2%BB+Sport+and+Recreation+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76627",
+            "name": "Sports Coaching, Playing, Officiating and Instructing",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76627&searchSubject=Society+and+Culture+%C2%BB+Sport+and+Recreation+%C2%BB+Sports+Coaching,+Playing,+Officiating+and+Instructing&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      },
+      {
+        "id": "76503",
+        "name": "Studies in Human Society",
+        "level": 2,
+        "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76503&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society&type=&lvl=&credit=&status=Current",
+        "subAreas": [
+          {
+            "id": "76620",
+            "name": "Anthropology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76620&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Anthropology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76704",
+            "name": "Archaeology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76704&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Archaeology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76681",
+            "name": "Art History",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76681&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Art+History&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76715",
+            "name": "Classics",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76715&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Classics&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76667",
+            "name": "History",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76667&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+History&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76730",
+            "name": "Human Geography",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76730&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Human+Geography&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76564",
+            "name": "Sociology",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76564&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Sociology&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "778258788",
+            "name": "Studies in Human Society not elsewhere classified",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=778258788&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Studies+in+Human+Society+not+elsewhere+classified&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76770",
+            "name": "Tikanga - Maori Customs",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76770&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Tikanga+-+Maori+Customs&type=&lvl=&credit=&status=Current"
+          },
+          {
+            "id": "76784",
+            "name": "Women's Studies",
+            "level": 3,
+            "searchUrl": "https://www.nzqa.govt.nz/nzqf/search/results.do?q=&area=76784&searchSubject=Society+and+Culture+%C2%BB+Studies+in+Human+Society+%C2%BB+Women's+Studies&type=&lvl=&credit=&status=Current"
+          }
+        ]
+      }
+    ]
+  }
+]

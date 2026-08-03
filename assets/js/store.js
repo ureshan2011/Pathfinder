@@ -52,16 +52,28 @@ const PFStore = (() => {
 
   /* Domain helpers ------------------------------------------------ */
 
+  // track: 'masters' | 'phd' — which qualification the student is aiming for.
+  // Drives copy, roadmap phases, fee maths and catalogue filters everywhere
+  // (see PF_TRACK in data.js). Defaults to 'phd' so existing users, who
+  // signed up when PathFinder was PhD-only, keep the product they know.
+  const getTrack = () => (get('track') === 'masters' ? 'masters' : 'phd');
+  const setTrack = (t) => set('track', t === 'masters' ? 'masters' : 'phd');
+
   // assessment: { answers, result, completedAt }
   const getAssessment = () => get('assessment');
   const setAssessment = (a) => set('assessment', a);
 
-  // saved opportunities: array of { kind:'lab'|'scholarship'|'uni', id }
+  // saved opportunities: array of { kind:'lab'|'scholarship'|'uni'|'course'|'provider', id, label?, sub? }
+  // `label`/`sub` are carried for catalogue items (courses, scholarships,
+  // providers) so the dashboard can list them without loading the catalogue
+  // shard they came from. Curated items (uni, lab) store neither and are
+  // still resolved from PF_UNIVERSITIES / PF_LABS.
   const getSaved = () => get('saved', []);
-  function toggleSaved(kind, id) {
+  function toggleSaved(kind, id, label, sub) {
     const list = getSaved();
     const i = list.findIndex(x => x.kind === kind && x.id === id);
-    if (i >= 0) list.splice(i, 1); else list.push({ kind, id, savedAt: Date.now() });
+    if (i >= 0) list.splice(i, 1);
+    else list.push({ kind, id, savedAt: Date.now(), ...(label ? { label } : {}), ...(sub ? { sub } : {}) });
     set('saved', list);
     return i < 0; // true if now saved
   }
@@ -182,6 +194,7 @@ const PFStore = (() => {
   const setResearch = (r) => set('research', r);
 
   return { get, set, remove, onChange, applyRemote, getMeta,
+           getTrack, setTrack,
            getAssessment, setAssessment, getSaved, toggleSaved, isSaved,
            APP_STATUSES, getApps, upsertApp, deleteApp, addLead,
            getChecklist, setChecklistItem, isChecked,
