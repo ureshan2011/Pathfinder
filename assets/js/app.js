@@ -3607,7 +3607,8 @@ function renderPricing(main) {
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
 function renderBilling(main) {
-  const head = viewHead('receipt_long', 'Billing', 'Your purchases', 'One-time unlocks and their status. Nothing recurring — you only ever pay once per item.');
+  const head = viewHead('receipt_long', 'Billing', 'Your purchases & invoices',
+    'One-time unlocks and the mentoring sessions you’ve had, each with a downloadable invoice. Nothing recurring — you only ever pay once per item.');
 
   if (!cloudOn()) {
     main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px">Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a>.</p></div>`;
@@ -3622,13 +3623,9 @@ function renderBilling(main) {
   const body = $('#bill-body');
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
   const label = it => (PFPay.items()[it] && PFPay.items()[it].label) || it;
+  let sessions = [];
 
-  PFCloud.fetchMyOrders().then(orders => {
-    if (!orders.length) {
-      body.innerHTML = `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to get Explorer or Premium.</p></div>`;
-      return;
-    }
-    body.innerHTML = orders.map(o => `<div class="card" style="margin-bottom:12px">
+  const orderCard = o => `<div class="card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
         <div>
           <strong style="font-size:14.5px">${esc(label(o.item))}</strong>
@@ -3637,9 +3634,33 @@ function renderBilling(main) {
         ${payStatusChip({ paymentStatus: o.status })}
       </div>
       ${o.status === 'reported' || o.status === 'pending' ? `<p class="muted" style="font-size:12.5px;margin:10px 0 0">We’re verifying your transfer — this unlocks within 24 hours of payment.</p>` : ''}
-    </div>`).join('');
-  }).catch(() => {
-    body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
+    </div>`;
+
+  // Sessions a mentor has written up against this account. The student sees
+  // what was covered and the next steps — never the mentor's private notes
+  // (sessionCard's readOnly mode drops them) — and can download the invoice.
+  const sessionSection = () => !sessions.length ? '' : `
+    <h2 style="font-size:1.15rem;margin:26px 0 12px">Mentoring sessions</h2>
+    <p class="faint" style="font-size:12.5px;margin:0 0 14px">${sessions.length} session${sessions.length === 1 ? '' : 's'} on record · download an invoice or receipt for any of them.</p>
+    ${sessions.map(s => sessionCard(s, { showMentor: true, readOnly: true })).join('')}`;
+
+  Promise.allSettled([PFCloud.fetchMyOrders(), PFCloud.fetchMySessionsAsStudent()]).then(([o, s]) => {
+    const orders = o.status === 'fulfilled' ? o.value : [];
+    sessions = s.status === 'fulfilled' ? s.value : [];
+    if (o.status === 'rejected' && s.status === 'rejected') {
+      body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
+      return;
+    }
+    body.innerHTML = (orders.length
+      ? orders.map(orderCard).join('')
+      : `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to get Explorer or Premium.</p></div>`)
+      + sessionSection();
+
+    body.addEventListener('click', e => sessionCardAction(e, {
+      get: id => sessions.find(x => x.id === id),
+      save: () => Promise.reject(new Error('read-only')),
+      repaint: () => {},
+    }));
   });
 }
 
@@ -3749,10 +3770,231 @@ function accountAuth(main) {
   };
 }
 
+/* ── 9b1 · Mentoring session records ─────────────────────────────────
+   A lot of real mentoring never touches the in-app request queue: a
+   student messages a mentor on WhatsApp, or rings them. The session log
+   records those the same way as platform requests — who, when, how long,
+   over which channel, what was covered, private notes, the fee and its
+   payment state — and every record can be turned into a PDF invoice or
+   receipt (assets/js/invoice.js).
+
+   Shared by BOTH dashboards: mentors log and invoice their own sessions
+   (#mentor → Session log); the admin sees every mentor's and can log one
+   on their behalf (#admin → Sessions). One card renderer, one form, one
+   action handler — the only difference is which PFCloud call saves it. */
+
+const SESSION_PAY_SHORT = { unpaid: 'Unpaid', reported: 'Payment reported', paid: 'Paid', waived: 'No charge' };
+
+function sessionPayChip(s) {
+  const ps = s.paymentStatus || 'unpaid';
+  const amt = Number(s.amountLKR) || 0;
+  const cls = { unpaid: 'chip-gold', reported: 'chip-violet', paid: 'chip-teal', waived: 'chip-dim' };
+  const lbl = (ps === 'waived' || !amt) ? 'No charge'
+    : `${SESSION_PAY_SHORT[ps] || ps} · LKR ${amt.toLocaleString()}`;
+  return `<span class="chip ${cls[ps] || 'chip-dim'}">${lbl}</span>`;
+}
+
+const sessionTitle = s => s.title || PF_CONSULT_TOPICS[s.topic] || 'General guidance';
+
+/* One session record as a dashboard card. `showMentor` adds the mentor's
+   name (the admin view spans everyone); `readOnly` drops the edit and
+   payment controls but keeps the invoice buttons. */
+function sessionCard(s, opts = {}) {
+  const mins = Number(s.durationMin) || 0;
+  const amt = Number(s.amountLKR) || 0;
+  const paid = s.paymentStatus === 'paid';
+  const meta = [
+    PF_SESSION_CHANNELS[s.channel] || s.channel,
+    s.date,
+    mins ? mins + ' min' : '',
+    opts.showMentor && s.mentorName ? 'by ' + s.mentorName : '',
+  ].filter(Boolean).map(esc).join(' · ');
+
+  const block = (label, body) => body
+    ? `<div style="margin-top:10px">
+        <div class="faint" style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase">${label}</div>
+        <p class="muted" style="font-size:13px;margin:3px 0 0;white-space:pre-wrap">${esc(body)}</p>
+      </div>` : '';
+
+  return `<div class="card" style="margin-bottom:12px" data-sess-card="${esc(s.id)}">
+    <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <strong style="font-size:14.5px">${esc(s.studentName || 'Student')}</strong>
+        ${s.studentContact ? `<span class="faint" style="font-size:12.5px"> · ${esc(s.studentContact)}</span>` : ''}
+        <div style="font-size:13.5px;margin-top:3px">${esc(sessionTitle(s))}</div>
+        <div class="faint" style="font-size:12.5px;margin-top:2px">${meta}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        ${sessionPayChip(s)}
+        ${s.requestId ? `<span class="chip chip-dim">From request</span>` : ''}
+      </div>
+    </div>
+    ${block('What we covered', s.summary)}
+    ${block('Private notes', opts.readOnly ? '' : s.notes)}
+    ${block('Next steps', s.followUp)}
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="faint mono" style="font-size:11px">${esc(s.invoiceNo || '—')}</span>
+      <button class="btn btn-primary btn-sm sx-invoice" data-sess="${esc(s.id)}" style="margin-left:auto">
+        <span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span> Invoice PDF</button>
+      <button class="btn btn-ghost btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
+      ${!opts.readOnly && !paid && amt ? `<button class="btn btn-ghost btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
+      ${!opts.readOnly ? `<button class="btn btn-ghost btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
+    </div>
+  </div>`;
+}
+
+/* The log/edit form. Deliberately one screen: everything a mentor needs
+   to write down straight after a WhatsApp call, including the fee, so the
+   invoice can be generated in the same breath. */
+function sessionFormHTML(s, mentors) {
+  const opt = (v, lbl, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(lbl)}</option>`;
+  const lbl = t => `<label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">${t}</label>`;
+
+  return `<form id="sx-form" style="display:flex;flex-direction:column;gap:14px">
+    ${mentors ? `<div>${lbl('Mentor who delivered it')}
+      <select class="field" name="mentorId">
+        ${mentors.map(m => opt(m.uid, m.displayName || m.uid.slice(0, 8), s.mentorId === m.uid)).join('')}
+      </select></div>` : ''}
+    <div class="grid-2" style="gap:14px">
+      <div>${lbl('Student name')}<input class="field" name="studentName" required value="${esc(s.studentName)}" placeholder="e.g. Nimali P."></div>
+      <div>${lbl('Contact (WhatsApp / email)')}<input class="field" name="studentContact" value="${esc(s.studentContact)}" placeholder="+94 …"></div>
+    </div>
+    <div class="grid-2" style="gap:14px">
+      <div>${lbl('How the session happened')}
+        <select class="field" name="channel">
+          ${Object.entries(PF_SESSION_CHANNELS).map(([k, v]) => opt(k, v, s.channel === k)).join('')}
+        </select></div>
+      <div>${lbl('Topic')}
+        <select class="field" name="topic">
+          ${opt('', 'General guidance', !s.topic)}
+          ${Object.entries(PF_CONSULT_TOPICS).map(([k, v]) => opt(k, v, s.topic === k)).join('')}
+        </select></div>
+    </div>
+    <div>${lbl('Session title (optional — defaults to the topic)')}
+      <input class="field" name="title" value="${esc(s.title)}" placeholder="e.g. Proposal walkthrough + supervisor shortlist"></div>
+    <div class="grid-2" style="gap:14px">
+      <div>${lbl('Date')}<input class="field" type="date" name="date" value="${esc(s.date)}"></div>
+      <div>${lbl('Duration (minutes)')}<input class="field" type="number" name="durationMin" min="0" step="5" value="${esc(s.durationMin)}"></div>
+    </div>
+    <div>${lbl('What you covered (prints on the invoice)')}
+      <textarea class="field" name="summary" rows="3" placeholder="Reviewed her SOP draft, shortlisted three supervisors at Otago, agreed on the funding evidence she still needs.">${esc(s.summary)}</textarea></div>
+    <div>${lbl('Private notes (never printed, never shown to the student)')}
+      <textarea class="field" name="notes" rows="2" placeholder="Anything you want to remember before the next call.">${esc(s.notes)}</textarea></div>
+    <div>${lbl('Agreed next steps (prints on the invoice)')}
+      <textarea class="field" name="followUp" rows="2" placeholder="She sends the revised SOP by Friday; I reply within two days.">${esc(s.followUp)}</textarea></div>
+    <div class="grid-2" style="gap:14px">
+      <div>${lbl('Fee (LKR — 0 for a free intro)')}
+        <input class="field" type="number" name="amountLKR" min="0" step="100" value="${esc(s.amountLKR)}"></div>
+      <div>${lbl('Payment')}
+        <select class="field" name="paymentStatus">
+          ${Object.entries(PF_SESSION_PAYMENT_STATES).map(([k, v]) => opt(k, v, s.paymentStatus === k)).join('')}
+        </select></div>
+    </div>
+    <div class="grid-2" style="gap:14px">
+      <div>${lbl('Method (optional)')}<input class="field" name="method" value="${esc(s.method)}" placeholder="Bank transfer / eZ Cash / PayPal"></div>
+      <div>${lbl('Reference or txn id (optional)')}<input class="field" name="ref" value="${esc(s.ref)}" placeholder="Quoted on the transfer"></div>
+    </div>
+    <p class="faint" id="sx-msg" style="font-size:12.5px;min-height:16px;margin:0"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center">Save record</button>
+      <button class="btn btn-ghost" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save &amp; invoice</button>
+    </div>
+  </form>`;
+}
+
+/* Open the log/edit modal. `onSave(data)` persists and should resolve to
+   the stored record (so "Save & invoice" can print the real invoice
+   number straight after a create). */
+function openSessionForm(o = {}) {
+  const base = {
+    studentName: '', studentContact: '', studentUid: '', channel: 'whatsapp', topic: '',
+    title: '', date: new Date().toISOString().slice(0, 10), durationMin: 45,
+    summary: '', notes: '', followUp: '', requestId: '', mentorId: '',
+    amountLKR: PF_CONFIG.defaultSessionPriceLKR, paymentStatus: 'unpaid',
+    method: '', ref: '',
+  };
+  const s = Object.assign(base, o.session || o.prefill || {});
+  const editing = !!o.session;
+  const m = modal(editing ? 'Edit session record' : 'Log a mentoring session',
+    sessionFormHTML(s, o.mentors));
+  m.el.querySelector('.modal-card').style.maxWidth = '640px';
+
+  const form = m.el.querySelector('#sx-form');
+  const msg = m.el.querySelector('#sx-msg');
+
+  async function submit(alsoInvoice) {
+    const fd = new FormData(form);
+    const data = Object.fromEntries(fd.entries());
+    data.durationMin = Number(data.durationMin) || 0;
+    data.amountLKR = Math.max(0, Number(data.amountLKR) || 0);
+    // Carry the fields the form doesn't expose but the record owns.
+    data.studentUid = s.studentUid || '';
+    data.requestId = s.requestId || '';
+    if (!data.mentorId && s.mentorId) data.mentorId = s.mentorId;
+    if (data.paymentStatus === 'paid' && !s.paidAt) data.paidAt = Date.now();
+    if (!data.studentName.trim()) { msg.textContent = 'Add the student’s name.'; return; }
+
+    const btns = [...form.querySelectorAll('button')];
+    btns.forEach(b => b.disabled = true);
+    msg.textContent = 'Saving…';
+    try {
+      const saved = await o.onSave(data);
+      m.close();
+      toast(editing ? 'Session record updated' : 'Session logged');
+      if (alsoInvoice) {
+        const rec = Object.assign({}, s, data, saved || {});
+        PFInvoice.download(PFInvoice.fromSession(rec));
+      }
+    } catch (err) {
+      btns.forEach(b => b.disabled = false);
+      msg.textContent = humanAuthError(err);
+    }
+  }
+
+  form.onsubmit = e => { e.preventDefault(); submit(false); };
+  m.el.querySelector('#sx-save-inv').onclick = () => submit(true);
+  form.querySelector('[name=studentName]').focus();
+}
+
+/* Delegated actions for session cards. Returns true when the click was a
+   session action, so the host dashboard's handler can stop there.
+   ctx = { get(id), save(id, patch), mentors, repaint() } */
+async function sessionCardAction(e, ctx) {
+  const btn = e.target.closest('button[data-sess]');
+  if (!btn) return false;
+  const s = ctx.get(btn.dataset.sess);
+  if (!s) return true;
+
+  if (btn.classList.contains('sx-invoice')) {
+    PFInvoice.download(PFInvoice.fromSession(s));
+    toast('Downloaded ' + (s.invoiceNo || 'invoice'));
+    return true;
+  }
+  if (btn.classList.contains('sx-preview')) {
+    if (!PFInvoice.open(PFInvoice.fromSession(s))) toast('Allow pop-ups to preview the invoice');
+    return true;
+  }
+  if (btn.classList.contains('sx-paid')) {
+    btn.disabled = true;
+    const patch = { paymentStatus: 'paid', paidAt: Date.now() };
+    try { await ctx.save(s.id, patch); Object.assign(s, patch); toast('Marked paid'); ctx.repaint(); }
+    catch { btn.disabled = false; toast('Could not update'); }
+    return true;
+  }
+  if (btn.classList.contains('sx-edit')) {
+    openSessionForm({
+      session: s, mentors: ctx.mentors,
+      onSave: async data => { await ctx.save(s.id, data); Object.assign(s, data); ctx.repaint(); },
+    });
+    return true;
+  }
+  return true;
+}
+
 /* ── 9b · Mentor Dashboard (#mentor) ─────────────────────────
    Invite code → sign up → pending review → (admin approves) → claim queue.
    Visually a sibling of #admin: same chip-filter tabs, cards, ledgers. */
-let mentorState = { tab: 'open', open: null, claimed: null, loading: false, loaded: false };
+let mentorState = { tab: 'open', open: null, claimed: null, sessions: null, loading: false, loaded: false };
 // Set once the visitor enters the correct mentor invite code this session.
 let mentorInviteOk = false;
 
@@ -3908,9 +4150,12 @@ function mentorPending(main) {
 async function mentorLoad() {
   if (mentorState.loading) return;
   mentorState.loading = true;
-  const [o, c] = await Promise.allSettled([PFCloud.fetchOpenRequests(), PFCloud.fetchMyClaimedRequests()]);
-  mentorState.open    = o.status === 'fulfilled' ? o.value : null;
-  mentorState.claimed = c.status === 'fulfilled' ? c.value : null;
+  const [o, c, s] = await Promise.allSettled([
+    PFCloud.fetchOpenRequests(), PFCloud.fetchMyClaimedRequests(), PFCloud.fetchMySessions(),
+  ]);
+  mentorState.open     = o.status === 'fulfilled' ? o.value : null;
+  mentorState.claimed  = c.status === 'fulfilled' ? c.value : null;
+  mentorState.sessions = s.status === 'fulfilled' ? s.value : null;
   mentorState.loading = false;
   mentorState.loaded = true;
 }
@@ -3920,29 +4165,44 @@ async function mentorLoad() {
 function mentorInsights() {
   const open = mentorState.open || [];
   const claimed = mentorState.claimed || [];
+  const sessions = mentorState.sessions || [];
   const active = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  const completed = claimed.filter(r => r.status === 'completed').length;
-  const earned = claimed
-    .filter(r => r.payment && r.payment.paymentStatus === 'paid')
-    .reduce((s, r) => s + (Number(r.payment.amountLKR) || 0), 0);
+  // Sessions logged in the session log are the record of delivered work;
+  // claimed requests completed without a log still count once.
+  const loggedFromReq = new Set(sessions.map(s => s.requestId).filter(Boolean));
+  const completed = sessions.length +
+    claimed.filter(r => r.status === 'completed' && !loggedFromReq.has(r.id)).length;
+  // Earnings = paid session records + paid requests that have no session
+  // record behind them (so a logged session never double-counts).
+  const earned = sessions.filter(s => s.paymentStatus === 'paid')
+      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0)
+    + claimed.filter(r => r.payment && r.payment.paymentStatus === 'paid' && !loggedFromReq.has(r.id))
+      .reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
+  const owed = sessions.filter(s => s.paymentStatus === 'unpaid' || s.paymentStatus === 'reported')
+      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0);
   const n = v => (mentorState.loaded ? v : '·');
-  const earnedLbl = mentorState.loaded ? 'LKR ' + earned.toLocaleString() : '·';
+  const lkr = v => (mentorState.loaded ? 'LKR ' + v.toLocaleString() : '·');
   return `<div class="grid-4" style="margin-bottom:24px">
     ${admMetric('hourglass_top', n(open.length), 'Open in queue')}
     ${admMetric('assignment_ind', n(active), 'Active with you')}
-    ${admMetric('task_alt', n(completed), 'Sessions completed')}
-    ${admMetric('payments', earnedLbl, 'Earned (paid)')}
+    ${admMetric('task_alt', n(completed), 'Sessions delivered')}
+    ${admMetric('payments', lkr(earned), 'Earned (paid)')}
+    ${owed ? admMetric('pending_actions', lkr(owed), 'Invoiced, not yet paid') : ''}
   </div>`;
 }
 
 function mentorDashboard(main) {
   const p = PFCloud.getMentorProfile() || {};
   const active = p.active !== false;
-  const TABS = [['open', 'Open requests'], ['claimed', 'My claimed']];
-  const counts = { open: mentorState.open ? mentorState.open.length : '·', claimed: mentorState.claimed ? mentorState.claimed.length : '·' };
+  const TABS = [['open', 'Open requests'], ['claimed', 'My claimed'], ['sessions', 'Session log']];
+  const counts = {
+    open: mentorState.open ? mentorState.open.length : '·',
+    claimed: mentorState.claimed ? mentorState.claimed.length : '·',
+    sessions: mentorState.sessions ? mentorState.sessions.length : '·',
+  };
 
   main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', `Welcome, ${esc(p.displayName || 'mentor')}`,
-    'Claim requests from the shared queue, run the free intro, then — if the student wants more — generate a PayHere link for a paid follow-on session.') +
+    'Claim requests from the shared queue, run the free intro, then — if the student wants more — generate a PayHere link for a paid follow-on session. Sessions that came to you over WhatsApp or a phone call belong in the session log, where you can record what you covered and issue a PDF invoice.') +
     `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Available for requests' : 'Not taking requests'}</span>
       <p class="muted" style="flex:1;min-width:200px;font-size:13px;margin:0">${active ? 'You appear in the active mentor count and can claim from the queue.' : 'You’re paused — toggle back on when you have time.'}</p>
@@ -3964,8 +4224,38 @@ function mentorDashboard(main) {
     catch { toast('Could not update'); }
   };
 
+  function paintSessions() {
+    const list = mentorState.sessions;
+    if (list === null) { body.innerHTML = admErrCard('your session log'); return; }
+    const billable = list.filter(s => s.paymentStatus !== 'waived' && Number(s.amountLKR));
+    const outstanding = billable.filter(s => s.paymentStatus !== 'paid')
+      .reduce((sum, s) => sum + Number(s.amountLKR), 0);
+    body.innerHTML = `
+      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+        <span class="material-symbols-outlined" style="color:var(--route)">history_edu</span>
+        <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
+          Record every session you deliver — including the ones that arrive over WhatsApp or a phone call.
+          Each record carries your notes and generates a PDF invoice or receipt.
+          ${outstanding ? `<strong>LKR ${outstanding.toLocaleString()}</strong> invoiced and not yet paid.` : ''}</p>
+        <button class="btn btn-primary btn-sm" id="mtd-log">
+          <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
+      </div>
+      ${list.length ? list.map(s => sessionCard(s)).join('')
+        : `<div class="card"><p class="muted" style="font-size:14px">No sessions logged yet. Tap “Log a session” right after your next call — it takes under a minute and gives the student an invoice.</p></div>`}`;
+
+    $('#mtd-log', body).onclick = () => openSessionForm({
+      onSave: async data => {
+        const saved = await PFCloud.createSession(data);
+        mentorState.sessions = [saved, ...(mentorState.sessions || [])];
+        route();          // full re-render so the insight metrics move too
+        return saved;
+      },
+    });
+  }
+
   function paint() {
     if (mentorState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
+    if (mentorState.tab === 'sessions') return paintSessions();
     if (mentorState.tab === 'open') {
       const list = mentorState.open;
       if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
@@ -3987,13 +4277,22 @@ function mentorDashboard(main) {
     paint();
   });
   $('#mtd-refresh').onclick = async () => {
-    mentorState.loaded = false; mentorState.open = mentorState.claimed = null;
+    mentorState.loaded = false;
+    mentorState.open = mentorState.claimed = mentorState.sessions = null;
     body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
     await mentorLoad(); route();
   };
 
-  // delegated actions inside request cards (claim / status / payment)
-  body.addEventListener('click', mentorCardAction);
+  // delegated actions inside request cards (claim / status / payment) and
+  // session cards (invoice / mark paid / edit)
+  body.addEventListener('click', async e => {
+    if (await sessionCardAction(e, {
+      get: id => (mentorState.sessions || []).find(s => s.id === id),
+      save: (id, patch) => PFCloud.updateSession(id, patch),
+      repaint: route,   // earnings live in the header strip, outside `body`
+    })) return;
+    mentorCardAction(e);
+  });
 
   if (!mentorState.loaded && !mentorState.loading) {
     body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
@@ -4049,10 +4348,18 @@ function claimedReqCard(r) {
         ${r.payment ? payStatusChip(r.payment) : ''}
       </div>
     </div>
-    ${actions || canCancel ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      ${actions}
-      ${canCancel ? `<button class="btn btn-ghost btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : ''}
-    </div>` : ''}
+    ${(() => {
+      // Writing up the session is available at every live stage — the
+      // conversation often happens (and is worth recording) well before
+      // any money changes hands.
+      const log = r.status === 'cancelled' ? '' : `<button class="btn btn-ghost btn-sm mt-log" data-req="${r.id}">
+        <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log session</button>`;
+      const cancel = canCancel ? `<button class="btn btn-ghost btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : '';
+      return (actions || log || cancel)
+        ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+             ${actions}${log}${cancel}
+           </div>` : '';
+    })()}
   </div>`;
 }
 
@@ -4084,6 +4391,31 @@ async function mentorCardAction(e) {
   }
   if (btn.classList.contains('mt-complete')) return doAction(() => PFCloud.updateRequest(id, { status: 'completed' }), 'Session completed');
   if (btn.classList.contains('mt-cancel'))   return doAction(() => PFCloud.updateRequest(id, { status: 'cancelled' }), 'Request cancelled');
+  // Write up a request-born session — prefilled from the request so the
+  // mentor only types what actually happened.
+  if (btn.classList.contains('mt-log')) {
+    const r = reqCache.get(id) || {};
+    const existing = (mentorState.sessions || []).find(s => s.requestId === id);
+    if (existing) return openSessionForm({
+      session: existing,
+      onSave: async data => { await PFCloud.updateSession(existing.id, data); Object.assign(existing, data); route(); },
+    });
+    return openSessionForm({
+      prefill: {
+        requestId: id, studentName: r.name || '', studentContact: r.contact || '',
+        studentUid: r.studentUid || '', topic: r.topic || '', channel: 'platform',
+        amountLKR: (r.payment && r.payment.amountLKR) || PF_CONFIG.defaultSessionPriceLKR,
+        paymentStatus: r.payment && r.payment.paymentStatus === 'paid' ? 'paid' : 'unpaid',
+        method: (r.payment && r.payment.method) || '', ref: (r.payment && r.payment.payerRef) || '',
+      },
+      onSave: async data => {
+        const saved = await PFCloud.createSession(data);
+        mentorState.sessions = [saved, ...(mentorState.sessions || [])];
+        route();
+        return saved;
+      },
+    });
+  }
 }
 
 /* re-render #mentor whenever the signed-in mentor's state resolves/changes
@@ -4114,7 +4446,8 @@ function paintMentorSidebarLink() {
    Email/Password admin login (see firebase-config.js) — so the data
    reads below are enforced by Firestore rules, not by client JS.
    Shows: overview analytics · leads · mentors · requests · user records. */
-let adminState = { tab: 'overview', leads: null, mentors: null, requests: null, orders: null, users: null, loading: false, loaded: false, error: '' };
+let adminState = { tab: 'overview', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' };
+const ADMIN_BLANK = () => ({ tab: 'overview', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' });
 
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
@@ -4154,7 +4487,7 @@ function adminLogin(main) {
     go.disabled = true; msg.textContent = 'Checking…';
     try {
       await PFCloud.signInAdmin(val);
-      adminState = { tab: 'overview', leads: null, mentors: null, requests: null, orders: null, users: null, loading: false, loaded: false, error: '' };
+      adminState = ADMIN_BLANK();
       route();
     } catch (e) {
       go.disabled = false;
@@ -4172,15 +4505,17 @@ async function adminLoad() {
   adminState.loading = true; adminState.error = '';
   // Each section loads independently — one failing read (e.g. a rules
   // gap) must not blank the others, and must never re-trigger a reload.
-  const [l, m, r, o, u] = await Promise.allSettled([
-    PFCloud.fetchLeads(), PFCloud.fetchMentors(), PFCloud.fetchAllRequests(), PFCloud.fetchAllOrders(), PFCloud.fetchUsers(),
+  const [l, m, r, s, o, u] = await Promise.allSettled([
+    PFCloud.fetchLeads(), PFCloud.fetchMentors(), PFCloud.fetchAllRequests(),
+    PFCloud.fetchAllSessions(), PFCloud.fetchAllOrders(), PFCloud.fetchUsers(),
   ]);
   adminState.leads    = l.status === 'fulfilled' ? l.value : null;
   adminState.mentors  = m.status === 'fulfilled' ? m.value : null;
   adminState.requests = r.status === 'fulfilled' ? r.value : null;
+  adminState.sessions = s.status === 'fulfilled' ? s.value : null;
   adminState.orders   = o.status === 'fulfilled' ? o.value : null;
   adminState.users    = u.status === 'fulfilled' ? u.value : null;
-  const settled = [l, m, r, o, u];
+  const settled = [l, m, r, s, o, u];
   const failed = settled.filter(x => x.status === 'rejected');
   if (failed.length) console.warn('PathFinder admin: some reads failed —', failed.map(f => f.reason && f.reason.message));
   if (settled.every(x => x.status === 'rejected')) {
@@ -4196,11 +4531,12 @@ function admErrCard(what) {
 }
 
 function adminDashboard(main) {
-  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['orders', 'Orders'], ['users', 'User records']];
+  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['sessions', 'Sessions'], ['orders', 'Orders'], ['users', 'User records']];
   const counts = {
     leads: adminState.leads ? adminState.leads.length : '·',
     mentors: adminState.mentors ? adminState.mentors.length : '·',
     requests: adminState.requests ? adminState.requests.length : '·',
+    sessions: adminState.sessions ? adminState.sessions.length : '·',
     orders: adminState.orders ? adminState.orders.length : '·',
     users: adminState.users ? adminState.users.length : '·',
   };
@@ -4218,7 +4554,8 @@ function adminDashboard(main) {
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
-    ({ overview: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors, requests: admRequests, orders: admOrders, users: admUsers })[adminState.tab](body);
+    ({ overview: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors,
+       requests: admRequests, sessions: admSessions, orders: admOrders, users: admUsers })[adminState.tab](body, paint);
   }
 
   $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
@@ -4228,7 +4565,8 @@ function adminDashboard(main) {
   });
   $('#adm-refresh').onclick = async () => {
     adminState.loaded = false;
-    adminState.leads = adminState.mentors = adminState.requests = adminState.orders = adminState.users = null;
+    adminState.leads = adminState.mentors = adminState.requests =
+      adminState.sessions = adminState.orders = adminState.users = null;
     body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`;
     await adminLoad();
     route();
@@ -4238,6 +4576,15 @@ function adminDashboard(main) {
   // delegated once per render (body is rebuilt by route(), so handlers
   // never stack across tab switches).
   body.addEventListener('click', async e => {
+    // session records (log / invoice / mark paid / edit) — admin may act on
+    // any mentor's record, so the mentor picker is passed through
+    if (await sessionCardAction(e, {
+      get: id => (adminState.sessions || []).find(s => s.id === id),
+      save: (id, patch) => PFCloud.updateSession(id, patch),
+      mentors: (adminState.mentors || []).filter(m => m.approved),
+      repaint: paint,
+    })) return;
+
     const mb = e.target.closest('button[data-muid]');
     if (mb) {
       const uid = mb.dataset.muid;
@@ -4281,11 +4628,19 @@ function adminDashboard(main) {
       } catch { ob.disabled = false; toast('Update failed'); }
       return;
     }
-    // open a print-ready receipt/invoice for one accounting row
+    // invoice / receipt for one accounting row — preview in a tab (with a
+    // Download-PDF button), or download the PDF straight away
     const inv = e.target.closest('button[data-invoice]');
     if (inv) {
       const tx = accountingRows().find(t => t.invoiceNo === inv.dataset.invoice);
-      if (tx) openInvoice(tx);
+      if (!tx) return;
+      const model = tx.session ? PFInvoice.fromSession(tx.session) : PFInvoice.fromTx(tx);
+      if (inv.dataset.act === 'download') {
+        PFInvoice.download(model);
+        toast('Downloaded ' + tx.invoiceNo);
+      } else if (!PFInvoice.open(model)) {
+        toast('Allow pop-ups to open the receipt');
+      }
     }
   });
 
@@ -4318,9 +4673,13 @@ function admOverview(body) {
   const requests = adminState.requests || [];
   const openReq = requests.filter(r => r.status === 'open').length;
   const awaitingPay = requests.filter(r => r.status === 'awaiting_payment').length;
-  const paidTotal = requests
-    .filter(r => r.payment && r.payment.paymentStatus === 'paid')
-    .reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
+  // Session revenue comes from the same de-duplicated ledger the Accounting
+  // tab uses, so a logged session is never counted twice with its request.
+  const paidTotal = accountingRows()
+    .filter(t => t.kind === 'session' && t.status === 'paid')
+    .reduce((sum, t) => sum + t.amountLKR, 0);
+  const sessions = adminState.sessions || [];
+  const unpaidSessions = sessions.filter(s => Number(s.amountLKR) && s.paymentStatus !== 'paid' && s.paymentStatus !== 'waived').length;
   const orders = adminState.orders || [];
   const orderRevenue = orders.filter(o => o.status === 'paid').reduce((s, o) => s + (Number(o.amountLKR) || 0), 0);
   const ordersToConfirm = orders.filter(o => o.status === 'reported' || o.status === 'pending').length;
@@ -4342,6 +4701,8 @@ function admOverview(body) {
       ${admMetric('inbox', requests.length, 'Total requests')}
       ${admMetric('hourglass_top', openReq, 'Open (unclaimed)')}
       ${admMetric('payments', awaitingPay, 'Awaiting payment')}
+      ${admMetric('history_edu', sessions.length, 'Sessions logged')}
+      ${admMetric('request_quote', unpaidSessions, 'Sessions invoiced, unpaid')}
       ${admMetric('paid', 'LKR ' + paidTotal.toLocaleString(), 'Session revenue')}
       ${admMetric('shopping_bag', 'LKR ' + orderRevenue.toLocaleString(), 'Premium revenue')}
       ${admMetric('receipt_long', ordersToConfirm, 'Orders to confirm')}
@@ -4495,22 +4856,125 @@ function admOrders(body) {
     orders.map(o => ({ ...o, createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : '' })));
 }
 
-/* ── Accounting: one ledger from both revenue sources ───────────────────
+/* ── Sessions: every mentoring session delivered on the platform ────────
+   The admin view of the same records mentors keep in their session log,
+   across all mentors and including sessions that only ever happened on
+   WhatsApp or a phone call. Filterable by mentor and payment state, with
+   CSV export and one-click PDF invoices. */
+let admSessionFilter = { mentor: '', pay: '' };
+
+function admSessions(body, repaint) {
+  if (adminState.sessions === null) { body.innerHTML = admErrCard('session records'); return; }
+  const mentors = (adminState.mentors || []).filter(m => m.approved);
+  const all = adminState.sessions;
+  const list = all.filter(s =>
+    (!admSessionFilter.mentor || s.mentorId === admSessionFilter.mentor) &&
+    (!admSessionFilter.pay || (s.paymentStatus || 'unpaid') === admSessionFilter.pay));
+
+  const billed = list.filter(s => Number(s.amountLKR) && s.paymentStatus !== 'waived');
+  const collected = billed.filter(s => s.paymentStatus === 'paid').reduce((n, s) => n + Number(s.amountLKR), 0);
+  const outstanding = billed.filter(s => s.paymentStatus !== 'paid').reduce((n, s) => n + Number(s.amountLKR), 0);
+  const minutes = list.reduce((n, s) => n + (Number(s.durationMin) || 0), 0);
+
+  body.innerHTML = `
+    <div class="grid-4" style="margin-bottom:20px">
+      ${admMetric('history_edu', list.length, 'Sessions logged')}
+      ${admMetric('schedule', (minutes / 60).toFixed(1) + ' h', 'Mentoring delivered')}
+      ${admMetric('paid', 'LKR ' + collected.toLocaleString(), 'Collected')}
+      ${admMetric('pending_actions', 'LKR ' + outstanding.toLocaleString(), 'Outstanding')}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <select class="field" id="adm-sx-mentor" style="width:auto;min-width:170px">
+        <option value="">All mentors</option>
+        ${mentors.map(m => `<option value="${esc(m.uid)}" ${admSessionFilter.mentor === m.uid ? 'selected' : ''}>${esc(m.displayName || m.uid.slice(0, 8))}</option>`).join('')}
+      </select>
+      <select class="field" id="adm-sx-pay" style="width:auto;min-width:150px">
+        <option value="">Any payment state</option>
+        ${Object.entries(PF_SESSION_PAYMENT_STATES).map(([k, v]) => `<option value="${k}" ${admSessionFilter.pay === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+      </select>
+      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-sx"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      <button class="btn btn-primary btn-sm" id="adm-sx-log" style="margin-left:auto">
+        <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
+    </div>
+    ${list.length ? list.map(s => sessionCard(s, { showMentor: true })).join('')
+      : `<div class="card"><p class="muted" style="font-size:14px">${all.length ? 'No sessions match those filters.' : 'No sessions logged yet. Mentors log them from their dashboard — or record one here on their behalf after a WhatsApp or phone consultation.'}</p></div>`}`;
+
+  $('#adm-sx-mentor', body).onchange = e => { admSessionFilter.mentor = e.target.value; repaint(); };
+  $('#adm-sx-pay', body).onchange = e => { admSessionFilter.pay = e.target.value; repaint(); };
+
+  const log = $('#adm-sx-log', body);
+  log.onclick = () => {
+    if (!mentors.length) return toast('Approve a mentor first — a session belongs to one.');
+    openSessionForm({
+      mentors,
+      prefill: { mentorId: mentors[0].uid },
+      onSave: async data => {
+        const m = mentors.find(x => x.uid === data.mentorId);
+        const saved = await PFCloud.createSession({ ...data, mentorName: m ? m.displayName : '' });
+        adminState.sessions = [saved, ...(adminState.sessions || [])];
+        repaint();
+        return saved;
+      },
+    });
+  };
+
+  const dl = $('#adm-dl-sx', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-mentoring-sessions.csv',
+    ['invoiceNo', 'date', 'mentorName', 'studentName', 'studentContact', 'channel', 'topic',
+     'title', 'durationMin', 'amountLKR', 'paymentStatus', 'method', 'ref', 'summary', 'followUp'],
+    list.map(s => ({ ...s, channel: PF_SESSION_CHANNELS[s.channel] || s.channel,
+      topic: PF_CONSULT_TOPICS[s.topic] || s.topic || 'General guidance' })));
+}
+
+/* ── Accounting: one ledger from every revenue source ───────────────────
    Reconstructs a unified transaction list from data the admin already
-   loaded (mentor_requests[].payment + orders[]) — no extra Firestore reads
-   and no new collection, so it stays inside the free Spark plan. */
+   loaded (mentor_sessions[] + mentor_requests[].payment + orders[]) — no
+   extra Firestore reads and no new collection, so it stays inside the free
+   Spark plan.
+
+   Session records win over the request that spawned them: once a mentor
+   has written up a session, that record is the fuller account of the same
+   money, so the request's payment line is skipped and the ledger never
+   double-counts. Off-platform sessions (WhatsApp, phone) have no request
+   behind them and appear here for the first time. */
 function accountingRows() {
   const prefix = (PF_CONFIG.org && PF_CONFIG.org.invoicePrefix) || 'PF';
   const tail = id => String(id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase() || '------';
   const rows = [];
+  const mentorName = uid => {
+    const m = (adminState.mentors || []).find(x => x.uid === uid);
+    return m ? (m.displayName || '') : '';
+  };
+
+  const sessions = adminState.sessions || [];
+  const loggedRequests = new Set(sessions.map(s => s.requestId).filter(Boolean));
+
+  sessions.forEach(s => {
+    const amount = Number(s.amountLKR) || 0;
+    // A free intro (or an explicitly waived fee) is a record of delivered
+    // work, not a transaction — it stays out of the money ledger.
+    if (!amount || s.paymentStatus === 'waived') return;
+    rows.push({
+      invoiceNo: s.invoiceNo || `${prefix}-INV-M-${tail(s.id)}`, kind: 'session',
+      item: sessionTitle(s) + ' — mentoring session',
+      payer: s.studentName || '', payerContact: s.studentContact || '', payerUid: s.studentUid || '',
+      mentorName: s.mentorName || mentorName(s.mentorId),
+      method: s.method || '', ref: s.ref || '', txn: s.payerTxn || '',
+      amountLKR: amount, status: s.paymentStatus === 'unpaid' ? 'requested' : s.paymentStatus,
+      date: s.paidAt || s.date || s.createdAt || null, srcId: s.id,
+      session: s,          // lets the invoice carry the notes, not just the money
+    });
+  });
 
   (adminState.requests || []).forEach(r => {
     const p = r.payment;
     if (!p || !p.paymentStatus || p.paymentStatus === 'none') return;
+    if (loggedRequests.has(r.id)) return;      // superseded by its session record
     rows.push({
       invoiceNo: `${prefix}-INV-S-${tail(r.id)}`, kind: 'session',
       item: (PF_CONSULT_TOPICS[r.topic] ? PF_CONSULT_TOPICS[r.topic] + ' — ' : '') + 'mentoring session',
       payer: r.name || '', payerContact: r.contact || '', payerUid: r.studentUid || '',
+      mentorName: mentorName(r.mentorId),
       method: p.method || '', ref: p.payerRef || '', txn: p.payerTxn || '',
       amountLKR: Number(p.amountLKR) || 0, status: p.paymentStatus,
       date: p.paidAt || p.reportedAt || r.at || null, srcId: r.id,
@@ -4533,7 +4997,9 @@ function accountingRows() {
 }
 
 function admAccounting(body) {
-  if (adminState.requests === null && adminState.orders === null) { body.innerHTML = admErrCard('accounting data'); return; }
+  if (adminState.requests === null && adminState.orders === null && adminState.sessions === null) {
+    body.innerHTML = admErrCard('accounting data'); return;
+  }
   const rows = accountingRows();
   const take = Number(PF_CONFIG.platformTakeRate) || 0.20;
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
@@ -4581,66 +5047,27 @@ function admAccounting(body) {
         <td style="font-size:12.5px">${esc(r.method || '—')}</td>
         <td class="mono" style="text-align:right;white-space:nowrap">${money(r.amountLKR)}</td>
         <td>${payStatusChip({ paymentStatus: r.status })}</td>
-        <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Open receipt"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button></td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" data-act="download" title="Download PDF invoice"><span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span></button>
+          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Preview / print"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button>
+        </td>
       </tr>`).join('')}
-    </tbody></table></div>` : `<div class="card"><p class="muted" style="font-size:14px">No payments recorded yet. Reported and confirmed payments from mentor sessions and premium unlocks appear here.</p></div>`}
+    </tbody></table></div>` : `<div class="card"><p class="muted" style="font-size:14px">No payments recorded yet. Logged mentoring sessions, reported and confirmed request payments, and premium unlocks all appear here.</p></div>`}
     <p class="faint" style="font-size:11.5px;margin-top:14px">A management ledger reconstructed from live records. For statutory accounting, reconcile against your bank / PayHere / PayPal statements and register a business once revenue is steady (see <code>docs/PRICING.md</code>).</p>`;
 
   const dl = $('#adm-dl-acct', body);
   if (dl) dl.onclick = () => csvDownload('pathfinder-accounting-ledger.csv',
-    ['invoiceNo', 'date', 'kind', 'item', 'payer', 'payerUid', 'method', 'ref', 'txn', 'amountLKR', 'status'],
+    ['invoiceNo', 'date', 'kind', 'item', 'payer', 'payerUid', 'mentorName', 'method', 'ref', 'txn', 'amountLKR', 'status'],
     rows.map(r => ({ ...r, date: r.date ? new Date(typeof r.date === 'number' ? r.date : Date.parse(r.date)).toISOString() : '' })));
 }
 
-/* Print-ready receipt / invoice for one transaction. Opens a clean,
-   self-contained doc in a new tab with a Print button (print-to-PDF gives a
-   downloadable record). Issuer identity comes from PF_CONFIG.org. */
+/* Print-ready receipt / invoice for one transaction — now a thin wrapper
+   over PFInvoice (assets/js/invoice.js), which renders the same document
+   as a real downloadable PDF and as a printable preview. Kept as a named
+   helper so any caller outside the admin ledger still works. */
 function openInvoice(tx) {
-  const org = PF_CONFIG.org || {};
-  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
-  const paid = tx.status === 'paid';
-  const e = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const dateStr = tx.date ? new Date(typeof tx.date === 'number' ? tx.date : Date.parse(tx.date)).toLocaleDateString() : new Date().toLocaleDateString();
-  const issuer = org.legalName || org.name || 'PathFinder';
-  const title = paid ? 'RECEIPT' : 'INVOICE';
-  const statusLabel = paid ? 'PAID' : (tx.status === 'reported' ? 'PAYMENT REPORTED — AWAITING CONFIRMATION' : 'UNPAID');
-
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${e(tx.invoiceNo)}</title><style>
-    *{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1C1A15;max-width:720px;margin:32px auto;padding:0 28px;line-height:1.5}
-    .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1C1A15;padding-bottom:18px;margin-bottom:24px}
-    .brand{font-size:24px;font-weight:700;letter-spacing:-.02em}.brand i{color:#C2401C;font-style:italic}
-    .doc{font-size:13px;text-transform:uppercase;letter-spacing:.16em;color:#C2401C;font-weight:600;text-align:right}
-    .muted{color:#666;font-size:12.5px}h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 6px}
-    .cols{display:flex;gap:40px;flex-wrap:wrap;margin-bottom:28px}.cols>div{flex:1;min-width:200px}
-    table{width:100%;border-collapse:collapse;margin:8px 0 18px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #ddd;font-size:14px}
-    th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888}.r{text-align:right}
-    .total{font-size:20px;font-weight:700}.status{display:inline-block;margin-top:8px;padding:4px 12px;border-radius:3px;font-size:12px;font-weight:600;background:${paid ? '#e7f0ea' : '#f7efda'};color:${paid ? '#2D5A41' : '#8A6A2F'}}
-    .foot{margin-top:32px;padding-top:16px;border-top:1px solid #ddd;font-size:11.5px;color:#888}
-    .noprint{margin:24px 0;text-align:center}button{font:inherit;padding:10px 22px;border:1px solid #1C1A15;background:#1C1A15;color:#fff;border-radius:3px;cursor:pointer}
-    @media print{.noprint{display:none}}
-  </style></head><body>
-    <div class="top">
-      <div><div class="brand">Path<i>finder</i></div><div class="muted">${e(issuer)}${org.email ? ' · ' + e(org.email) : ''}${org.address ? '<br>' + e(org.address) : ''}${org.taxId ? '<br>Tax ID: ' + e(org.taxId) : ''}</div></div>
-      <div class="doc">${title}<div class="muted" style="text-transform:none;letter-spacing:0;color:#1C1A15;font-weight:400;margin-top:6px">${e(tx.invoiceNo)}</div></div>
-    </div>
-    <div class="cols">
-      <div><h2>Billed to</h2>${e(tx.payer || 'PathFinder student')}${tx.payerContact ? '<br>' + e(tx.payerContact) : ''}${tx.payerUid ? '<br><span class="muted">acct ' + e(tx.payerUid.slice(0, 16)) + '…</span>' : ''}</div>
-      <div class="r"><h2>Details</h2>Date: ${e(dateStr)}<br>Method: ${e(tx.method || '—')}${tx.ref ? '<br>Reference: ' + e(tx.ref) : ''}${tx.txn ? '<br>Txn: ' + e(tx.txn) : ''}</div>
-    </div>
-    <table>
-      <thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
-      <tbody><tr><td>${e(tx.item)}</td><td class="r">${money(tx.amountLKR)}</td></tr></tbody>
-      <tfoot><tr><td class="total">Total</td><td class="r total">${money(tx.amountLKR)}</td></tr></tfoot>
-    </table>
-    <span class="status">${statusLabel}</span>
-    <div class="foot">${org.legalName ? '' : 'Issued by an unregistered sole trader — this is a payment confirmation, not a tax invoice. '}Amounts in Sri Lankan Rupees (LKR). Generated by PathFinder on ${new Date().toLocaleString()}.</div>
-    <div class="noprint"><button onclick="window.print()">Print / Save as PDF</button></div>
-  </body></html>`;
-
-  const w = window.open('', '_blank');
-  if (!w) { toast('Allow pop-ups to open the receipt'); return; }
-  w.document.write(html);
-  w.document.close();
+  const model = tx && tx.session ? PFInvoice.fromSession(tx.session) : PFInvoice.fromTx(tx);
+  if (!PFInvoice.open(model)) toast('Allow pop-ups to open the receipt');
 }
 
 function admUsers(body) {

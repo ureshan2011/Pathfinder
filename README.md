@@ -40,11 +40,12 @@ Getting the first row wrong understates a master's applicant's visa-funds requir
 - `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
 - `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
 - `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
-- `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, an at-a-glance insights strip (open / active / completed / earned), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
+- `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, a **Session log**, an at-a-glance insights strip (open / active / delivered / earned / invoiced-unpaid), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). The **Session log** records every session you actually deliver — including the many that arrive over **WhatsApp or a phone call** and never touch the request queue — with who, when, how long, over which channel, what you covered, private notes, agreed next steps, the fee and its payment state; each record generates a **PDF invoice or receipt** in one click ("Save & invoice" issues it as you write the record up). Claimed requests get a **Log session** button that pre-fills the form from the request. Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
+- `#billing` — **Billing**: the student's own one-time unlocks and every mentoring session logged against their account, each with a downloadable **PDF invoice/receipt**. Private mentor notes are never shown here.
 - `#account` — **Account**: the unified front door for the three login roles. Clients/students can create a free account (no code) or sign in to sync across devices — **login is optional for explorer basics** (assessment, roadmap, explorer, funding, Research Studio, templates), and anonymous browsing always works for those. It becomes **required only to connect with a mentor or to make any purchase**. Vetted mentors are routed to the invite-only mentor sign-up, and admins to the admin sign-in.
 - `#dashboard` — the **client/student dashboard**: a metrics grid, a derived **insights** card (readiness, application funnel, active mentor requests, visa progress, next-step nudge, sync status), application tracker, visa progress, and your mentor requests
 - `#kit` — Starter Kit: 21 templates across emails, application documents, research & career, and logistics. Templates tagged `track:'masters'` (statement of purpose, programme comparison sheet) or `track:'phd'` (supervisor emails, 3-year research plan) show only on that track; the rest serve both
-- `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), and synced user records. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
+- `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, **Accounting** (a unified ledger across every revenue source, with one-click PDF invoices/receipts), email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), **Sessions** (every mentoring session logged by any mentor — filter by mentor and payment state, log one on a mentor's behalf, CSV export, PDF invoices), **Orders**, and synced user records. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
 
 ## Architecture
 
@@ -70,6 +71,7 @@ scripts/
   build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
+  js/invoice.js            PFInvoice — zero-dependency PDF invoice/receipt writer + print preview
   js/firebase-config.js    paste your Firebase web config here (null = pure local mode)
   js/firebase.js           optional sync layer (Auth + roles + Firestore mirror + queue + inboxes)
   js/app.js                router + view renderers
@@ -129,7 +131,7 @@ The site is **cloud-first**: on load, every visitor without a session is signed 
 | Service | Used for | Spark-plan limit (ample for launch) |
 |---|---|---|
 | Authentication | Google + anonymous (students) · Email/Password or Google (mentors) · one Email/Password admin | Unlimited sign-ins |
-| Cloud Firestore | `users/{uid}/kv/*` data sync · `inbox_leads` · `mentors` · `mentor_requests` | 1 GiB storage, 50k reads / 20k writes per day |
+| Cloud Firestore | `users/{uid}/kv/*` data sync · `inbox_leads` · `mentors` · `mentor_requests` · `mentor_sessions` · `orders` | 1 GiB storage, 50k reads / 20k writes per day |
 | Hosting | Deploying the site | 10 GB storage, 360 MB/day transfer |
 
 ### Staying inside the free tier
@@ -222,6 +224,31 @@ open ──claim──▶ claimed ──intro──▶ intro_done ──gen link
 - **paid** — payment confirmed (Tier 1: mentor/admin marks it; Tier 2: the webhook does).
 - **completed** — paid session delivered.
 
+### Session records & invoicing
+
+Not every mentoring session starts in the app. A student messages a mentor on **WhatsApp**, or rings them, and the whole consultation happens off-platform. Those sessions still need a written record and the student still wants an invoice — so the platform records them first-class.
+
+The **session log** (`#mentor` → *Session log*, `#admin` → *Sessions*) captures one record per delivered session:
+
+| Field | What it holds |
+|---|---|
+| `studentName` · `studentContact` · `studentUid` | Who it was for. `studentUid` is set automatically when the session came from a platform request, which is what makes the invoice appear in that student's `#billing`. |
+| `channel` | How it happened — WhatsApp, phone call, video call, in person, email, or a PathFinder request (`PF_SESSION_CHANNELS`). |
+| `topic` · `title` · `date` · `durationMin` | What and when. |
+| `summary` · `followUp` | What was covered and the agreed next steps — **both print on the invoice**. |
+| `notes` | The mentor's private notes: never printed, never shown to the student. |
+| `amountLKR` · `paymentStatus` · `method` · `ref` | The fee and where it stands (`unpaid` · `reported` · `paid` · `waived`). A free intro is logged as `waived`, so it is recorded as delivered work without entering the money ledger. |
+| `invoiceNo` | Minted once at creation (`PF-INV-M-<yymm>-<tail>`) so the number a student is quoted never changes. |
+
+**Invoices are real PDFs, generated in the browser.** `assets/js/invoice.js` (`PFInvoice`) is a self-contained ~500-line PDF 1.4 writer — no library, no CDN, no backend, no Blaze plan. It bundles the Helvetica advance-width tables so line wrapping and right-aligned money columns are exact, folds smart typography to WinAnsi, and flows long write-ups across as many pages as they need. Two outputs from one model:
+
+- **Invoice PDF** — downloads `<invoiceNo>.pdf` straight away.
+- **Preview** — opens a print-ready page in a new tab with both a *Download PDF* button and *Print*.
+
+The document is a **receipt** when paid, an **invoice** when not, and a **session record** when the fee was waived — same layout, honest label. Until `PF_CONFIG.org.legalName` is filled in, the footer says plainly that it is a payment confirmation and not a tax invoice.
+
+Session records also feed the admin **Accounting** ledger. A logged session **supersedes** the request that spawned it (matched on `requestId`), so money is never counted twice; off-platform sessions appear in the ledger for the first time there.
+
 ### Payments — PayHere (HelaPay-enabled)
 
 The first 15 minutes are always free. Paid follow-on sessions go through **PayHere's hosted checkout**. For LKR, PayHere automatically offers every local method — **Visa/Mastercard, HelaPay, eZ Cash, mCash, Genie, online banking** — so there is no separate "HelaPay API"; the pay button is labelled accordingly.
@@ -234,7 +261,7 @@ Configure `PF_CONFIG.payhere` (`data.js`): `merchantId` (public — safe in clie
 ## Data model (Firestore)
 
 ```
-users/{uid}/kv/{key}        mirrored PFStore keys: assessment, saved, applications,
+users/{uid}/kv/{key}        mirrored PFStore keys: track, assessment, saved, applications,
                             checklist.visa, mentorRequests, calcPrefs, firstMonths,
                             fundsPlans, leads
 inbox_leads/{id}            { email, source, at, uid, ts }          create (visitors) · read (admin)
@@ -248,6 +275,15 @@ mentor_requests/{id}        { topic, note, name, contact, studentUid, status, me
                             create (any signed-in, status:'open') · read (admin / approved
                             mentor / owning student) · update (admin / claiming or owning
                             mentor / student-cancel) — claim race closed in rules
+mentor_sessions/{id}        { mentorId, mentorName, studentName, studentContact, studentUid,
+                              channel, topic, title, date, durationMin, summary, notes,
+                              followUp, amountLKR, paymentStatus, method, ref, payerTxn,
+                              paidAt, requestId, invoiceNo, createdBy, createdAt,
+                              updatedAt, ts }
+                            create (approved mentor for themselves / admin for anyone) ·
+                            read (owning mentor / named student / admin) ·
+                            update (owning mentor — never reassignable / admin) ·
+                            delete (never — a cancelled session is marked, not erased)
 inbox_consultations/{id}    LEGACY (pre-marketplace) — read-only for admin, no new writes
 ```
 

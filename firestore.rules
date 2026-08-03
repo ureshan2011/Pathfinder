@@ -117,6 +117,64 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Mentoring session records ──────────────────────────────────────
+    // The delivered-work log behind every invoice. A mentor writes one per
+    // session — including the many that arrive by WhatsApp or a phone call
+    // and never pass through mentor_requests — so notes, duration, fee and
+    // payment state live in one auditable place.
+    //
+    // Only an approved mentor may create a record, and only for themselves
+    // (mentorId == their uid); the admin may log one on anyone's behalf.
+    // Reads: the owning mentor, the named student (so their invoice shows
+    // up in #billing), and the admin. Records are never deleted — a
+    // cancelled session is marked, not erased, so the ledger stays whole.
+
+    // A session may only NAME a student account (studentUid) that the mentor
+    // already works with — one carried over from a request they own. For an
+    // off-platform session there is no such link, so studentUid stays empty
+    // and the invoice is addressed by name/contact alone. Without this a
+    // mentor could plant a record in a stranger's billing list.
+    function sessionRequest() {
+      return get(/databases/$(database)/documents/mentor_requests/$(request.resource.data.requestId)).data;
+    }
+    function namedStudentIsOwn() {
+      return request.resource.data.studentUid == ''
+        || (request.resource.data.requestId != ''
+            && sessionRequest().mentorId == request.auth.uid
+            && sessionRequest().studentUid == request.resource.data.studentUid);
+    }
+
+    match /mentor_sessions/{id} {
+      allow create: if (isAdmin() || (isApprovedMentor()
+                        && request.resource.data.mentorId == request.auth.uid
+                        && namedStudentIsOwn()))
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() > 0
+        && request.resource.data.studentName.size() < 200
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() < 5000
+        && request.resource.data.summary is string
+        && request.resource.data.summary.size() < 5000
+        && request.resource.data.amountLKR is number
+        && request.resource.data.amountLKR >= 0;
+
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.mentorId == request.auth.uid)
+        || (request.auth != null && resource.data.studentUid == request.auth.uid);
+
+      // The owning mentor may edit their own record (notes, fee, payment
+      // state) but can never reassign it to another mentor; admin may fix
+      // anything. Students have no write access — the record is the
+      // mentor's account of the work.
+      allow update: if isAdmin()
+        || (isApprovedMentor()
+            && resource.data.mentorId == request.auth.uid
+            && request.resource.data.mentorId == resource.data.mentorId
+            && request.resource.data.studentUid == resource.data.studentUid);
+
+      allow delete: if false;
+    }
+
     // ── One-time premium unlocks (orders) ──────────────────────────────
     // A signed-in user (incl. anonymous) creates their own order as
     // 'reported' (manual rail) or 'pending' (future PayHere). Only the admin
