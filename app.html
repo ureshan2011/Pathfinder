@@ -48,6 +48,17 @@
       letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); opacity: .7;
     }
 
+    /* study-track switch — masters vs PhD, always visible in the sidebar */
+    .track-switch { display: flex; margin: 0 8px 14px; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+    .tsw-opt {
+      flex: 1; padding: 7px 4px; border: none; border-radius: 5px; cursor: pointer;
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      letter-spacing: .09em; text-transform: uppercase;
+      background: transparent; color: var(--ink-faint); transition: background .2s, color .2s;
+    }
+    .tsw-opt:hover { color: var(--ink); }
+    .tsw-opt.active { background: var(--ink); color: var(--paper); }
+
     /* live journey progress meter */
     .journey-meter { display: block; margin: 0 8px 12px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); transition: border-color .2s, background .2s; }
     .journey-meter:hover { border-color: var(--route); }
@@ -126,6 +137,46 @@
     .news-row:hover .news-go { color: var(--route); transform: translate(2px, -2px); }
     /* the dashboard strip uses the same rows but trims the top border of the first */
     #dash-news .news-row:first-child { border-top: none; padding-top: 4px; }
+
+    /* ── Course Catalogue (#courses) ── */
+    .crs-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    .crs-search, .crs-sel {
+      padding: 9px 12px; border: 1px solid var(--line-2); border-radius: 6px;
+      background: var(--paper); color: var(--ink); font-family: inherit; font-size: 13.5px;
+      transition: border-color .2s;
+    }
+    .crs-search { flex: 1; min-width: 220px; }
+    .crs-search:focus, .crs-sel:focus { outline: none; border-color: var(--route); }
+    .crs-sel { max-width: 230px; cursor: pointer; }
+    .vh-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 12px; }
+    .vh-facts > div { display: flex; flex-direction: column; gap: 3px; }
+    .vh-facts span { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+    .vh-facts strong { font-size: 13.5px; font-weight: 560; line-height: 1.45; }
+
+    .fh-check { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 13px; color: var(--ink-soft); cursor: pointer; }
+    .fh-check input { accent-color: var(--route); width: 15px; height: 15px; cursor: pointer; }
+    .crs-rail { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+    .crs-rail-sub { padding-left: 14px; border-left: 2px solid var(--line); margin-bottom: 20px; }
+    .crs-n { font-family: var(--font-mono); font-size: 9.5px; opacity: .55; margin-left: 4px; }
+    .crs-count { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
+    .crs-card { margin-bottom: 10px; padding: 0; overflow: hidden; }
+    .crs-head {
+      display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; padding: 16px 20px; cursor: pointer;
+      transition: background .2s;
+    }
+    .crs-head:hover { background: var(--surface); }
+    .crs-caret { font-size: 20px; color: var(--ink-faint); transition: transform .25s; }
+    .crs-caret.open { transform: rotate(180deg); color: var(--route); }
+    .crs-body { padding: 4px 20px 20px; border-top: 1px solid var(--line); }
+    .crs-sect { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+    .crs-sect:last-of-type { border-bottom: none; }
+    .crs-sect p { font-size: 13.5px; line-height: 1.6; color: var(--ink-soft); }
+    .crs-lbl { font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px; }
+    .crs-prov { display: flex; gap: 14px; justify-content: space-between; align-items: baseline; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+    .crs-prov:first-of-type { border-top: none; }
+    .crs-prov-links { display: flex; gap: 14px; font-family: var(--font-mono); font-size: 11.5px; }
+    .crs-prov-links a { color: var(--route); }
 
     /* ── Funds Readiness Check ── */
     .fc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 9px 0; border-top: 1px solid var(--line-soft); font-size: 13.5px; color: var(--ink-soft); }
@@ -339,8 +390,11 @@
   <aside class="side">
     <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span></a>
 
+    <!-- which journey the student is on; painted by paintTrackSwitch() -->
+    <div class="track-switch" id="track-switch" role="group" aria-label="Study track"></div>
+
     <!-- live journey progress meter (updated by app.js after every route) -->
-    <a class="journey-meter" id="journey-meter" href="#dashboard" title="Your journey to a NZ PhD">
+    <a class="journey-meter" id="journey-meter" href="#dashboard" title="Your journey to New Zealand">
       <div class="jm-row"><span class="jm-lbl">Your journey</span><span class="jm-pct">0%</span></div>
       <div class="jm-bar"><span style="width:0%"></span></div>
     </a>
@@ -350,6 +404,7 @@
 
     <div class="side-group-h">① Discover</div>
     <a class="side-link" data-view="assessment" href="#assessment"><span class="material-symbols-outlined">my_location</span><span class="lbl">Assessment</span></a>
+    <a class="side-link" data-view="courses"    href="#courses"><span class="material-symbols-outlined">school</span><span class="lbl">Courses</span></a>
     <a class="side-link" data-view="explore"    href="#explore"><span class="material-symbols-outlined">travel_explore</span><span class="lbl">Explore</span></a>
     <a class="side-link" data-view="research"   href="#research"><span class="material-symbols-outlined">lightbulb</span><span class="lbl">Research Studio</span></a>
     <a class="side-link" data-view="funding"    href="#funding"><span class="material-symbols-outlined">request_quote</span><span class="lbl">Funding</span></a>
