@@ -1650,8 +1650,8 @@ const PF_CONFIG = {
 
 /* ── Partner placements (affiliate) — clearly labelled in the UI ── */
 const PF_PARTNERS = [
-  { id:'p1', placement:'ielts', name:'IELTS preparation', blurb:'Structured prep courses with band-score guarantees — most NZ PhDs need 6.5+ with no band below 6.0.', url:'#', cta:'Explore prep options' },
-  { id:'p2', placement:'forex', name:'Wise — money between LKR and NZD', blurb:'The route most students use for stipend-to-home transfers and bringing funds over.', url:'https://wise.com', cta:'Compare rates' },
-  { id:'p3', placement:'insurance', name:'Student travel & health insurance', blurb:'INZ-compliant cover for the journey and your first weeks before university insurance kicks in.', url:'#', cta:'Get a quote' },
+  { id:'p1', placement:'ielts', name:'IELTS preparation', blurb:'Structured prep courses. NZ postgraduate admission usually needs IELTS 6.5+ with no band below 6.0 — check your programme, some accept 6.0.', url:'#', cta:'Explore prep options' },
+  { id:'p2', placement:'forex', name:'Wise — money between LKR and NZD', blurb:'Usually cheaper than a bank for moving money between LKR and NZD — compare the rate before each transfer.', url:'https://wise.com', cta:'Compare rates' },
+  { id:'p3', placement:'insurance', name:'Student travel & health insurance', blurb:'Cover for the journey and your first weeks, before university insurance starts. Check it meets your provider\u2019s requirements.', url:'#', cta:'Get a quote' },
   { id:'p4', placement:'flights', name:'Student fares CMB → NZ', blurb:'Student tickets often include extra baggage — worth it when you are moving your whole life.', url:'#', cta:'Search flights' },
 ];
