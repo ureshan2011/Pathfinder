@@ -241,6 +241,55 @@ if (cfg && cfg.apiKey) {
     if (!isAdminUser(auth.currentUser)) throw new Error('Not signed in as admin');
   }
 
+  /* ── Mentoring session records (`mentor_sessions`) ────────────────────
+     The delivered-work log behind every invoice. A mentor logs one record
+     per session — including the many that arrive by WhatsApp or a phone
+     call and never pass through the request queue — so notes, duration,
+     fee and payment state are captured once and an invoice can be
+     generated from them. Every field is normalised and length-capped here
+     so the shape matches what firestore.rules validates on create. */
+  function normaliseSession(rec, uid, mentorName) {
+    const cap = (v, n) => String(v == null ? '' : v).slice(0, n);
+    return {
+      mentorId: rec.mentorId || uid,
+      mentorName: cap(rec.mentorName || mentorName || '', 199),
+      studentName: cap(rec.studentName, 199),
+      studentContact: cap(rec.studentContact, 199),
+      studentUid: cap(rec.studentUid, 199),
+      channel: cap(rec.channel || 'whatsapp', 40),
+      topic: cap(rec.topic, 60),
+      title: cap(rec.title, 199),
+      date: cap(rec.date || new Date().toISOString().slice(0, 10), 20),
+      durationMin: Math.max(0, Number(rec.durationMin) || 0),
+      summary: cap(rec.summary, 4999),
+      notes: cap(rec.notes, 4999),
+      followUp: cap(rec.followUp, 4999),
+      amountLKR: Math.max(0, Number(rec.amountLKR) || 0),
+      paymentStatus: cap(rec.paymentStatus || 'unpaid', 20),
+      method: cap(rec.method, 60),
+      ref: cap(rec.ref, 80),
+      payerTxn: cap(rec.payerTxn, 80),
+      paidAt: rec.paidAt || null,
+      requestId: cap(rec.requestId, 80),
+      invoiceNo: cap(rec.invoiceNo, 40),
+    };
+  }
+
+  /* Invoice numbers must be stable and quotable, and Firestore has no
+     cheap counter on the free plan — so derive one from the creation
+     month plus a short random tail. Collisions are vanishingly unlikely
+     and would only affect the printed label, never the record itself. */
+  function mintInvoiceNo() {
+    const prefix = (window.PF_CONFIG && PF_CONFIG.org && PF_CONFIG.org.invoicePrefix) || 'PF';
+    const d = new Date();
+    const ym = String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, '0');
+    let tail = '';
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no look-alikes
+    const rnd = crypto.getRandomValues(new Uint8Array(5));
+    rnd.forEach(b => { tail += alphabet[b % alphabet.length]; });
+    return `${prefix}-INV-M-${ym}-${tail}`;
+  }
+
   window.PFCloud = {
     ready: true,
     adminEmail: ADMIN_EMAIL,
@@ -385,6 +434,57 @@ if (cfg && cfg.apiKey) {
       const snap = await getDocs(query(collection(db, 'mentor_requests'), where('studentUid', '==', u.uid)));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+
+    /* ── Mentoring session records ───────────────────────────────────── */
+    // Log a delivered session. Mentors log their own; the admin may log
+    // one on a mentor's behalf by passing mentorId. Returns the stored doc
+    // (with its id + minted invoice number) so the caller can invoice it
+    // immediately without re-reading the collection.
+    async createSession(rec) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Not signed in');
+      if (!isAdminUser(u) && !(mentorProfile && mentorProfile.approved))
+        throw new Error('Only an approved mentor can log a session');
+      const data = normaliseSession(rec, u.uid, mentorProfile && mentorProfile.displayName);
+      if (!data.studentName) throw new Error('Add the student’s name');
+      if (!data.mentorId) throw new Error('Pick which mentor delivered the session');
+      data.invoiceNo = data.invoiceNo || mintInvoiceNo();
+      data.createdBy = u.uid;
+      data.createdAt = Date.now();
+      data.updatedAt = Date.now();
+      // `ts` is a server sentinel, not a value — keep it out of what we
+      // hand back so callers never try to read or serialise it.
+      const ref = await addDoc(collection(db, 'mentor_sessions'), { ...data, ts: serverTimestamp() });
+      return { id: ref.id, ...data };
+    },
+    // Edit a record you own (notes, fee, payment state). mentorId is never
+    // part of the patch — rules reject a reassignment anyway.
+    async updateSession(id, patch) {
+      const clean = { ...patch };
+      delete clean.mentorId; delete clean.createdBy; delete clean.createdAt; delete clean.id;
+      await updateDoc(doc(db, 'mentor_sessions', id), { ...clean, updatedAt: Date.now() });
+    },
+    // The signed-in mentor's own log.
+    async fetchMySessions() {
+      const u = auth.currentUser; if (!u) return [];
+      const snap = await getDocs(query(collection(db, 'mentor_sessions'), where('mentorId', '==', u.uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.createdAt || 0) - (a.createdAt || 0));
+    },
+    // Sessions logged against the signed-in student — powers the invoice
+    // list in #billing, so a student can download their own receipts.
+    async fetchMySessionsAsStudent() {
+      const u = auth.currentUser; if (!u) return [];
+      const snap = await getDocs(query(collection(db, 'mentor_sessions'), where('studentUid', '==', u.uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    },
+    async fetchAllSessions() {
+      requireAdmin();
+      const snap = await getDocs(collection(db, 'mentor_sessions'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.createdAt || 0) - (a.createdAt || 0));
     },
 
     /* ── Admin: mentor approval + all requests ───────────────────────── */

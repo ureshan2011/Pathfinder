@@ -1111,6 +1111,32 @@ const PF_CONSULT_TOPICS = {
   'visa-funds':        'Visa funds & financial evidence',
 };
 
+/* ── Mentoring session records ────────────────────────────────────────
+   Plenty of real mentoring never touches the in-app request queue — a
+   student messages a mentor on WhatsApp, or the mentor gets a phone
+   call. The session log (mentor & admin dashboards) records those the
+   same way as platform requests so every session has notes, a fee and
+   an invoice. `channel` is how the session actually happened. */
+const PF_SESSION_CHANNELS = {
+  whatsapp:  'WhatsApp',
+  call:      'Phone call',
+  video:     'Video call (Zoom / Meet)',
+  inperson:  'In person',
+  email:     'Email / messages',
+  platform:  'PathFinder request',
+};
+
+/* Payment states a logged session can be in. Mirrors the `paymentStatus`
+   vocabulary used by mentor_requests + orders so the admin Accounting
+   ledger can treat all three sources identically. `waived` is the free
+   intro call — recorded, never invoiced for money. */
+const PF_SESSION_PAYMENT_STATES = {
+  unpaid:   'Unpaid — invoice issued',
+  reported: 'Payment reported',
+  paid:     'Paid',
+  waived:   'Free / no charge',
+};
+
 /* ════════════════════════════════════════════════════════════
    Research Studio (#research) — config for the topic & proposal
    generator. The "AI" is a free, no-key scholarly-API search
