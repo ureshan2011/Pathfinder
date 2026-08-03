@@ -8,6 +8,69 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const uniById = id => PF_UNIVERSITIES.find(u => u.id === id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* ── Study track ────────────────────────────────────────────────────
+   Every view reads its track-specific copy and numbers through here, so
+   an unknown or legacy stored value can only ever degrade to the PhD
+   journey the product shipped with. See PF_TRACK in data.js. */
+const trackCfg = () => PF_TRACK[PFStore.getTrack()] || PF_TRACK.phd;
+const isMasters = () => PFStore.getTrack() === 'masters';
+const visaUpdates = () => (isMasters() ? PF_VISA_UPDATES_MASTERS : PF_VISA_UPDATES);
+
+/* Track value: prefers a `masters_<field>` alternate on the master's track.
+   Several facts in the Visa Hub and the Settle In guide are true only for
+   doctoral students — unlimited work rights, domestic school fees for
+   children, publicly funded healthcare — and stating them to a master's
+   applicant would be worse than saying nothing. Entries that need a
+   different answer carry the alternate in data.js; everything else falls
+   through to the shared text unchanged. */
+const tv = (o, k) => (isMasters() && o['masters_' + k] !== undefined ? o['masters_' + k] : o[k]);
+
+/* The stored assessment recomputed against the ACTIVE track. The answers
+   stay valid across a track switch — a bachelor's degree is a bachelor's
+   degree — but the pathway, readiness and matched counts derived from them
+   do not, so every view that displays a result reads it through here rather
+   than trusting the copy frozen at completion time. */
+function currentResult() {
+  const a = PFStore.getAssessment();
+  if (!a) return null;
+  return a.answers ? computeResult(a.answers) : a.result;
+}
+
+/* Switch tracks and re-render wherever we are. The assessment result is
+   deliberately NOT cleared — the answers stay valid, but the pathway is
+   recomputed against the new track's rules the next time it is read. */
+function switchTrack(t) {
+  if (PFStore.getTrack() === t) return;
+  PFStore.setTrack(t);
+  paintTrackSwitch();
+  route();
+  toast(`Switched to the ${trackCfg().label} track`);
+}
+
+/* The segmented control in the sidebar. Rendered once at boot and
+   repainted on change — it is the only always-visible reminder of which
+   journey the student is on. */
+function paintTrackSwitch() {
+  const box = $('#track-switch');
+  if (!box) return;
+  const cur = PFStore.getTrack();
+  box.innerHTML = ['masters', 'phd'].map(t =>
+    `<button class="tsw-opt ${t === cur ? 'active' : ''}" data-track="${t}"
+       aria-pressed="${t === cur}">${PF_TRACK[t].label}</button>`).join('');
+  $$('.tsw-opt', box).forEach(b => b.onclick = () => switchTrack(b.dataset.track));
+}
+
+/* Landing-page hand-off: index.html links to app.html?track=masters#assessment
+   so the student's very first click already sets the journey. Consumed once,
+   then stripped from the URL so a shared link doesn't silently re-switch. */
+function adoptTrackFromQuery() {
+  const t = new URLSearchParams(location.search).get('track');
+  if (t === 'masters' || t === 'phd') {
+    PFStore.setTrack(t);
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+}
+
 /* Given a raw institution display-name (from OpenAlex authorships, or our
    curated labs), resolve it to { uni } — one of the eight NZ campuses with an
    Explore link — or { institute } — a recognised NZ research home — or null.
@@ -104,6 +167,7 @@ const ROUTES = {
   assessment: renderAssessment,
   roadmap:    renderRoadmap,
   research:   renderResearch,
+  courses:    renderCourses,
   explore:    renderExplore,
   funding:    renderFunding,
   funds:      renderFunds,
@@ -180,8 +244,13 @@ function journeyModel() {
 
   const phases = [
     { id: 'discover', label: 'Discover', icon: 'travel_explore', view: 'assessment', color: 'teal',
-      blurb: 'Find your fit — pathway, fields, labs and funding.',
-      steps: [
+      blurb: isMasters() ? 'Find your fit — pathway, subject, providers and funding.'
+                         : 'Find your fit — pathway, fields, labs and funding.',
+      steps: isMasters() ? [
+        ['Take the 5-minute assessment', !!a, '#assessment'],
+        ['Shortlist 3 qualifications', saved.length >= 3, '#courses'],
+        ['Compare the providers offering them', !!seen.explore, '#explore'],
+      ] : [
         ['Take the 5-minute assessment', !!a, '#assessment'],
         ['Save 3 labs or scholarships', saved.length >= 3, '#explore'],
         ['Generate a research direction', !!(research && research.candidates && research.candidates.length), '#research'],
@@ -194,7 +263,8 @@ function journeyModel() {
         ['Check eligible scholarships', !!seen.funding, '#funding'],
       ] },
     { id: 'apply', label: 'Apply', icon: 'folder_managed', view: 'dashboard', color: 'gold',
-      blurb: 'Contact supervisors and track every application.',
+      blurb: isMasters() ? 'Apply to your intakes and track every application.'
+                         : 'Contact supervisors and track every application.',
       steps: [
         ['Track your first application', apps.length >= 1, '#dashboard'],
         ['Reach “Applied” on one', furthest >= ST.indexOf('Applied') + 1, '#dashboard'],
@@ -269,7 +339,7 @@ function renderJourneyMap() {
   return `<section class="journey" aria-label="Your journey to a PhD in New Zealand">
     <div class="journey-head">
       <div style="min-width:240px">
-        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to a NZ PhD</span>
+        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to ${trackCfg().article} in NZ</span>
         <h2 class="journey-pct">${J.overall}<small>% complete</small></h2>
         <p class="muted" style="font-size:13.5px;margin:4px 0 0;max-width:460px">${journeyBlurb(J)}</p>
       </div>
@@ -540,7 +610,11 @@ function partnerRow(placement) {
   </div>`;
 }
 window.addEventListener('hashchange', route);
-window.addEventListener('DOMContentLoaded', route);
+window.addEventListener('DOMContentLoaded', () => {
+  adoptTrackFromQuery();   // must run before the first render
+  paintTrackSwitch();
+  route();
+});
 
 /* re-render the admin view whenever admin auth state flips (e.g. sign
    out) — PFCloud is exposed by the deferred firebase.js module, so wait
@@ -564,9 +638,14 @@ function viewHead(icon, kicker, title, sub) {
   </div>`;
 }
 
-function saveBtn(kind, id) {
+/* `label`/`sub` are optional but matter for catalogue items: a saved course
+   or scholarship lives in a lazily-loaded shard, and the dashboard must be
+   able to name it without pulling the whole catalogue down. Curated kinds
+   (uni, lab) omit them and are resolved from the static dataset as before. */
+function saveBtn(kind, id, label, sub) {
   const saved = PFStore.isSaved(kind, id);
-  return `<button class="btn btn-ghost btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${id}">
+  return `<button class="btn btn-ghost btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
+    ${label ? `data-label="${esc(label)}"` : ''} ${sub ? `data-sub="${esc(sub)}"` : ''}>
     <span class="material-symbols-outlined" style="font-size:16px">${saved ? 'bookmark_added' : 'bookmark_add'}</span>
     ${saved ? 'Saved' : 'Save'}
   </button>`;
@@ -575,7 +654,7 @@ function saveBtn(kind, id) {
 document.addEventListener('click', e => {
   const b = e.target.closest('.save-btn');
   if (!b) return;
-  const nowSaved = PFStore.toggleSaved(b.dataset.kind, b.dataset.id);
+  const nowSaved = PFStore.toggleSaved(b.dataset.kind, b.dataset.id, b.dataset.label, b.dataset.sub);
   b.classList.toggle('saved', nowSaved);
   b.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
   toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
@@ -584,26 +663,52 @@ document.addEventListener('click', e => {
 /* ── 1 · Assessment ─────────────────────────────────────── */
 let asmState = { step: 0, answers: {} };
 
+/* The question set for the active track. The master's field question is
+   rebuilt from the live catalogue when it has loaded, so a subject area the
+   sync adds or empties is reflected without editing data.js; PF_SUBJECT_ROOTS
+   is the synchronous fallback. */
+function asmQuestions() {
+  if (!isMasters()) return PF_QUESTIONS;
+  const cat = window.PF_CATALOGUE;
+  if (!cat) return PF_QUESTIONS_MASTERS;
+  return PF_QUESTIONS_MASTERS.map(q => q.id !== 'field' ? q : Object.assign({}, q, {
+    opts: cat.roots.map(r => ({ v: r, t: cat.taxonomy[r].n })),
+  }));
+}
+
 function renderAssessment(main) {
+  const T = trackCfg();
   const done = PFStore.getAssessment();
   if (done && asmState.step === 0 && !asmState.retake) {
-    main.innerHTML = viewHead('quiz', 'Pathway Assessment', 'You’ve completed your assessment', 'Your personalized result is below. Retake anytime — your roadmap updates automatically.') +
-      resultCard(done.result) +
+    // A result computed on the other track is stale the moment they switch,
+    // so recompute from the stored answers rather than showing the old verdict.
+    const result = currentResult();
+    main.innerHTML = viewHead('quiz', 'Pathway Assessment', 'You’ve completed your assessment',
+      `Your personalized result is below, for the <strong>${T.label}</strong> track. Retake anytime — your roadmap updates automatically.`) +
+      resultCard(result) +
       `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
         <a class="btn btn-primary" href="#roadmap">View my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
+        <a class="btn btn-ghost" href="#courses">Browse matching courses</a>
         <button class="btn btn-ghost" id="retake">Retake assessment</button>
       </div>`;
     $('#retake').onclick = () => { asmState = { step: 0, answers: {}, retake: true }; route(); };
     return;
   }
 
-  const i = asmState.step;
-  if (i >= PF_QUESTIONS.length) return finishAssessment(main);
-  const q = PF_QUESTIONS[i];
-  const pct = Math.round((i / PF_QUESTIONS.length) * 100);
+  // The master's field options come from the catalogue — pull it once, then
+  // re-render. Cheap (~37 KB gz) and they are heading for #courses next.
+  if (isMasters() && !window.PF_CATALOGUE) {
+    ensureCatalogue().then(() => { if (location.hash.startsWith('#assessment')) route(); });
+  }
 
-  main.innerHTML = viewHead('quiz', `Question ${i + 1} of ${PF_QUESTIONS.length}`, 'Pathway Assessment',
-    'Seven quick questions. Under five minutes. A roadmap built for you.') +
+  const qs = asmQuestions();
+  const i = asmState.step;
+  if (i >= qs.length) return finishAssessment(main);
+  const q = qs[i];
+  const pct = Math.round((i / qs.length) * 100);
+
+  main.innerHTML = viewHead('quiz', `Question ${i + 1} of ${qs.length}`, 'Pathway Assessment',
+    `Seven questions about ${T.article} in New Zealand, and about five minutes. Your answers shape the plan and the course filters.`) +
     `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
      <div class="card" style="max-width:680px">
        <h2 style="font-size:1.25rem;margin-bottom:22px">${q.q}</h2>
@@ -623,16 +728,41 @@ function renderAssessment(main) {
 }
 
 function computeResult(a) {
+  return isMasters() ? computeMastersResult(a) : computePhdResult(a);
+}
+
+/* The two tracks ask the field question with different vocabularies: the PhD
+   track offers the eight research fields (PF_FIELDS), the master's track the
+   NZQA subject-area roots. Both are stored in the same `field` answer, so a
+   student who switches tracks would otherwise carry an id the other track
+   cannot match — silently emptying Explore and the matched counts. These two
+   translate between them so a switch keeps the subject the student chose. */
+function fieldAsResearchField(field) {
+  if (!field) return field;
+  if (PF_FIELDS.includes(field)) return field;
+  // An NZQA root id → the first research field that maps onto it.
+  const hit = Object.keys(PF_FIELD_TO_SUBJECT_AREA).find(f => PF_FIELD_TO_SUBJECT_AREA[f].includes(field));
+  return hit || '';   // Architecture, Creative Arts etc. have no research-field twin
+}
+
+function fieldAsSubjectArea(field) {
+  if (!field) return field;
+  if (PF_FIELD_TO_SUBJECT_AREA[field]) return PF_FIELD_TO_SUBJECT_AREA[field][0];
+  return field;       // already an NZQA root id
+}
+
+function computePhdResult(a) {
+  a = Object.assign({}, a, { field: fieldAsResearchField(a.field) });
   const score = (+a.degree || 0) + (+a.gpa || 0) + (+a.research || 0) + (+a.english || 0); // max 15
   const readiness = Math.round((score / 15) * 100);
 
   let pathway, pathwayWhy;
   if (a.degree >= 3 && a.research >= 3) {
     pathway = 'Direct PhD Entry';
-    pathwayWhy = 'Your research master’s/thesis experience makes you a strong direct-PhD candidate at all eight NZ universities.';
+    pathwayWhy = 'A research master’s or thesis puts you in range for direct PhD entry at the eight NZ universities. Finding a supervisor who will take you is the real hurdle, not the paperwork.';
   } else if (a.degree >= 2 && (a.research >= 2 || a.gpa >= 3)) {
     pathway = 'Direct PhD (with strong proposal) or 1-year MPhil bridge';
-    pathwayWhy = 'Honours graduates with first-class results can enter NZ PhDs directly. A compelling research proposal and supervisor backing are the deciding factors.';
+    pathwayWhy = 'Honours graduates with first-class results can enter NZ PhDs directly. What decides it is the research proposal and whether a supervisor backs you.';
   } else {
     pathway = 'Research Master’s first → PhD';
     pathwayWhy = 'A 1–2 year research master’s (in NZ or Sri Lanka) builds the thesis experience and supervisor references NZ PhD admissions committees expect.';
@@ -642,8 +772,58 @@ function computeResult(a) {
   const labs = PF_LABS.filter(l => l.field === a.field).map(l => l.id);
   const schols = PF_SCHOLARSHIPS.filter(s => s.fields === 'All fields' || s.fields === a.field).map(s => s.id);
 
-  return { readiness, pathway, pathwayWhy, field: a.field, funding: a.funding, timeline: a.timeline,
-           english: a.english, unis, labs, schols };
+  return { track: 'phd', readiness, pathway, pathwayWhy, field: a.field, funding: a.funding,
+           timeline: a.timeline, english: a.english, unis, labs, schols };
+}
+
+/* Master's admission turns on a different set of facts: a completed
+   bachelor's in a related subject, its classification, and English. NZ
+   universities routinely offer an under-qualified applicant a postgraduate
+   diploma that articulates into the master's on good results — that bridge is
+   the single most useful thing to tell a second-lower graduate, so the
+   pathway names it explicitly rather than saying "you don't qualify". */
+function computeMastersResult(a) {
+  a = Object.assign({}, a, { field: fieldAsSubjectArea(a.field) });
+  const score = (+a.degree || 0) + (+a.gpa || 0) + (+a.work || 0) + (+a.english || 0); // max 15
+  const readiness = Math.round((score / 15) * 100);
+
+  let pathway, pathwayWhy;
+  if (a.degree >= 3 && a.gpa >= 3) {
+    pathway = 'Direct Master’s Entry';
+    pathwayWhy = 'A four-year or honours degree with a good average meets the usual entry rule for a 180-point NZ master’s, so you can apply directly. Individual programmes still set their own bar — check each one.';
+  } else if (a.degree >= 2 && a.gpa >= 3) {
+    pathway = 'Direct Master’s (180-point) or a Postgraduate Diploma bridge';
+    pathwayWhy = 'A three-year bachelor’s with a second-upper average gets you into most 180-point master’s. Where a university wants four years of study, its postgraduate diploma credits straight into the master’s.';
+  } else if (a.degree >= 2) {
+    pathway = 'Postgraduate Diploma → Master’s';
+    pathwayWhy = 'A PGDip is the standard route when the bachelor’s average sits below the direct-entry bar. Pass it well and the credits transfer into the master’s, usually adding one semester overall.';
+  } else {
+    pathway = 'Graduate Diploma → Postgraduate study';
+    pathwayWhy = 'A graduate diploma brings an incomplete or unrelated bachelor’s up to the level NZ postgraduate admission expects, and is a recognised entry route rather than a detour.';
+  }
+  if (a.english !== undefined && a.english < 2) {
+    pathwayWhy += ' Your English score is the gate to clear first — every route above needs it.';
+  }
+
+  // `field` is an NZQA subject-area root id on this track (see
+  // PF_QUESTIONS_MASTERS); counts come from the catalogue when it is loaded.
+  const cat = window.PF_CATALOGUE;
+  const T = PF_TRACK.masters;
+  const courses = cat
+    ? cat.quals.filter(q => T.levels.includes(q.l) &&
+        (q.s || []).some(s => cat.taxonomy[s] && cat.taxonomy[s].r === a.field)).length
+    : 0;
+  const providers = cat
+    ? new Set(cat.quals.filter(q => T.levels.includes(q.l) &&
+        (q.s || []).some(s => cat.taxonomy[s] && cat.taxonomy[s].r === a.field))
+        .flatMap(q => q.o)).size
+    : 0;
+  const fieldName = (cat && cat.taxonomy[a.field] && cat.taxonomy[a.field].n) ||
+    (PF_SUBJECT_ROOTS.find(r => r.id === a.field) || {}).name || 'your subject';
+
+  return { track: 'masters', readiness, pathway, pathwayWhy, field: fieldName, subjectArea: a.field,
+           funding: a.funding, timeline: a.timeline, english: a.english, work: a.work,
+           courses, providers, unis: [], labs: [], schols: [] };
 }
 
 function finishAssessment(main) {
@@ -659,13 +839,15 @@ function finishAssessment(main) {
     (cloudOn() && !synced
       ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
           <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
-          <span>You’re <strong>${result.readiness}% PhD-ready</strong>. Create a free account to lock in your result and roadmap across every device.</span>
+          <span>You’re <strong>${result.readiness}% ${esc(trackCfg().label)}-ready</strong>. Create a free account to lock in your result and roadmap across every device.</span>
           <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
         </a>`
       : '') +
     `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
       <a class="btn btn-primary" href="#roadmap">Open my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
-      <a class="btn btn-ghost" href="#explore">Explore matched labs</a>
+      ${isMasters()
+        ? '<a class="btn btn-ghost" href="#courses">Browse matching qualifications</a>'
+        : '<a class="btn btn-ghost" href="#explore">Explore matched labs</a>'}
     </div>`;
 }
 
@@ -686,10 +868,14 @@ function resultCard(r) {
       </div>
     </div>
     <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Field</div><strong>${r.field}</strong></div>
+      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Field</div><strong>${esc(r.field)}</strong></div>
+      ${r.track === 'masters' ? `
+      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Qualifications you could take</div><strong>${r.courses || '—'}</strong></div>
+      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Providers offering them</div><strong>${r.providers || '—'}</strong></div>`
+      : `
       <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched universities</div><strong>${r.unis.length}</strong></div>
       <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched labs</div><strong>${r.labs.length}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Eligible scholarships</div><strong>${r.schols.length}</strong></div>
+      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Eligible scholarships</div><strong>${r.schols.length}</strong></div>`}
     </div>
     ${r.english < 3 ? partnerRow('ielts') : ''}
   </div>`;
@@ -697,6 +883,57 @@ function resultCard(r) {
 
 /* ── 2 · Roadmap ────────────────────────────────────────── */
 function buildRoadmap(r) {
+  return isMasters() ? buildMastersRoadmap(r) : buildPhdRoadmap(r);
+}
+
+/* A master's application runs on the university's calendar, not on a
+   supervisor's goodwill: you pick a programme, apply to an intake, and the
+   deadlines are fixed. So the phases are anchored to the two NZ intakes
+   (February and July) and counted BACKWARDS from the one being targeted —
+   the opposite shape to the PhD roadmap, where discovery comes first and the
+   start date follows whenever a supervisor says yes. */
+function buildMastersRoadmap(r) {
+  const C = PF_CONFIG;
+  const fees = C.mastersFeesIntlPerYear;
+  const phases = [];
+
+  phases.push({ when: '9–12 months out', title: 'Choose the qualification', color: 'teal', consult: 'masters-intake', link: { href: '#courses', label: 'Open the Course Catalogue →' }, items: [
+    r ? `Shortlist 4–6 qualifications in ${r.field} from the catalogue — compare entry requirements line by line, not just the titles`
+      : 'Shortlist 4–6 qualifications from the Course Catalogue and compare their entry requirements',
+    'Check whether each one is 180 points (one year) or 240 points (two) — it changes your fees and your visa funds by a full year',
+    r && r.english < 3 ? 'Book IELTS Academic — target 6.5+ overall with no band below 6.0' : 'English requirement met ✓ — your IELTS certificate is valid for two years',
+  ]});
+
+  phases.push({ when: '8–10 months out', title: 'Credentials & documents', color: 'violet', consult: 'masters-credential', items: [
+    'Order certified transcripts and your degree certificate — Sri Lankan universities can take 4–6 weeks',
+    'Ask two academic referees early; give them your CV and the programmes you are applying to',
+    r && r.degree === 2 ? 'If a university wants four years of study, ask its admissions office directly whether its postgraduate diploma articulates into the master’s' : 'Confirm your degree is recognised for direct entry — admissions offices answer this by email in days',
+  ]});
+
+  phases.push({ when: '6–8 months out', title: 'Apply & fund', color: 'gold', consult: 'masters-sop', link: { href: '#funding', label: 'Open the Scholarship Hub →' }, items: [
+    'Submit applications — most NZ universities charge no application fee and let you apply to several at once',
+    'Write one statement of purpose per programme; a generic one reads as generic (template in the Starter Kit)',
+    r && r.funding !== 'self'
+      ? 'Apply for scholarships in the same cycle — master’s awards have hard deadlines and are NOT automatic with admission, unlike doctoral ones'
+      : `Plan for full international tuition of about ${fundsMoney(fees.lo)}–${fundsMoney(fees.hi)} a year — master’s students get no domestic-fee concession`,
+  ]});
+
+  phases.push({ when: '3–5 months out', title: 'Offer, deposit & visa', color: 'rose', consult: 'visa-evisa', link: { href: '#visa', label: 'Open the Visa Hub →' }, items: [
+    'Accept the offer of place and pay the tuition deposit — the receipt is part of your visa evidence',
+    `Show funds: tuition plus ${fundsMoney(C.visaFundsPerYear)}/yr living costs. Run the Funds Check before you apply, not after`,
+    'Apply for the Student Visa via the INZ eVisa — allow 6–8 weeks',
+    'Medical & chest X-ray at an INZ-approved panel physician in Colombo',
+  ]});
+
+  phases.push({ when: 'Intake month', title: 'Arrive & enrol', color: 'teal', consult: 'settle-arrival', link: { href: '#settlement', label: 'Open the Settle In guide →' }, items: [
+    'IRD number, NZ bank account and a SIM card in week one',
+    'Enrol in courses before orientation — popular papers fill, and a wrong enrolment can cost you a semester',
+    'Check your work rights: 20 hours a week during semester, full-time over the summer break',
+  ]});
+  return phases;
+}
+
+function buildPhdRoadmap(r) {
   const phases = [];
   phases.push({ when: 'Months 1–2', title: 'Foundation', color: 'teal', items: [
     r && r.english < 3 ? 'Book and prepare for IELTS Academic — target 6.5+ overall, no band below 6.0' : 'English requirement met ✓ — keep your IELTS score certificate handy (valid 2 years)',
@@ -705,7 +942,7 @@ function buildRoadmap(r) {
   ]});
   phases.push({ when: 'Months 2–4', title: 'Supervisor Discovery', color: 'violet', consult: 'roadmap-supervisor', items: [
     r ? `Shortlist 8–10 supervisors in ${r.field} across your ${r.unis.length} matched universities` : 'Shortlist 8–10 supervisors across NZ universities',
-    'Send personalized first-contact emails (template in Starter Kit) — expect a 20–30% reply rate',
+    'Send personalized first-contact emails (template in Starter Kit) — most go unanswered, so send more than feels necessary',
     'Track every contact in your Application Dashboard',
   ]});
   phases.push({ when: 'Months 3–6', title: 'Proposal & Application', color: 'gold', consult: 'roadmap-proposal', items: [
@@ -729,12 +966,18 @@ function buildRoadmap(r) {
 }
 
 function renderRoadmap(main) {
+  const T = trackCfg();
   const a = PFStore.getAssessment();
-  const r = a && a.result;
+  // Recompute against the active track so switching tracks re-plans rather
+  // than leaving a PhD pathway attached to a master's roadmap.
+  const r = currentResult();
   const phases = buildRoadmap(r);
-  main.innerHTML = viewHead('route', 'Interactive Roadmap', r ? `Your roadmap to a PhD in ${r.field}` : 'Your PhD roadmap',
-    r ? `Personalized for the <strong>${r.pathway}</strong> pathway, ${({'6m':'starting within 6 months','1y':'starting in about a year','2y':'starting in 1–2 years','explore':'exploration'})[r.timeline] || ''}.`
-      : 'This is the standard NZ PhD timeline. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.') +
+  const when = { '6m':'aiming at the next intake', '1y':'starting in about a year',
+                 '2y':'starting in 1–2 years', 'explore':'exploration' };
+  main.innerHTML = viewHead('route', 'Interactive Roadmap',
+    r ? `Your roadmap to ${T.article} in ${esc(r.field)}` : `Your ${T.label} roadmap`,
+    r ? `Personalized for the <strong>${esc(r.pathway)}</strong> pathway, ${when[r.timeline] || ''}.`
+      : `This is the standard NZ ${T.label} timeline. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.`) +
     `<div class="timeline">${phases.map((p, i) => `
       <div class="tl-phase" data-reveal style="transition-delay:${i * 90}ms">
         <div class="tl-node tl-${p.color}"><span>${i + 1}</span></div>
@@ -1033,6 +1276,71 @@ function ensureCorpus(intake) {
   return ensureCorpusIndex().then(() => ensureField(intake.field)).catch(() => false);
 }
 
+/* ── NZQA course catalogue (sharded) ──────────────────────────────────
+   1,716 current postgraduate qualifications from the NZQA register, with
+   the 51 providers that teach them, generated by
+   scripts/sync-astra-catalogue.js. Same shape as the research corpus
+   above: a small index (assets/js/catalogue.js) holds the taxonomy, the
+   provider directory and a filterable row per qualification; the long
+   prose — entry requirements, graduate profile, employment pathway —
+   lives in per-subject-area shards loaded only when a student opens that
+   subject. Nothing here is fetched until #courses, #explore or #funding
+   is opened, so the dashboard's first paint is unchanged.
+
+   IMPORTANT: catalogue data must never be written through PFStore. Every
+   PFStore key is mirrored to users/{uid}/kv/{key} with no allowlist (see
+   assets/js/firebase.js), and pushing megabytes of catalogue there would
+   blow the Firestore free tier. It stays in module-scope globals. */
+let _cataloguePromise = null;
+function ensureCatalogue() {
+  if (window.PF_CATALOGUE) return Promise.resolve(window.PF_CATALOGUE);
+  if (_cataloguePromise) return _cataloguePromise;
+  _cataloguePromise = _loadScript('assets/js/catalogue.js').then(() => window.PF_CATALOGUE || null);
+  return _cataloguePromise;
+}
+
+const _catShardPromises = {};
+/* Load one subject area's detail shard. Resolves whether or not it succeeds —
+   the Courses view degrades to index-only rows rather than breaking. */
+function ensureSubjectArea(rootId) {
+  window.PF_CAT_SHARD = window.PF_CAT_SHARD || {};
+  if (window.PF_CAT_SHARD[rootId]) return Promise.resolve(true);
+  if (_catShardPromises[rootId]) return _catShardPromises[rootId];
+  _catShardPromises[rootId] = ensureCatalogue().then(cat => {
+    const info = cat && cat.shards && cat.shards[rootId];
+    if (!info) return false;
+    return _loadScript('assets/js/' + info.file).then(() => !!window.PF_CAT_SHARD[rootId]);
+  });
+  return _catShardPromises[rootId];
+}
+
+/* One-off side files: the scholarship register (#funding) and the programme
+   rows that carry real published fees (#courses detail). */
+function _ensureCatFile(global, file, cache) {
+  if (window[global]) return Promise.resolve(true);
+  if (_catShardPromises[cache]) return _catShardPromises[cache];
+  _catShardPromises[cache] = _loadScript('assets/js/catalogue/' + file).then(() => !!window[global]);
+  return _catShardPromises[cache];
+}
+const ensureScholarships = () => _ensureCatFile('PF_CAT_SCHOLARSHIPS', 'scholarships.js', '__sch');
+const ensureProgrammes  = () => _ensureCatFile('PF_CAT_PROGRAMMES', 'programmes.js', '__prg');
+
+/* Full detail for one qualification = its index row + whatever the shard
+   holds. Returns just the row if the shard hasn't loaded (or failed). */
+function qualDetail(row) {
+  const shard = window.PF_CAT_SHARD || {};
+  for (const s of row.s || []) {
+    const root = catTaxon(s) && catTaxon(s).r;
+    if (shard[root] && shard[root][row.i]) return Object.assign({}, row, shard[root][row.i]);
+  }
+  return row;
+}
+
+const catTaxon = id => (window.PF_CATALOGUE && window.PF_CATALOGUE.taxonomy[id]) || null;
+const catProvider = id => (window.PF_CATALOGUE && window.PF_CATALOGUE.providers[id]) || null;
+/* The subject-area roots a qualification belongs to, de-duplicated. */
+const catRoots = row => [...new Set((row.s || []).map(s => catTaxon(s) && catTaxon(s).r).filter(Boolean))];
+
 /* Expand a compact corpus record (short keys) to the standard paper shape. */
 function expandCorpusRec(r) {
   return {
@@ -1199,7 +1507,7 @@ function nzOpportunityPanel(authors) {
   const lead = live ? 'Notice who’s writing the work in your area'
                     : 'Where this field is alive in New Zealand';
   const sub = live
-    ? 'Several of the researchers whose recent papers match your topic are based at New Zealand universities — publishing right now, and supervising doctoral students. A PhD here could put you in the same corridor as them.'
+    ? 'Several of the researchers whose recent papers match your topic are based at New Zealand universities — publishing right now, and supervising doctoral students. A PhD here means working in the same departments they publish from.'
     : 'These New Zealand groups are active in your field — the kind of people you’d be citing, and potentially working alongside, on a doctorate here.';
   const impact = c => c >= 1000 ? (c / 1000).toFixed(c >= 10000 ? 0 : 1) + 'k' : String(c);
   const rows = authors.map(a => {
@@ -1462,6 +1770,32 @@ function startDiscovery() {
 
 function renderResearch(main) {
   const rs = researchState;
+  // Most master's students are on a taught, coursework-only programme and
+  // will never write a research proposal — sending them through a proposal
+  // generator would waste their time and misrepresent what admission needs.
+  // Research master's applicants do need one, so this is a signpost, not a
+  // lock: the intake is one click away.
+  if (isMasters() && !rs.started && !PFStore.getResearch()) {
+    main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Do you need a research proposal?',
+      'Most taught master’s are coursework-only and ask for a statement of purpose, not a proposal.') +
+      `<div class="card" style="max-width:680px">
+        <p style="font-size:14.5px;line-height:1.6">A New Zealand master’s comes in two shapes. A <strong>taught master’s</strong>
+        is coursework and assignments — admission turns on your transcript and a
+        statement of purpose, and no research proposal is required. A <strong>research
+        master’s or MPhil</strong> is thesis-based, and there you do need a proposal and a
+        supervisor who has agreed to take you.</p>
+        <p class="muted" style="font-size:13.5px;margin-top:14px">If you are not sure which
+        yours is, check the qualification in the catalogue — a 120-point thesis component is
+        the giveaway.</p>
+        <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+          <a class="btn btn-primary" href="#kit">Write my statement of purpose</a>
+          <a class="btn btn-ghost" href="#courses">Check my qualification</a>
+          <button class="btn btn-ghost" id="rs-anyway">I’m applying for a research master’s</button>
+        </div>
+      </div>`;
+    $('#rs-anyway').onclick = () => { researchState.started = true; route(); };
+    return;
+  }
   if (!rs.started) {
     const saved = PFStore.getResearch();
     if (saved && saved.proposal) return renderResearchLanding(main, saved);
@@ -1498,9 +1832,9 @@ function renderResearchLanding(main, saved) {
 
 function renderResearchIntake(main) {
   const a = PFStore.getAssessment();
-  const prefField = (a && a.result && a.result.field) || '';
+  const prefField = (currentResult() || {}).field || '';
   const prev = researchState.intake || {};
-  main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Find your PhD topic & draft a proposal',
+  main.innerHTML = viewHead('lightbulb', 'Research Studio', `Find your ${isMasters() ? 'thesis' : 'PhD'} topic & draft a proposal`,
     'Answer a few questions. PathFinder searches real, recent academic literature (free, no sign-up) and turns it into candidate directions and a full proposal draft.') +
     `<div class="card" style="max-width:680px">
       <div class="rs-field">
@@ -1671,7 +2005,7 @@ function renderResearchProposal(main) {
       ${sec('Research questions', `<ol class="rs-ol">${p.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol>`)}
       ${sec('Methodology', `<p>${esc(p.methodology)}</p>`)}
       ${sec('Indicative 3-year timeline', p.timeline.map(t => `<div class="rs-tl"><strong>${t.when}</strong><ul>${t.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join(''))}
-      ${(p.nzAuthors || []).length ? sec('The people behind your citations — in New Zealand', `<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:12px">Several authors of the work you cite above are based at New Zealand universities. These are exactly the kind of researchers a doctoral student in this area works alongside.</p><ul class="rs-sup">${p.nzAuthors.map(a => { const place = (a.home && a.home.uni && a.home.uni.name) || (a.home && a.home.institute) || a.institution; return `<li><strong>${esc(a.name)}</strong>${a.cited ? ' <span class="chip chip-gold">in your citations</span>' : ''}<br><span class="faint" style="font-size:12.5px">${esc(place)}</span></li>`; }).join('')}</ul>`) : ''}
+      ${(p.nzAuthors || []).length ? sec('The people behind your citations — in New Zealand', `<p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:12px">Several authors of the work you cite above are based at New Zealand universities — a reasonable place to start looking for a supervisor in this area.</p><ul class="rs-sup">${p.nzAuthors.map(a => { const place = (a.home && a.home.uni && a.home.uni.name) || (a.home && a.home.institute) || a.institution; return `<li><strong>${esc(a.name)}</strong>${a.cited ? ' <span class="chip chip-gold">in your citations</span>' : ''}<br><span class="faint" style="font-size:12.5px">${esc(place)}</span></li>`; }).join('')}</ul>`) : ''}
       ${(p.groups || []).length ? sec('New Zealand research groups in this space', `<ul class="rs-sup">${p.groups.map(s => `<li><strong>${esc(s.lab)}</strong> — ${esc(s.uni)}<br><span class="faint" style="font-size:12.5px">Group lead: ${esc(s.lead)}. ${esc(s.hint)}</span></li>`).join('')}</ul>`) : ''}
       ${p.refs.length ? sec('References', `<ol class="rs-refs">${p.refs.map(r => `<li>${esc(r)}</li>`).join('')}</ol>`) : `<p class="faint" style="font-size:12.5px">No external citations were fetched. Add 8–12 recent references before submitting.</p>`}
       <p class="rs-disclaimer">Draft scaffold generated by PathFinder — verify every citation and refine with your supervisor before any submission.</p>
@@ -1700,51 +2034,303 @@ document.addEventListener('click', e => {
   toast('Proposal downloaded (.' + fmt + ')');
 });
 
-/* ── 3 · Explore (universities, labs, supervisors) ──────── */
-function renderExplore(main) {
-  const a = PFStore.getAssessment();
-  const myField = a ? a.result.field : '';
-  main.innerHTML = viewHead('science', 'Research Lab Explorer', 'Universities, labs & supervisors',
-    'All eight NZ universities and their flagship research groups. Filter by field, save what fits, then reach out with the Starter Kit email template.') +
-    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px" id="field-filters">
-      <button class="chip-filter ${!myField ? 'active' : ''}" data-f="">All fields</button>
-      ${PF_FIELDS.map(f => `<button class="chip-filter ${f === myField ? 'active' : ''}" data-f="${f}">${f}</button>`).join('')}
-    </div>
-    <div id="explore-list"></div>`;
+/* ── 2c · Courses (the NZQA postgraduate catalogue) ──────────
+   The register itself, browsable: 1,716 current postgraduate
+   qualifications across the 51 providers that teach them — 8 universities,
+   14 polytechnics and 29 private colleges — indexed by the NZQA
+   subject-area taxonomy. The provider list is derived from the data rather
+   than from NZQA's category, because category is a poor proxy: most private
+   colleges teach only certificates, but 29 of them award master's degrees.
 
-  function paint(field) {
-    const unis = PF_UNIVERSITIES.filter(u => !field || u.strengths.includes(field));
-    $('#explore-list').innerHTML = unis.map(u => {
-      const labs = PF_LABS.filter(l => l.uni === u.id && (!field || l.field === field));
-      return `<div class="card" style="margin-bottom:18px">
-        <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
-          <div>
-            <h3 style="font-size:1.15rem">${u.name}</h3>
-            <p class="faint" style="font-size:13px;margin-top:2px">${u.city} · ${u.rank} · ${u.phdFee}</p>
-          </div>
-          ${saveBtn('uni', u.id)}
+   Search is client-side substring matching, deliberately. The Astra
+   collections are configured for vector search but hold no embeddings,
+   so there is no semantic option; at 1,716 rows a plain scan is instant
+   anyway and works with the network off. */
+let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '', open: null };
+
+function renderCourses(main) {
+  const T = trackCfg();
+  main.innerHTML = viewHead('school', 'Course Catalogue', `Find ${T.article} that fits`,
+    'Loading the NZQA register…') + '<p class="muted">Loading…</p>';
+
+  ensureCatalogue().then(cat => {
+    if (!cat) {
+      main.innerHTML = viewHead('school', 'Course Catalogue', 'Course catalogue unavailable',
+        'The catalogue could not be loaded. Check your connection and refresh — everything else in PathFinder still works.');
+      return;
+    }
+    // First visit lands on the subject area matching the student's
+    // assessment, so the catalogue opens somewhere personal.
+    if (coursesState.root === null) coursesState.root = defaultCourseRoot(cat);
+    paintCourses(main, cat);
+  });
+}
+
+/* Subject area to open by default: the one the student's assessed field maps
+   to (PF_FIELD_TO_SUBJECT_AREA), else no filter. */
+function defaultCourseRoot(cat) {
+  const r = currentResult();
+  if (!r) return '';
+  // The master's result carries the NZQA root id in `subjectArea` (its `field`
+  // is the human-readable name); the PhD result carries a PF_FIELDS name.
+  const root = r.subjectArea || fieldAsSubjectArea(r.field);
+  return root && cat.shards[root] ? root : '';
+}
+
+/* The rows matching the current filters, always scoped to the active track's
+   levels so a master's student never has to wade through doctorates. */
+function coursesMatching(cat) {
+  const T = trackCfg();
+  const q = coursesState.q.trim().toLowerCase();
+  const rows = cat.quals.filter(row => {
+    if (!T.levels.includes(row.l) && !(row.l === '8 - 9' && T.levels.includes('9'))) return false;
+    if (coursesState.root && !catRoots(row).includes(coursesState.root)) return false;
+    if (coursesState.sub && !(row.s || []).includes(coursesState.sub)) return false;
+    if (coursesState.level && row.l !== coursesState.level) return false;
+    if (coursesState.type && row.y !== coursesState.type) return false;
+    if (coursesState.org && !row.o.includes(coursesState.org)) return false;
+    if (q && !row.t.toLowerCase().includes(q) &&
+        !row.o.some(o => (catProvider(o) || {}).name?.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  /* Ordering matters more than it looks. The register is full of near-identical
+     titles (the same honours degree offered by six universities is six rows,
+     each with its own NZQA id), so a plain alphabetical sort opens the
+     catalogue on a wall of duplicates. Leading with the qualification type the
+     track is actually about — a Master's degree, or a Doctorate — puts the
+     thing the student came for on the first screen, with the bridging
+     qualifications below it in the order you would consider them. */
+  const rank = t => {
+    const i = T.qualTypes.indexOf(t);
+    return i === -1 ? T.qualTypes.length : i;
+  };
+  return rows.sort((a, b) => rank(a.y) - rank(b.y) || a.t.localeCompare(b.t));
+}
+
+function paintCourses(main, cat) {
+  const T = trackCfg();
+  const rows = coursesMatching(cat);
+  const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : 'every subject';
+
+  main.innerHTML = viewHead('school', 'Course Catalogue',
+    `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
+    `Every current NZQF level ${T.levels.join(' and ')} qualification on the NZQA register, and the ` +
+    `${cat.meta.providerCount} providers that teach them. ` +
+    `Showing <strong>${T.label}</strong>-level study in ${esc(rootName)}.`) +
+
+    `<div class="crs-bar">
+      <input class="crs-search" id="crs-q" type="search" placeholder="Search by qualification or provider…"
+        value="${esc(coursesState.q)}" aria-label="Search courses" />
+      <select class="crs-sel" id="crs-level" aria-label="Filter by level">
+        <option value="">All levels</option>
+        ${T.levels.map(l => `<option value="${l}" ${coursesState.level === l ? 'selected' : ''}>Level ${l}</option>`).join('')}
+      </select>
+      <select class="crs-sel" id="crs-type" aria-label="Filter by qualification type">
+        <option value="">All types</option>
+        ${T.qualTypes.map(t => `<option value="${esc(t)}" ${coursesState.type === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+      </select>
+      <select class="crs-sel" id="crs-org" aria-label="Filter by provider">
+        <option value="">All providers</option>
+        ${Object.entries(cat.providers).sort((a, b) => a[1].name.localeCompare(b[1].name))
+          .map(([id, p]) => `<option value="${id}" ${coursesState.org === id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="crs-rail" id="crs-rail">
+      <button class="chip-filter ${!coursesState.root ? 'active' : ''}" data-root="">All subjects</button>
+      ${cat.roots.map(r => `<button class="chip-filter ${coursesState.root === r ? 'active' : ''}"
+        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="crs-n">${cat.shards[r].count}</span></button>`).join('')}
+    </div>
+    ${coursesState.root ? subAreaRail(cat) : ''}
+
+    <p class="faint crs-count">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
+    <div id="crs-list">${rows.length
+      ? rows.map(courseRow).join('')
+      : '<p class="muted">Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
+
+    <p class="faint" style="margin-top:28px;font-size:12px">
+      Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
+      requirements and fees with the provider before you apply.</p>`;
+
+  // Loading the shard fills in the prose behind each row's detail panel.
+  if (coursesState.root) ensureSubjectArea(coursesState.root);
+
+  const rerender = () => paintCourses(main, cat);
+  $$('#crs-rail .chip-filter').forEach(b => b.onclick = () => {
+    coursesState.root = b.dataset.root; coursesState.sub = null; coursesState.open = null;
+    rerender();
+    if (coursesState.root) ensureSubjectArea(coursesState.root).then(rerender);
+  });
+  $$('#crs-sub .chip-filter').forEach(b => b.onclick = () => {
+    coursesState.sub = b.dataset.sub || null; coursesState.open = null; rerender();
+  });
+  ['level', 'type', 'org'].forEach(k => {
+    const el = $('#crs-' + k);
+    if (el) el.onchange = () => { coursesState[k] = el.value; coursesState.open = null; rerender(); };
+  });
+  const search = $('#crs-q');
+  let debounce;
+  search.oninput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      coursesState.q = search.value; coursesState.open = null;
+      rerender();
+      const s = $('#crs-q'); s.focus(); s.setSelectionRange(s.value.length, s.value.length);
+    }, 220);
+  };
+
+  $$('#crs-list .crs-head').forEach(h => h.onclick = e => {
+    if (e.target.closest('.save-btn')) return;   // saving must not toggle the panel
+    const id = h.parentElement.dataset.id;
+    coursesState.open = coursesState.open === id ? null : id;
+    rerender();
+    if (!coursesState.open) return;
+    // The prose for this course lives in its subject-area shard, which is NOT
+    // loaded when browsing "All subjects" — fetch it (plus the programme rows
+    // that carry the only real fee figures) before painting the panel.
+    const row = cat.quals.find(q => q.i === id);
+    const roots = row ? catRoots(row) : [];
+    Promise.all([ensureProgrammes()].concat(roots.map(ensureSubjectArea))).then(rerender);
+  });
+}
+
+/* Level-2 sub-areas inside the chosen subject area, with counts — the second
+   step of the drill-down. Only shows sub-areas that actually have courses. */
+function subAreaRail(cat) {
+  const counts = {};
+  cat.quals.forEach(row => {
+    if (!catRoots(row).includes(coursesState.root)) return;
+    (row.s || []).forEach(s => {
+      const t = catTaxon(s);
+      if (!t || t.r !== coursesState.root) return;
+      const l2 = t.l === 2 ? s : t.l === 3 ? t.p : null;
+      if (l2) counts[l2] = (counts[l2] || 0) + 1;
+    });
+  });
+  const subs = Object.keys(counts).sort((a, b) => catTaxon(a).n.localeCompare(catTaxon(b).n));
+  if (!subs.length) return '';
+  return `<div class="crs-rail crs-rail-sub" id="crs-sub">
+    <button class="chip-filter ${!coursesState.sub ? 'active' : ''}" data-sub="">All of ${esc(cat.taxonomy[coursesState.root].n)}</button>
+    ${subs.map(s => `<button class="chip-filter ${coursesState.sub === s ? 'active' : ''}"
+      data-sub="${s}">${esc(catTaxon(s).n)} <span class="crs-n">${counts[s]}</span></button>`).join('')}
+  </div>`;
+}
+
+function courseRow(row) {
+  const open = coursesState.open === row.i;
+  const providers = row.o.map(catProvider).filter(Boolean);
+  return `<div class="card crs-card" data-id="${esc(row.i)}">
+    <div class="crs-head">
+      <div style="flex:1;min-width:240px">
+        <h3 style="font-size:1.02rem;line-height:1.35">${esc(row.t)}</h3>
+        <div class="faint" style="font-size:12.5px;margin-top:4px">
+          ${esc(providers.map(p => p.name).join(' · ') || 'Provider not listed')}
         </div>
-        <p class="muted" style="font-size:13.5px;margin:10px 0 14px">${u.note}</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${labs.length ? '16px' : 0}">
-          ${u.strengths.map(s => `<span class="chip chip-dim">${s}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="chip chip-dim">Level ${esc(row.l)}</span>
+        ${row.c ? `<span class="chip chip-dim">${esc(row.c)} credits</span>` : ''}
+        ${saveBtn('course', row.i, row.t, providers.map(p => p.name).join(' · '))}
+        <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
+      </div>
+    </div>
+    ${open ? courseDetail(row, providers) : ''}
+  </div>`;
+}
+
+function courseDetail(row, providers) {
+  const d = qualDetail(row);
+  const progs = (window.PF_CAT_PROGRAMMES || []).filter(p => p.q === row.i && (p.intlFee || p.domesticFee));
+  const sect = (label, body) => body
+    ? `<div class="crs-sect"><div class="crs-lbl">${label}</div><p>${esc(body)}</p></div>` : '';
+
+  return `<div class="crs-body">
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">
+      <span class="chip chip-teal">${esc(row.y)}</span>
+      ${catRoots(row).map(r => `<span class="chip chip-dim">${esc(catTaxon(r).n)}</span>`).join('')}
+    </div>
+    ${sect('Entry requirements', d.entryRequirements)}
+    ${sect('What it is for', d.strategicPurposeStatement)}
+    ${sect('Graduate profile', d.graduateProfile)}
+    ${sect('Where it leads — further study', d.educationPathway)}
+
+    ${progs.length ? `<div class="crs-sect">
+      <div class="crs-lbl">Published fees</div>
+      ${progs.map(p => `<p style="margin-bottom:6px">${esc(p.n)} —
+        ${p.intlFee ? `<strong>international ${esc(p.intlFee)}</strong>` : ''}
+        ${p.domesticFee ? `<span class="faint">· domestic ${esc(p.domesticFee)}</span>` : ''}</p>`).join('')}
+      <p class="faint" style="font-size:12px">Published by the provider — most providers list fees on their own site only.</p>
+    </div>` : `<div class="crs-sect">
+      <div class="crs-lbl">Fees</div>
+      <p class="muted">Not published in the NZQA register. ${isMasters()
+        ? `Budget <strong>${fundsMoney(PF_CONFIG.mastersFeesIntlPerYear.lo)}–${fundsMoney(PF_CONFIG.mastersFeesIntlPerYear.hi)} a year</strong> for international master's tuition and confirm with the provider.`
+        : `PhD candidates pay the domestic rate, roughly <strong>${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)} a year</strong>.`}</p>
+    </div>`}
+
+    <div class="crs-sect">
+      <div class="crs-lbl">Offered by</div>
+      ${providers.map(p => `<div class="crs-prov">
+        <div><strong>${esc(p.name)}</strong>
+          <div class="faint" style="font-size:12.5px">${esc(p.location || p.address || '')}</div></div>
+        <div class="crs-prov-links">
+          ${p.website ? `<a href="https://${esc(p.website.replace(/^https?:\/\//, ''))}" target="_blank" rel="noopener">Website</a>` : ''}
+          ${p.email ? `<a href="mailto:${esc(p.email)}">Email</a>` : ''}
         </div>
-        ${labs.map(l => `
-          <div class="lab-row">
-            <div style="flex:1;min-width:220px">
-              <strong style="font-size:14px">${l.name}</strong>
-              <div class="faint" style="font-size:12.5px;margin-top:2px">
-                <span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">person</span> ${l.supervisor}
-                &nbsp;·&nbsp; ${l.topics.join(' · ')}
-              </div>
-              <div style="font-size:12.5px;color:var(--ochre);margin-top:5px;font-family:var(--font-mono)">N.B. — ${l.hint}</div>
-            </div>
-            ${saveBtn('lab', l.id)}
-          </div>`).join('')}
-        ${labs.length ? consultCTA('roadmap-supervisor') : ''}
-      </div>`;
-    }).join('') || '<p class="muted">No universities match this field.</p>';
-  }
+      </div>`).join('')}
+    </div>
+
+    ${d.nzqaLink ? `<a class="btn btn-ghost btn-sm" href="${esc(d.nzqaLink)}" target="_blank" rel="noopener">
+      View on NZQA <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
+    ${consultCTA(isMasters() ? 'masters-intake' : 'roadmap-supervisor')}
+  </div>`;
+}
+
+/* ── 3 · Explore (providers, labs, supervisors) ──────────────
+   The eight universities carry curated research detail — labs, named
+   supervisors, QS rank — that nothing in the NZQA dataset can replace, so
+   they stay hand-written. What the catalogue adds is the other 43 providers:
+   polytechnics and private colleges that teach real postgraduate
+   qualifications (Yoobee's three master's degrees, Whitecliffe's ten
+   postgraduate qualifications, Media Design School's six), plus a live
+   per-provider qualification count and contact details the static dataset
+   never had.
+
+   Labs and supervisors are PhD-track only: a taught master's applicant
+   picks a programme, not a principal investigator. */
+function renderExplore(main) {
+  const T = trackCfg();
+  const a = PFStore.getAssessment();
+  const myField = (!isMasters() && currentResult()) ? currentResult().field : '';
+
+  main.innerHTML = viewHead('science', isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
+    isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
+    isMasters()
+      ? 'Every New Zealand provider that teaches postgraduate qualifications — universities, polytechnics and private colleges — with what each one offers and how to reach them.'
+      : 'The eight NZ universities and their main research groups. Filter by field, save what fits, then write using the Starter Kit template.') +
+    (isMasters() ? '' :
+      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px" id="field-filters">
+        <button class="chip-filter ${!myField ? 'active' : ''}" data-f="">All fields</button>
+        ${PF_FIELDS.map(f => `<button class="chip-filter ${f === myField ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}
+      </div>`) +
+    '<div id="explore-list"></div>';
+
+  // Curated universities first, then the other providers the catalogue adds.
+  const paint = field => {
+    $('#explore-list').innerHTML =
+      PF_UNIVERSITIES.filter(u => !field || u.strengths.includes(field)).map(u => uniCard(u, field)).join('') +
+      polytechCards();
+    $$('#explore-list .crs-head').forEach(h => h.onclick = e => {
+      if (e.target.closest('.save-btn')) return;
+      const id = h.parentElement.dataset.id;
+      exploreOpen = exploreOpen === id ? null : id;
+      paint(field);
+    });
+  };
+
+  ensureCatalogue().then(() => paint(myField));
   paint(myField);
+
   $$('#field-filters .chip-filter').forEach(b => b.onclick = () => {
     $$('#field-filters .chip-filter').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
@@ -1752,45 +2338,276 @@ function renderExplore(main) {
   });
 }
 
-/* ── 4 · Funding (scholarships + visa) ──────────────────── */
-function renderFunding(main) {
-  const a = PFStore.getAssessment();
-  const matched = a ? new Set(a.result.schols) : null;
-  main.innerHTML = viewHead('payments', 'Scholarship & Funding Hub', 'Fund your PhD',
-    'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend.' +
-    (matched ? ' Scholarships matching your assessment are highlighted.' : '')) +
-    fundsCheckBanner() +
-    `<div class="grid-2">${PF_SCHOLARSHIPS.map(s => `
-      <div class="card" ${matched && matched.has(s.id) ? 'style="border-color:var(--route)"' : ''}>
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <h3 style="font-size:1.02rem;line-height:1.35">${s.name}</h3>
-          ${saveBtn('scholarship', s.id)}
-        </div>
-        <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap">
-          <span class="chip chip-teal">${s.value}</span>
-          <span class="chip chip-gold">Deadline: ${s.deadline}</span>
-          <span class="chip chip-dim">${s.fields}</span>
-        </div>
-        <p class="muted" style="font-size:13.5px">${s.eligibility}</p>
-        <p class="faint" style="font-size:12px;margin-top:10px">↗ ${s.link}</p>
-        ${consultCTA('visa-offer')}
-      </div>`).join('')}
-    </div>
+let exploreOpen = null;
 
-    <div class="sec-head" style="margin:72px 0 28px">
-      <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">flight_takeoff</span>Immigration & Visa</span>
-      <h2 style="font-size:1.6rem;margin-top:14px">Latest visa updates for PhD students</h2>
+/* Count of in-scope postgraduate qualifications a provider teaches, from the
+   catalogue index. 0 until the index loads — the caller hides it then. */
+function providerQualCount(orgId) {
+  const cat = window.PF_CATALOGUE;
+  if (!cat) return 0;
+  const levels = trackCfg().levels;
+  return cat.quals.filter(q => q.o.includes(orgId) && levels.includes(q.l)).length;
+}
+
+/* Resolve one of the eight curated universities to its NZQA provider id, so
+   the curated card can show live counts and real contact details. */
+function catOrgForUni(uni) {
+  const cat = window.PF_CATALOGUE;
+  if (!cat) return null;
+  const m = PF_UNI_MATCH.find(x => x.id === uni.id);
+  const hit = Object.entries(cat.providers).find(([, p]) => p.type === 'universities' && m && m.re.test(p.name));
+  return hit ? hit[0] : null;
+}
+
+function uniCard(u, field) {
+  const labs = isMasters() ? [] : PF_LABS.filter(l => l.uni === u.id && (!field || l.field === field));
+  const orgId = catOrgForUni(u);
+  const n = orgId ? providerQualCount(orgId) : 0;
+  const p = orgId ? catProvider(orgId) : null;
+  return `<div class="card" style="margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <h3 style="font-size:1.15rem">${esc(u.name)}</h3>
+        <p class="faint" style="font-size:13px;margin-top:2px">${esc(u.city)} · ${esc(u.rank)}${isMasters() ? '' : ' · ' + esc(u.phdFee)}</p>
+      </div>
+      ${saveBtn('uni', u.id)}
     </div>
-    <div>${PF_VISA_UPDATES.map(v => `
+    <p class="muted" style="font-size:13.5px;margin:10px 0 14px">${u.note}</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${labs.length ? '16px' : '10px'}">
+      ${u.strengths.map(s => `<span class="chip chip-dim">${esc(s)}</span>`).join('')}
+    </div>
+    ${n ? `<a class="btn btn-ghost btn-sm" href="#courses">${n} ${trackCfg().label}-level qualification${n === 1 ? '' : 's'}
+      <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>` : ''}
+    ${p && p.website ? `<a class="btn btn-ghost btn-sm" href="https://${esc(p.website.replace(/^https?:\/\//, ''))}"
+      target="_blank" rel="noopener" style="margin-left:8px">Website</a>` : ''}
+    ${labs.map(l => `
+      <div class="lab-row">
+        <div style="flex:1;min-width:220px">
+          <strong style="font-size:14px">${esc(l.name)}</strong>
+          <div class="faint" style="font-size:12.5px;margin-top:2px">
+            <span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">person</span> ${esc(l.supervisor)}
+            &nbsp;·&nbsp; ${l.topics.map(esc).join(' · ')}
+          </div>
+          <div style="font-size:12.5px;color:var(--ochre);margin-top:5px;font-family:var(--font-mono)">N.B. — ${esc(l.hint)}</div>
+        </div>
+        ${saveBtn('lab', l.id)}
+      </div>`).join('')}
+    ${labs.length ? consultCTA('roadmap-supervisor') : ''}
+  </div>`;
+}
+
+/* Every other provider teaching postgraduate study — polytechnics and the
+   private colleges NZQA files as PTEs. No curated research detail exists for
+   them, so they render as a compact expandable list rather than pretending to
+   a university card. */
+function polytechCards() {
+  const cat = window.PF_CATALOGUE;
+  if (!cat) return '';
+  const rows = Object.entries(cat.providers)
+    .filter(([id, p]) => p.type !== 'universities' && providerQualCount(id) > 0)
+    .sort((a, b) => providerQualCount(b[0]) - providerQualCount(a[0]) || a[1].name.localeCompare(b[1].name));
+  if (!rows.length) return '';
+
+  return `<div class="sec-head" style="margin:44px 0 18px">
+      <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">domain</span>Polytechnics & private colleges</span>
+      <h2 style="font-size:1.35rem;margin-top:12px">${rows.length} more providers teaching postgraduate qualifications</h2>
+      <p class="muted" style="font-size:13.5px;margin-top:6px">Applied and industry-facing postgraduate diplomas and master's, often with
+        later application deadlines than the universities. Listed by how much postgraduate study each one teaches.</p>
+    </div>` +
+    rows.map(([id, p]) => {
+      const n = providerQualCount(id);
+      const open = exploreOpen === id;
+      return `<div class="card crs-card" data-id="${esc(id)}">
+        <div class="crs-head">
+          <div style="flex:1;min-width:220px">
+            <strong style="font-size:14.5px">${esc(p.name)}</strong>
+            <div class="faint" style="font-size:12.5px;margin-top:2px">${esc(p.location || p.address || '')}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="chip chip-dim">${n} qualification${n === 1 ? '' : 's'}</span>
+            ${saveBtn('provider', id, p.name, p.location)}
+            <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
+          </div>
+        </div>
+        ${open ? `<div class="crs-body">
+          <div class="crs-sect">
+            <div class="crs-lbl">Contact</div>
+            ${p.address ? `<p>${esc(p.address)}</p>` : ''}
+            ${p.phone ? `<p>${esc(p.phone)}</p>` : ''}
+            <div class="crs-prov-links" style="margin-top:8px">
+              ${p.website ? `<a href="https://${esc(p.website.replace(/^https?:\/\//, ''))}" target="_blank" rel="noopener">Website</a>` : ''}
+              ${p.email ? `<a href="mailto:${esc(p.email)}">Email</a>` : ''}
+              ${p.providerLink ? `<a href="${esc(p.providerLink)}" target="_blank" rel="noopener">NZQA profile</a>` : ''}
+            </div>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="#courses">See its qualifications
+            <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+}
+
+/* ── 4 · Funding (scholarships + visa) ──────────────────────
+   281 real scholarships from the NZQA-linked provider register, replacing
+   the eight hand-written doctoral awards that shipped originally. Those
+   eight are kept as PF_SCHOLARSHIPS and still render if the shard fails to
+   load, so the view degrades rather than emptying.
+
+   Master's funding is a genuinely different problem from PhD funding, and
+   the copy says so: doctoral awards are largely automatic with admission
+   and cover fees plus a stipend, while master's awards are competitive,
+   deadline-bound, and usually discount fees only. */
+let fundingState = { level: '', intlOnly: false, org: '' };
+
+function renderFunding(main) {
+  ensureScholarships().then(() => ensureCatalogue()).then(() => paintFunding(main));
+  paintFunding(main);
+}
+
+function paintFunding(main) {
+  const T = trackCfg();
+  const list = window.PF_CAT_SCHOLARSHIPS || null;
+  const masters = isMasters();
+
+  main.innerHTML = viewHead('payments', 'Scholarship & Funding Hub', `Fund ${T.possessive}`,
+    masters
+      ? 'Master’s students pay full international tuition and there is no NZ equivalent of the doctoral stipend — so scholarships here mostly discount fees, have hard deadlines, and are not automatic with admission. Apply early and apply widely.'
+      : 'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend, awarded with admission rather than by separate application.') +
+    fundsCheckBanner() +
+    (list ? scholarshipBrowser(list) : legacyScholarships()) +
+
+    `<div class="sec-head" style="margin:72px 0 28px">
+      <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">flight_takeoff</span>Immigration & Visa</span>
+      <h2 style="font-size:1.6rem;margin-top:14px">Latest visa updates for ${masters ? 'master’s' : 'PhD'} students</h2>
+    </div>
+    <div>${visaUpdates().map(v => `
       <div class="visa-row">
-        <span class="chip chip-violet" style="flex-shrink:0">${v.tag}</span>
+        <span class="chip chip-violet" style="flex-shrink:0">${esc(v.tag)}</span>
         <div>
-          <strong style="font-size:14.5px">${v.title}</strong>
-          <span class="faint" style="font-size:12px;margin-left:8px">${v.date}</span>
-          <p class="muted" style="font-size:13.5px;margin-top:4px">${v.body}</p>
+          <strong style="font-size:14.5px">${esc(v.title)}</strong>
+          <span class="faint" style="font-size:12px;margin-left:8px">${esc(v.date)}</span>
+          <p class="muted" style="font-size:13.5px;margin-top:4px">${esc(v.body)}</p>
         </div>
       </div>`).join('')}
     </div>`;
+
+  const rerender = () => paintFunding(main);
+  ['level', 'org'].forEach(k => {
+    const el = $('#fh-' + k);
+    if (el) el.onchange = () => { fundingState[k] = el.value; rerender(); };
+  });
+  const intl = $('#fh-intl');
+  if (intl) intl.onchange = () => { fundingState.intlOnly = intl.checked; rerender(); };
+}
+
+/* Which studyLevels tags belong to the active track. "General" and
+   "Postgraduate" appear on both because providers use them as catch-alls. */
+function scholarshipLevels() {
+  return isMasters()
+    ? ['Masters', 'Postgraduate', 'General']
+    : ['PhD / Doctorate', 'Postgraduate', 'General'];
+}
+
+function scholarshipBrowser(list) {
+  const cat = window.PF_CATALOGUE;
+  const want = scholarshipLevels();
+  const rows = list.filter(s => {
+    if (!(s.levels || []).some(l => want.includes(l))) return false;
+    if (fundingState.level && !(s.levels || []).includes(fundingState.level)) return false;
+    if (fundingState.org && s.o !== fundingState.org) return false;
+    // Sri Lankan students are international students, so a domestic-only
+    // award is not merely lower priority — it is not open to them at all.
+    if ((s.eligibility || {}).domesticOnly) return false;
+    if (fundingState.intlOnly && !(s.eligibility || {}).internationalOnly) return false;
+    return true;
+  });
+
+  /* Providers publish a lot of catch-all pages — "General Scholarship",
+     "scholarships FAQs" — with no stated value and no closing date. They are
+     real entries, but a student cannot act on them, so anything carrying a
+     dollar figure and a specific level tag sorts above them. */
+  const actionable = s => {
+    let score = 0;
+    if ((s.values || []).some(v => /\d/.test(v.value || ''))) score -= 4;
+    if (!/refer to website|open all year/i.test(s.closing || '')) score -= 2;
+    if ((s.levels || []).some(l => l !== 'General')) score -= 1;
+    return score;
+  };
+  rows.sort((a, b) => actionable(a) - actionable(b) || a.n.localeCompare(b.n));
+
+  const orgs = [...new Set(list.map(s => s.o))]
+    .map(id => [id, cat && cat.providers[id]]).filter(([, p]) => p)
+    .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+  return `<div class="crs-bar">
+      <select class="crs-sel" id="fh-level" aria-label="Filter by study level">
+        <option value="">All ${isMasters() ? 'master’s-level' : 'doctoral-level'} awards</option>
+        ${want.map(l => `<option value="${esc(l)}" ${fundingState.level === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+      </select>
+      <select class="crs-sel" id="fh-org" aria-label="Filter by provider">
+        <option value="">All providers</option>
+        ${orgs.map(([id, p]) => `<option value="${id}" ${fundingState.org === id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      </select>
+      <label class="fh-check"><input type="checkbox" id="fh-intl" ${fundingState.intlOnly ? 'checked' : ''} />
+        Open to international students only</label>
+    </div>
+    <p class="faint crs-count">${rows.length} scholarship${rows.length === 1 ? '' : 's'}</p>
+    <div class="grid-2">${rows.map(s => scholarshipCard(s, cat)).join('') ||
+      '<p class="muted">Nothing matches those filters yet — try clearing the provider or level.</p>'}</div>
+    <p class="faint" style="margin-top:22px;font-size:12px">Sourced from provider scholarship pages via the NZQA register.
+      Values and closing dates change every year — confirm on the provider’s own page before you rely on one.</p>`;
+}
+
+function scholarshipCard(s, cat) {
+  const provider = cat && cat.providers[s.o];
+  // `values` and `lengths` are condition-keyed: an award can be worth one
+  // thing to a domestic student and another to an international one, so we
+  // show every condition rather than collapsing to a single headline figure.
+  const values = (s.values || []).filter(v => v.value);
+  const el = s.eligibility || {};
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+      <h3 style="font-size:1.02rem;line-height:1.35">${esc(s.n)}</h3>
+      ${saveBtn('scholarship', s.i, s.n, provider ? provider.name : '')}
+    </div>
+    <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap">
+      ${values.map(v => `<span class="chip chip-teal">${esc(v.value)}${
+        v.condition && v.condition !== 'NoCondition' ? ` (${esc(v.condition)})` : ''}</span>`).join('')}
+      <span class="chip chip-gold">Closes: ${esc(s.closing || 'Refer to website')}</span>
+      ${(s.levels || []).map(l => `<span class="chip chip-dim">${esc(l)}</span>`).join('')}
+      ${el.internationalOnly ? '<span class="chip chip-violet">International students</span>' : ''}
+    </div>
+    ${provider ? `<p class="faint" style="font-size:12.5px;margin-bottom:8px">${esc(provider.name)}</p>` : ''}
+    <p class="muted" style="font-size:13.5px">${esc((s.about || '').slice(0, 320))}${(s.about || '').length > 320 ? '…' : ''}</p>
+    ${el.other ? `<p class="muted" style="font-size:13px;margin-top:8px"><strong>Eligibility:</strong> ${esc(el.other)}</p>` : ''}
+    ${s.url ? `<a class="btn btn-ghost btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-top:12px">
+      Provider page <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
+    ${consultCTA(isMasters() ? 'masters-intake' : 'visa-offer')}
+  </div>`;
+}
+
+/* Fallback when the scholarship shard can't load — the original eight
+   curated doctoral awards, so the view is never empty. */
+function legacyScholarships() {
+  const a = PFStore.getAssessment();
+  const cr = currentResult();
+  const matched = cr && cr.schols ? new Set(cr.schols) : null;
+  return `<div class="grid-2">${PF_SCHOLARSHIPS.map(s => `
+    <div class="card" ${matched && matched.has(s.id) ? 'style="border-color:var(--route)"' : ''}>
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <h3 style="font-size:1.02rem;line-height:1.35">${esc(s.name)}</h3>
+        ${saveBtn('scholarship', s.id)}
+      </div>
+      <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="chip chip-teal">${esc(s.value)}</span>
+        <span class="chip chip-gold">Deadline: ${esc(s.deadline)}</span>
+        <span class="chip chip-dim">${esc(s.fields)}</span>
+      </div>
+      <p class="muted" style="font-size:13.5px">${esc(s.eligibility)}</p>
+      <p class="faint" style="font-size:12px;margin-top:10px">↗ ${esc(s.link)}</p>
+      ${consultCTA('visa-offer')}
+    </div>`).join('')}
+  </div>`;
 }
 
 /* ── Visa funds-readiness check (#funds) ────────────────────────────
@@ -1802,9 +2619,15 @@ function renderFunding(main) {
    upsell to a mentor funds-evidence review + forex partner. */
 let fundsState = { step: 0, answers: {}, retake: false };
 
-const FUNDS_Q = [
+/* The tuition and stipend questions are the ones that differ by track, and
+   they are the ones that move the number most. A PhD candidate pays the
+   domestic rate and usually holds a stipend; a master's student pays full
+   international tuition and NZ has no master's stipend to hold. Asking a
+   master's applicant the doctoral questions would understate their
+   requirement by tens of thousands of dollars a year. */
+const FUNDS_Q_PHD = [
   { id: 'tuition', q: 'Will a scholarship cover your PhD tuition?',
-    help: 'Good news: international PhD students in NZ pay domestic fees (~NZ$7–9k/yr), far below other countries.',
+    help: 'International PhD students in NZ pay the domestic rate, about NZ$7–9k a year. Master\u2019s students do not — this question is about the doctoral fee.',
     opts: [
       { t: 'Yes — a scholarship covers my fees', v: 'scholarship' },
       { t: 'No — I’ll pay the domestic PhD fees myself', v: 'self' },
@@ -1817,6 +2640,27 @@ const FUNDS_Q = [
       { t: 'Partial / a smaller award', v: 'partial' },
       { t: 'None — I’ll show my own funds', v: 'none' },
     ] },
+];
+
+const FUNDS_Q_MASTERS = [
+  { id: 'tuition', q: 'How much is your programme’s international tuition?',
+    help: 'Master’s students pay FULL international fees — there is no domestic-fee concession like the one PhD candidates get. Most 180-point master’s land between NZ$32,000 and NZ$48,000 a year.',
+    opts: [
+      { t: 'Under NZ$35,000 a year', v: 'low' },
+      { t: 'NZ$35,000–45,000 a year', v: 'mid' },
+      { t: 'Over NZ$45,000 a year', v: 'high' },
+      { t: 'I don’t know yet', v: 'unsure' },
+    ] },
+  { id: 'stipend', q: 'Do you hold a scholarship toward fees or living costs?',
+    help: 'Master’s scholarships are competitive, have hard deadlines, and are not automatic with admission — unlike doctoral awards. Most cover part of the fees rather than living costs.',
+    opts: [
+      { t: 'Yes — a full-fees scholarship', v: 'full' },
+      { t: 'A partial award', v: 'partial' },
+      { t: 'None — I’m funding it myself', v: 'none' },
+    ] },
+];
+
+const FUNDS_Q_COMMON = [
   { id: 'who', q: 'Who is moving to New Zealand with you?',
     help: 'INZ expects extra maintenance funds for an accompanying partner or children.',
     opts: [
@@ -1842,6 +2686,8 @@ const FUNDS_Q = [
     ] },
 ];
 
+const fundsQuestions = () => (isMasters() ? FUNDS_Q_MASTERS : FUNDS_Q_PHD).concat(FUNDS_Q_COMMON);
+
 const fundsMoney = n => 'NZ$' + Math.round(n).toLocaleString();
 const fundsLkr = n => 'LKR ' + Math.round(n * (PF_CONFIG.nzdToLkr || 185)).toLocaleString();
 
@@ -1851,21 +2697,44 @@ function computeFunds(a) {
   const amount = Number(a.fundsAmount) || 0;
   const fundsNZD = a.fundsCurrency === 'NZD' ? amount : amount / fx;
 
-  const tuition = a.tuition === 'scholarship' ? 0 : (C.phdFeesDomesticPerYear || 8500);
+  const masters = isMasters();
+  const mf = C.mastersFeesIntlPerYear || { lo: 32000, mid: 38000, hi: 48000 };
+
+  /* Gross tuition before any award. On the PhD track this is the domestic
+     rate; on the master's track it is full international tuition, chosen
+     from the band the student picked. */
+  const grossTuition = masters
+    ? ({ low: 33000, mid: 40000, high: 50000 }[a.tuition] || mf.mid)
+    : (C.phdFeesDomesticPerYear || 8500);
+
+  /* What an award actually covers differs by track, which is why the two
+     cannot share one line. A doctoral scholarship covers fees outright and
+     usually adds a living stipend; a master's award almost always discounts
+     fees only, and never replaces the living-cost evidence INZ wants. */
+  const tuitionCovered = masters
+    ? (a.stipend === 'full' ? grossTuition : a.stipend === 'partial' ? grossTuition * 0.5 : 0)
+    : (a.tuition === 'scholarship' ? grossTuition : 0);
+  const tuition = Math.max(0, grossTuition - tuitionCovered);
+
   const depMult = (C.dependentFundsMult && C.dependentFundsMult[a.who]) || 1;
   const livingReq = (C.visaFundsPerYear || 20000) * depMult;
   const heads = a.who === 'single' ? 1 : a.who === 'couple' ? 2 : 3;
   const airfare = (C.returnAirfareBuffer || 2500) * heads;
   const requiredTotal = tuition + livingReq + airfare;
 
-  const stipendCover = a.stipend === 'full' ? livingReq : a.stipend === 'partial' ? livingReq * 0.5 : 0;
+  // Only a doctoral stipend counts toward living costs — a master's fees
+  // scholarship has already been applied against tuition above.
+  const stipendCover = masters ? 0
+    : a.stipend === 'full' ? livingReq : a.stipend === 'partial' ? livingReq * 0.5 : 0;
   const livingCovered = Math.min(stipendCover, livingReq);
   const counted = fundsNZD + livingCovered;
   const gap = Math.max(0, requiredTotal - counted);
   const ratio = requiredTotal > 0 ? counted / requiredTotal : 1;
 
   const flags = [];
-  if (a.tuition === 'unsure') flags.push('Confirm whether your scholarship covers tuition — it changes your total by ~' + fundsMoney(C.phdFeesDomesticPerYear || 8500) + '.');
+  if (a.tuition === 'unsure' && !masters) flags.push('Confirm whether your scholarship covers tuition — it changes your total by ~' + fundsMoney(C.phdFeesDomesticPerYear || 8500) + '.');
+  if (a.tuition === 'unsure' && masters) flags.push(`Get the exact tuition figure from the provider — international master's fees range from ${fundsMoney(mf.lo)} to ${fundsMoney(mf.hi)} a year, and this estimate assumes ${fundsMoney(mf.mid)}.`);
+  if (masters && a.stipend === 'none') flags.push('With no award, tuition is the largest single number in your visa case — and NZ has no master’s equivalent of the doctoral stipend, so living costs must be shown from your own funds.');
   if (a.source === 'loan') flags.push('Loans need a clear approval + availability trail; INZ wants funds that are genuinely yours to use, not just promised.');
   if (a.source === 'sponsor') flags.push('A family sponsor must sign a financial undertaking and prove the money is theirs and available to you.');
   if (a.timeline === 'lt3') flags.push('Under 3 months to start — arrange and “season” your funds now (INZ prefers funds held for a period, not just deposited).');
@@ -1879,11 +2748,13 @@ function computeFunds(a) {
 
   let band, bandCls, verdict;
   if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-teal'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
-  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-gold'; verdict = 'A small gap stands between you and a strong funds case — very closeable.'; }
+  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-gold'; verdict = 'A small gap left to close, and a workable one.'; }
   else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-violet'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
-  else { band = 'Significant gap'; bandCls = 'chip-rose'; verdict = 'A sizeable gap today — a funded scholarship route is likely your strongest path.'; }
+  else { band = 'Significant gap'; bandCls = 'chip-rose'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
 
-  return { fundsNZD, tuition, livingReq, airfare, requiredTotal, livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads };
+  return { fundsNZD, tuition, grossTuition, tuitionCovered, livingReq, airfare, requiredTotal,
+           livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads,
+           track: masters ? 'masters' : 'phd' };
 }
 
 /* small CTA used on the Funding view + dashboard to enter the check */
@@ -1929,15 +2800,16 @@ function renderFunds(main) {
     return;
   }
 
+  const QS = fundsQuestions();
   const i = fundsState.step;
-  if (i >= FUNDS_Q.length) {
+  if (i >= QS.length) {
     // funds-amount step sits at the end (needs an input, not a radio)
     return renderFundsAmount(main);
   }
-  const q = FUNDS_Q[i];
-  const pct = Math.round((i / (FUNDS_Q.length + 1)) * 100);
+  const q = QS[i];
+  const pct = Math.round((i / (QS.length + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${i + 1} of ${FUNDS_Q.length + 1}`, 'Funds Readiness Check',
+  main.innerHTML = viewHead('savings', `Funds check · ${i + 1} of ${QS.length + 1}`, 'Funds Readiness Check',
     'A quick self-check of your visa funds — answers stay on your device.') +
     `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
      <div class="card" style="max-width:680px">
@@ -1961,9 +2833,10 @@ function renderFunds(main) {
 function renderFundsAmount(main) {
   const a = fundsState.answers;
   const cur = a.fundsCurrency || 'LKR';
-  const pct = Math.round((FUNDS_Q.length / (FUNDS_Q.length + 1)) * 100);
+  const n = fundsQuestions().length;
+  const pct = Math.round((n / (n + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${FUNDS_Q.length + 1} of ${FUNDS_Q.length + 1}`, 'Funds Readiness Check',
+  main.innerHTML = viewHead('savings', `Funds check · ${n + 1} of ${n + 1}`, 'Funds Readiness Check',
     'A quick self-check of your visa funds — answers stay on your device.') +
     `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
      <div class="card" style="max-width:680px">
@@ -2024,13 +2897,19 @@ function fundsResultCard(r) {
 
     <div class="fc-break" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
       <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">What INZ expects to see (indicative)</div>
-      ${row('Tuition — first year (domestic PhD rate)', r.tuition)}
+      ${r.track === 'masters'
+        ? row('Tuition — first year (full international rate)', r.grossTuition) +
+          (r.tuitionCovered > 0 ? row('Less: your scholarship toward fees', r.tuitionCovered) : '') +
+          (r.tuitionCovered > 0 ? row('Tuition you must evidence', r.tuition) : '')
+        : row('Tuition — first year (domestic PhD rate)', r.tuition)}
       ${row(`Living costs — 12 months${r.depMult > 1 ? ` (incl. family ×${r.depMult})` : ''}`, r.livingReq)}
       ${row(`Travel evidence buffer${r.heads > 1 ? ` (×${r.heads})` : ''}`, r.airfare)}
       ${row('Total required', r.requiredTotal, true)}
       <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:18px 0 8px">What you can cover</div>
       ${row('Your liquid funds', r.fundsNZD)}
-      ${row('Stipend / scholarship toward living', r.livingCovered)}
+      ${r.track === 'masters'
+        ? ''
+        : row('Stipend / scholarship toward living', r.livingCovered)}
       ${row('Total you can evidence', r.counted, true)}
       ${r.gap > 0 ? `<div class="fc-row fc-row-gap"><span>Shortfall</span><strong>${fundsMoney(r.gap)} · ${fundsLkr(r.gap)}</strong></div>` : ''}
     </div>
@@ -2042,7 +2921,9 @@ function fundsResultCard(r) {
 
     <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
       ${r.gap > 0
-        ? `<p style="font-size:14px;margin:0 0 12px">You’re about <strong>${fundsMoney(r.gap)}</strong> (~${fundsLkr(r.gap)}) short. The strongest fixes: win a <a href="#funding" style="color:var(--route)">doctoral scholarship + stipend</a> (covers fees and most living costs), add a documented family sponsor, or start building evidenced savings now.</p>${partnerRow('forex')}`
+        ? (r.track === 'masters'
+          ? `<p style="font-size:14px;margin:0 0 12px">You’re about <strong>${fundsMoney(r.gap)}</strong> (~${fundsLkr(r.gap)}) short. Tuition is almost always the movable part: a <a href="#courses" style="color:var(--route)">180-point master’s</a> costs a full year less than a 240-point one, and <a href="#funding" style="color:var(--route)">fees scholarships</a> at some providers cut it further. A documented family sponsor and evidenced savings close the rest.</p>${partnerRow('forex')}`
+          : `<p style="font-size:14px;margin:0 0 12px">You’re about <strong>${fundsMoney(r.gap)}</strong> (~${fundsLkr(r.gap)}) short. The usual routes from here: a <a href="#funding" style="color:var(--route)">doctoral scholarship with a stipend</a>, which covers fees and most living costs, a documented family sponsor, or evidenced savings built up over the months before you apply.</p>${partnerRow('forex')}`)
         : `<p style="font-size:14px;margin:0 0 12px">You meet the indicative bar. Now organise the <strong>evidence</strong>: 6 months of bank statements, your scholarship/sponsor letters, and proof the funds are available to you. Get it checked before you submit — a rejected funds case can cost you an intake.</p>`}
     </div>
 
@@ -2078,31 +2959,39 @@ function renderDashboard(main) {
   const J = journeyModel();
   const nextAction = J.nextStep
     ? [J.current.icon, J.nextStep[0], J.nextStep[2]]
-    : ['support_agent', 'You’re on track — ask a mentor to pressure-test your plan', '#mentors'];
+    : ['support_agent', 'Nothing outstanding here — a mentor can pressure-test the plan', '#mentors'];
   const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
 
+  const SAVED_KIND = { uni:'University', lab:'Research lab', scholarship:'Scholarship',
+                       course:'Qualification', provider:'Provider' };
+  const SAVED_HREF = { uni:'#explore', lab:'#explore', scholarship:'#funding',
+                       course:'#courses', provider:'#explore' };
   const savedHtml = saved.length ? saved.map(s => {
-    let title = '', sub = '', href = '#explore';
-    if (s.kind === 'uni') { const u = uniById(s.id); if (!u) return ''; title = u.name; sub = u.city; }
-    if (s.kind === 'lab') { const l = PF_LABS.find(x => x.id === s.id); if (!l) return ''; title = l.name; sub = uniById(l.uni).name; }
-    if (s.kind === 'scholarship') { const sc = PF_SCHOLARSHIPS.find(x => x.id === s.id); if (!sc) return ''; title = sc.name; sub = sc.value; href = '#funding'; }
+    // Catalogue items carry their own label (see toggleSaved) so the dashboard
+    // never has to pull a shard down; curated items resolve from the dataset.
+    let title = s.label || '', sub = s.sub || '';
+    if (!title && s.kind === 'uni') { const u = uniById(s.id); if (!u) return ''; title = u.name; sub = u.city; }
+    if (!title && s.kind === 'lab') { const l = PF_LABS.find(x => x.id === s.id); if (!l) return ''; title = l.name; sub = uniById(l.uni).name; }
+    if (!title && s.kind === 'scholarship') { const sc = PF_SCHOLARSHIPS.find(x => x.id === s.id); if (!sc) return ''; title = sc.name; sub = sc.value; }
+    if (!title) return '';
     return `<div class="lab-row">
-      <div style="flex:1"><strong style="font-size:14px">${title}</strong>
-        <div class="faint" style="font-size:12.5px">${({uni:'University',lab:'Research lab',scholarship:'Scholarship'})[s.kind]} · ${sub}</div></div>
-      <a class="btn btn-ghost btn-sm" href="${href}">View</a>
-      ${saveBtn(s.kind, s.id)}
+      <div style="flex:1"><strong style="font-size:14px">${esc(title)}</strong>
+        <div class="faint" style="font-size:12.5px">${SAVED_KIND[s.kind] || 'Saved'}${sub ? ' · ' + esc(sub) : ''}</div></div>
+      <a class="btn btn-ghost btn-sm" href="${SAVED_HREF[s.kind] || '#explore'}">View</a>
+      ${saveBtn(s.kind, s.id, s.label, s.sub)}
     </div>`;
-  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark labs and scholarships from the <a href="#explore" style="color:var(--route)">Explorer</a>.</p>`;
+  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark qualifications in the <a href="#courses" style="color:var(--route)">Course Catalogue</a> or scholarships in <a href="#funding" style="color:var(--route)">Funding</a>.</p>`;
 
-  main.innerHTML = viewHead('space_dashboard', 'Your Dashboard', a ? `Welcome back — ${a.result.readiness}% PhD-ready` : 'Welcome to PathFinder',
-    a ? `Pathway: <strong>${a.result.pathway}</strong> in ${a.result.field}.`
-      : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> to unlock your personalized roadmap.') +
+  const R = currentResult();
+  main.innerHTML = viewHead('space_dashboard', 'Your Dashboard', R ? `Welcome back — ${R.readiness}% ${trackCfg().label}-ready` : 'Welcome to PathFinder',
+    R ? `Pathway: <strong>${esc(R.pathway)}</strong> in ${esc(R.field)}.`
+      : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> — it builds the rest of your plan.') +
 
     renderJourneyMap() +
 
     `<div class="grid-4" style="margin:40px 0">
-      ${[['quiz', a ? a.result.readiness + '%' : '—', 'Readiness score', '#assessment'],
-         ['bookmark', saved.length, 'Saved opportunities', '#explore'],
+      ${[['quiz', R ? R.readiness + '%' : '—', 'Readiness score', '#assessment'],
+         ['bookmark', saved.length, 'Saved opportunities', isMasters() ? '#courses' : '#explore'],
          ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
          ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard'],
          ['flight_takeoff', vp.done + '/' + vp.total, 'Visa steps done', '#visa'],
@@ -2118,8 +3007,8 @@ function renderDashboard(main) {
         <h2 style="font-size:1.15rem;margin:0">Your insights</h2>
         <span class="chip ${synced ? 'chip-teal' : 'chip-dim'}">${synced ? 'Synced across devices' : 'Saved on this device'}</span>
       </div>
-      <p class="muted" style="font-size:13.5px;margin:0 0 12px">${a
-        ? `You’re <strong>${a.result.readiness}% PhD-ready</strong> on the <strong>${esc(a.result.pathway)}</strong> pathway in ${esc(a.result.field)}.`
+      <p class="muted" style="font-size:13.5px;margin:0 0 12px">${R
+        ? `You’re <strong>${R.readiness}% ${esc(trackCfg().label)}-ready</strong> on the <strong>${esc(R.pathway)}</strong> pathway in ${esc(R.field)}.`
         : `Complete the <a href="#assessment" style="color:var(--route)">assessment</a> to see personalised insights.`}${synced ? '' : ` <a href="#account" style="color:var(--route)">Create a free account</a> to sync.`}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
         <span class="chip chip-dim">${apps.length} tracked</span>
@@ -2285,10 +3174,16 @@ function renderKit(main) {
       <a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>
     </div>` : '';
 
-  main.innerHTML = viewHead('package_2', 'PhD Starter Kit', 'Templates & resources',
-    'Battle-tested templates for every stage — preview, copy, or download. Personalize everything: generic emails get deleted.') +
+  // Track-specific templates (the master's statement of purpose, the
+  // programme comparison sheet) carry a `track` tag and are shown only on
+  // that track. Untagged templates — CVs, visa checklists, budgets — serve
+  // both and always show.
+  const templates = PF_TEMPLATES.filter(t => !t.track || t.track === PFStore.getTrack());
+
+  main.innerHTML = viewHead('package_2', `${trackCfg().label} Starter Kit`, 'Templates & resources',
+    'Drafts to start from, for each stage — preview, copy, or download. Rewrite them in your own words; the structure is the useful part, not the wording.') +
     banner +
-    `<div class="grid-2">${PF_TEMPLATES.map(t => {
+    `<div class="grid-2">${templates.map(t => {
       const isPremium = gate && premiumIds.includes(t.id);
       return (isPremium && !unlocked) ? lockedCard(t) : freeCard(t);
     }).join('')}</div>`;
@@ -2317,9 +3212,23 @@ function renderVisa(main) {
   const { done, total } = visaProgress();
   const firstOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
 
+  const T = trackCfg();
   main.innerHTML = viewHead('flight_takeoff', 'NZ Student Visa Hub', 'The visa, stage by stage',
     'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to consult, what it costs, and a checklist that remembers your progress.') +
-    `<div class="card" style="max-width:760px;margin-bottom:32px">
+    // The stages are the same for everyone; the conditions attached to the
+    // visa are not, and getting them wrong is expensive. State them up front.
+    `<div class="card" style="max-width:760px;margin-bottom:22px">
+      <div class="crs-lbl">Your visa as ${T.article} student</div>
+      <div class="vh-facts">
+        <div><span>Tuition</span><strong>${T.feeMode === 'domestic'
+          ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
+          : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</strong></div>
+        <div><span>Living-costs evidence</span><strong>${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</strong></div>
+        <div><span>Work rights</span><strong>${esc(T.workRights)}</strong></div>
+        <div><span>After you finish</span><strong>${esc(T.postStudy)}</strong></div>
+      </div>
+    </div>
+    <div class="card" style="max-width:760px;margin-bottom:32px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
         <strong>Your visa progress</strong>
         <span class="mono" id="visa-pct">${done} / ${total} steps</span>
@@ -2345,15 +3254,15 @@ function renderVisa(main) {
             ${s.where.map(w => `
               <div class="visa-row" style="padding:14px 0">
                 <span class="material-symbols-outlined" style="font-size:18px;color:var(--sea);flex-shrink:0;margin-top:2px">location_on</span>
-                <div><strong style="font-size:13.5px">${w.name}</strong>
-                  <p class="muted" style="font-size:13px;margin-top:3px">${w.detail}</p></div>
+                <div><strong style="font-size:13.5px">${esc(w.name)}</strong>
+                  <p class="muted" style="font-size:13px;margin-top:3px">${esc(tv(w, 'detail'))}</p></div>
               </div>`).join('')}
             <ul class="ck-list">${s.steps.map(st => {
               const c = PFStore.isChecked('visa', st.id);
               return `<li class="ck-item ${c ? 'done' : ''}">
                 <label><input type="checkbox" data-ck="visa" data-id="${st.id}" ${c ? 'checked' : ''}>
                   <span class="ck-box"><span class="material-symbols-outlined" style="font-size:13px">check</span></span>
-                  <span class="ck-t">${st.t}${st.note ? `<em>${st.note}</em>` : ''}</span></label>
+                  <span class="ck-t">${esc(tv(st, 't'))}${tv(st, 'note') ? `<em>${esc(tv(st, 'note'))}</em>` : ''}</span></label>
               </li>`;
             }).join('')}</ul>
             ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
@@ -2435,8 +3344,8 @@ function renderSettlement(main) {
           </div>
           <strong style="font-size:15px">${s.title}</strong>
         </div>
-        <p class="muted" style="font-size:13.5px">${s.body}</p>
-        ${s.tips ? `<ul class="tl-list" style="margin-top:12px">${s.tips.map(t => `<li style="font-size:13.5px">${t}</li>`).join('')}</ul>` : ''}
+        <p class="muted" style="font-size:13.5px">${esc(tv(s, 'body'))}</p>
+        ${tv(s, 'tips') ? `<ul class="tl-list" style="margin-top:12px">${tv(s, 'tips').map(t => `<li style="font-size:13.5px">${esc(t)}</li>`).join('')}</ul>` : ''}
         ${s.perCity ? `<table class="ledger" style="margin-top:14px"><tbody>
           ${Object.entries(s.perCity).map(([city, how]) => `
             <tr><td style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;width:1%">${city}</td>
@@ -2499,7 +3408,7 @@ function renderMentors(main) {
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
 
-  main.innerHTML = viewHead('support_agent', 'Mentors', 'Ask someone who has done it',
+  main.innerHTML = viewHead('support_agent', 'Mentors', 'Ask someone who has been through it',
     `Ask anything about your move to New Zealand — a Sri Lankan postgrad who has been through it will pick it up. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free; paid follow-on sessions are optional and only if you want to continue.`) +
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px" id="mtr-tabs">
       <button class="chip-filter ${mentorsTab === 'ask' ? 'active' : ''}" data-mtab="ask">Ask a mentor</button>
@@ -2658,7 +3567,7 @@ function renderPricing(main) {
     'Free 15-min mentor intro call',
     'All 7 premium templates + 1 mentor session + SOP/proposal audit',
     '3 mentor sessions + full CV/SOP/proposal audit + interview prep',
-    'Priority mentor matching + final ready-to-submit review',
+    'Priority mentor matching + a final review before you submit',
   ];
 
   // Only the recommended plan gets a top ribbon — labelling every card
@@ -2673,7 +3582,7 @@ function renderPricing(main) {
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
       cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
     { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
-      price: money(p.premium), unit: 'one-time', sub: 'Every advantage — from first draft to a submitted application.',
+      price: money(p.premium), unit: 'one-time', sub: 'For students who want someone alongside them from first draft to submission.',
       cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
   ];
 

@@ -1,8 +1,83 @@
 /* ════════════════════════════════════════════════════════════
-   PathFinder — Static dataset (NZ PhD ecosystem)
+   PathFinder — Static dataset (NZ postgraduate ecosystem)
    In production this moves to Firestore; shapes are kept flat
    and ID-keyed so documents map 1:1 to collections.
+
+   The live NZQA course catalogue is NOT here — it is generated into
+   assets/js/catalogue.js + assets/js/catalogue/*.js by
+   scripts/sync-astra-catalogue.js and lazy-loaded on demand.
    ════════════════════════════════════════════════════════════ */
+
+/* ── Study tracks ─────────────────────────────────────────────────────
+   PathFinder serves two journeys that share one platform. Nearly every
+   difference between them — the money, the entry bar, the timeline, the
+   work rights, the words — lives in this one object, so no view has to
+   hardcode "PhD" again. Read it through trackCfg() in app.js, never
+   directly, so an unknown/legacy value always falls back to 'phd'.
+
+   The money matters most. International PhD candidates in NZ pay DOMESTIC
+   tuition (~NZ$8.5k/yr) and usually hold a stipend; master's students pay
+   full international tuition (~NZ$32–48k/yr) and NZ has no equivalent
+   master's stipend. Getting that wrong understates a master's applicant's
+   visa-funds requirement by tens of thousands of dollars. */
+const PF_TRACK = {
+  phd: {
+    id: 'phd',
+    label: 'PhD',
+    article: 'a PhD',
+    possessive: 'your PhD',
+    noun: 'doctorate',
+    kicker: 'PHD · NEW ZEALAND',
+    // Catalogue filters — which NZQF levels and qualification types belong
+    // to this track (see PF_CATALOGUE in assets/js/catalogue.js).
+    levels: ['10'],
+    qualTypes: ['Doctorate'],
+    // Money (NZ$/yr). PhD candidates pay the domestic rate — the single
+    // strongest reason a Sri Lankan student picks NZ over the UK/Australia.
+    feeMode: 'domestic',
+    feeLo: 7500, feeHi: 9500,
+    stipend: true,
+    durationLabel: '3–4 years',
+    // Entry + application shape
+    entryFrom: 'a research master\'s, MPhil, or first-class honours degree',
+    thesis: 'required',
+    supervisorFirst: true,      // you find a supervisor BEFORE you apply
+    intakeLabel: 'Enrol any month — admission is supervisor-led, not semester-led',
+    englishBar: 'IELTS 6.5 overall, no band below 6.0',
+    // Post-study reality
+    workRights: 'unlimited hours during study; partners get an open work visa',
+    postStudy: 'a 3-year open post-study work visa',
+    dependents: 'school-age children are treated as domestic students',
+  },
+  masters: {
+    id: 'masters',
+    label: 'Master\'s',
+    article: 'a master\'s',
+    possessive: 'your master\'s',
+    noun: 'master\'s degree',
+    kicker: 'POSTGRAD · NEW ZEALAND',
+    // Level 8 carries the bridging qualifications (PGDip, PGCert, GradDip,
+    // Bachelor Honours) that an under-qualified applicant genuinely needs,
+    // so the master's track browses 8 and 9 together.
+    levels: ['8', '9'],
+    qualTypes: ['Masters Degree', 'Postgraduate Diploma', 'Postgraduate Certificate',
+                'Graduate Diploma', 'Graduate Certificate', 'Bachelor Degree with Honours'],
+    // Money — full international tuition, no stipend. See
+    // PF_CONFIG.mastersFeesIntlPerYear for the maintained figures.
+    feeMode: 'international',
+    feeLo: 32000, feeHi: 48000,
+    stipend: false,
+    durationLabel: '1–2 years',
+    entryFrom: 'a completed bachelor\'s degree in a related subject',
+    thesis: 'optional — taught master\'s are coursework-only',
+    supervisorFirst: false,     // you apply to a programme, not to a person
+    intakeLabel: 'Two intakes a year — February and July',
+    englishBar: 'IELTS 6.5 overall, no band below 6.0 (some programmes accept 6.0)',
+    workRights: 'up to 20 hours a week during semester, full-time in breaks',
+    postStudy: 'a 3-year open post-study work visa for a level-9 master\'s',
+    dependents: 'children pay domestic school fees only if you study level 9 or above',
+  },
+};
 
 const PF_FIELDS = [
   'Computer Science & AI', 'Engineering', 'Health & Medicine',
@@ -10,31 +85,48 @@ const PF_FIELDS = [
   'Physics & Mathematics', 'Social Sciences & Education',
 ];
 
+/* Bridges the eight research fields above (which drive the Research Studio
+   corpus shards, PF_LABS and PF_UNIVERSITIES.strengths) to the NZQA subject-
+   area roots the course catalogue is indexed by. Used to pre-filter #courses
+   from a student's assessment answer. The master's track lets students pick
+   an NZQA root directly instead, because taught master's cover ground the
+   eight research fields don't — Architecture, Creative Arts, Law. */
+const PF_FIELD_TO_SUBJECT_AREA = {
+  'Computer Science & AI':       ['76450'],           // Information Technology
+  'Engineering':                 ['76451'],           // Engineering and Related Technologies
+  'Health & Medicine':           ['76454'],           // Health
+  'Business & Economics':        ['76456'],           // Management and Commerce
+  'Environmental Science':       ['76453', '76449'],  // Agriculture/Environmental + Natural Sciences
+  'Agriculture & Food':          ['76453'],           // Agriculture, Environmental and Related Studies
+  'Physics & Mathematics':       ['76449'],           // Natural and Physical Sciences
+  'Social Sciences & Education': ['76457', '76455'],  // Society and Culture + Education
+};
+
 const PF_UNIVERSITIES = [
   { id:'uoa', name:'University of Auckland', city:'Auckland', rank:'#65 QS World', phdFee:'~NZ$7,800/yr (domestic rate for PhD)',
     strengths:['Computer Science & AI','Engineering','Health & Medicine','Business & Economics'],
     note:'NZ’s largest research university. International PhD students pay domestic fees and can work full-time.' },
   { id:'uoo', name:'University of Otago', city:'Dunedin', rank:'#214 QS World', phdFee:'~NZ$8,000/yr',
     strengths:['Health & Medicine','Social Sciences & Education','Environmental Science'],
-    note:'NZ’s oldest university; exceptional medical and health sciences research, generous doctoral scholarships.' },
+    note:'NZ’s oldest university. Strong in medical and health sciences, and its doctoral scholarships are among the better-funded ones.' },
   { id:'vuw', name:'Victoria University of Wellington', city:'Wellington', rank:'#244 QS World', phdFee:'~NZ$7,500/yr',
     strengths:['Social Sciences & Education','Computer Science & AI','Physics & Mathematics'],
-    note:'Top-ranked in NZ for research intensity; strong government and policy research links in the capital.' },
+    note:'Research-intensive, and being in the capital gives it unusually direct government and policy links.' },
   { id:'uc',  name:'University of Canterbury', city:'Christchurch', rank:'#261 QS World', phdFee:'~NZ$7,600/yr',
     strengths:['Engineering','Physics & Mathematics','Environmental Science'],
-    note:'Engineering powerhouse with strong industry partnerships and the UC Doctoral Scholarship.' },
+    note:'Engineering-heavy, with a lot of industry partnerships. The UC Doctoral Scholarship is worth checking early.' },
   { id:'massey', name:'Massey University', city:'Palmerston North / Auckland', rank:'#239 QS World', phdFee:'~NZ$7,400/yr',
     strengths:['Agriculture & Food','Business & Economics','Engineering'],
-    note:'World leader in agri-food research; flexible part-time and distance PhD options.' },
+    note:'Known internationally for agri-food research, and one of the few offering part-time and distance PhD study.' },
   { id:'waikato', name:'University of Waikato', city:'Hamilton', rank:'#235 QS World', phdFee:'~NZ$7,300/yr',
     strengths:['Computer Science & AI','Environmental Science','Social Sciences & Education'],
-    note:'Home of the WEKA machine-learning project; strong AI and data-science groups.' },
+    note:'Home of the WEKA machine-learning project, with AI and data-science groups built around it.' },
   { id:'aut', name:'Auckland University of Technology', city:'Auckland', rank:'#412 QS World', phdFee:'~NZ$7,200/yr',
     strengths:['Health & Medicine','Computer Science & AI','Business & Economics'],
-    note:'Fast-growing research profile, applied focus, strong industry-linked doctorates.' },
+    note:'A newer research profile with an applied focus and a lot of industry-linked doctorates.' },
   { id:'lincoln', name:'Lincoln University', city:'Lincoln (Canterbury)', rank:'#362 QS World', phdFee:'~NZ$7,000/yr',
     strengths:['Agriculture & Food','Environmental Science','Business & Economics'],
-    note:'Specialist land-based university; highest research income per academic in NZ agriculture.' },
+    note:'A specialist land-based university — small, but research-intensive in agriculture.' },
 ];
 
 /* Maps the institution display-names OpenAlex returns on each paper's authors
@@ -77,10 +169,10 @@ const PF_LABS = [
     hint:'Welcomes PhD applicants with publications or strong ML project portfolios.' },
   { id:'l2', uni:'uoa', name:'Auckland Bioengineering Institute', field:'Health & Medicine',
     topics:['Computational physiology','Medical devices','Digital twins'], supervisor:'Multiple PIs', email:'abi@auckland.ac.nz',
-    hint:'Large institute — identify a specific PI and project before emailing.' },
+    hint:'A large institute, so find a specific PI and project before you email anyone.' },
   { id:'l3', uni:'waikato', name:'Machine Learning Group (WEKA)', field:'Computer Science & AI',
     topics:['Data mining','Stream learning','Applied ML'], supervisor:'Prof. Albert Bifet / Prof. Eibe Frank', email:'via group page',
-    hint:'Globally known group; strong fit for data-mining and ML-systems applicants.' },
+    hint:'Well known internationally; a good fit if your background is data mining or ML systems.' },
   { id:'l4', uni:'uc', name:'Wireless Research Centre', field:'Engineering',
     topics:['5G/6G','IoT','Signal processing'], supervisor:'Assoc. Prof. Graeme Woodward', email:'wrc@canterbury.ac.nz',
     hint:'Industry-funded projects often come with stipends — ask about funded positions.' },
@@ -89,10 +181,10 @@ const PF_LABS = [
     hint:'Otago Doctoral Scholarship covers fees + NZ$31k stipend for strong candidates.' },
   { id:'l6', uni:'vuw', name:'School of Engineering & CS — AI Group', field:'Computer Science & AI',
     topics:['Evolutionary computation','Computer vision','XAI'], supervisor:'Prof. Mengjie Zhang', email:'via faculty page',
-    hint:'One of the largest evolutionary-computation groups in the world.' },
+    hint:'One of the larger evolutionary-computation groups anywhere.' },
   { id:'l7', uni:'massey', name:'Riddet Institute', field:'Agriculture & Food',
     topics:['Food structure','Nutrition science','Dairy tech'], supervisor:'Multiple PIs', email:'riddet@massey.ac.nz',
-    hint:'Centre of Research Excellence — multiple fully funded PhD positions advertised yearly.' },
+    hint:'A Centre of Research Excellence; funded PhD positions are advertised most years.' },
   { id:'l8', uni:'lincoln', name:'Centre for Soil & Environmental Research', field:'Environmental Science',
     topics:['Soil carbon','Water quality','Climate adaptation'], supervisor:'Multiple PIs', email:'via department',
     hint:'Strong fit for agriculture/environment graduates from Peradeniya and Ruhuna.' },
@@ -104,10 +196,10 @@ const PF_LABS = [
     hint:'Unique field-work opportunities; GIS/remote-sensing skills are a plus.' },
   { id:'l11', uni:'aut', name:'Knowledge Engineering & Discovery Research Institute', field:'Computer Science & AI',
     topics:['Neuromorphic computing','Brain data','Spiking neural networks'], supervisor:'Prof. Nikola Kasabov (founding)', email:'kedri@aut.ac.nz',
-    hint:'Pioneers of evolving spiking neural networks (NeuCube).' },
+    hint:'The group behind NeuCube and evolving spiking neural networks.' },
   { id:'l12', uni:'vuw', name:'Ferrier Research Institute', field:'Physics & Mathematics',
     topics:['Carbohydrate chemistry','Drug discovery','Biotech'], supervisor:'Multiple PIs', email:'ferrier@vuw.ac.nz',
-    hint:'Chemistry/biochem graduates: strong commercialisation track record.' },
+    hint:'Chemistry and biochem graduates — the institute has a track record of commercialising its work.' },
 ];
 
 /* ════════════════════════════════════════════════════════════
@@ -292,6 +384,23 @@ const PF_VISA_UPDATES = [
     body:'Apply at least 3 months before your intended start date. Funds evidence: NZ$20,000+/yr living costs or scholarship letter.' },
 ];
 
+/* The master's equivalent. Almost every headline benefit above is doctorate-
+   only, so reusing that list on the master's track would state things that
+   are simply false for a master's applicant — most importantly the domestic
+   fee status and the unlimited work rights. */
+const PF_VISA_UPDATES_MASTERS = [
+  { date:'2026-05', title:'Master’s students pay international tuition', tag:'Fees',
+    body:'The domestic-fee concession applies to doctoral candidates only. Budget NZ$32,000–48,000 a year for a master’s, and confirm the exact figure with the provider — it varies more by programme than by university.' },
+  { date:'2026-04', title:'Work rights: 20 hours a week during semester', tag:'Work Rights',
+    body:'Student visa holders in postgraduate study may work up to 20 hours a week during the semester and full-time over scheduled breaks. Partners of level-9 students may qualify for an open work visa.' },
+  { date:'2026-03', title:'Post-study work visa: 3 years after a level-9 master’s', tag:'Post-Study',
+    body:'A completed level-9 master’s qualifies for a 3-year open post-study work visa. A level-8 postgraduate diploma on its own qualifies for less — worth weighing when you choose between the two.' },
+  { date:'2026-02', title:'Two intakes a year — February and July', tag:'Intakes',
+    body:'Most master’s programmes take students in Semester 1 (February) and Semester 2 (July), with applications closing 2–4 months before. A missed deadline costs a full semester, so work backwards from the intake you want.' },
+  { date:'2026-01', title:'eVisa processing times: student visas averaging 6–8 weeks', tag:'Processing',
+    body:'Apply at least 3 months before your intended start date. Funds evidence: tuition plus NZ$20,000/yr living costs — the tuition component is much larger for a master’s than for a PhD.' },
+];
+
 /* ── Live news (Briefing) ────────────────────────────────────────────
    A frequently-updating feed of ONLY immigration and PhD/postgraduate
    news, fetched client-side from free, no-key Google News RSS search
@@ -335,7 +444,89 @@ const PF_NEWS = {
 
 const PF_TEMPLATES = [
   /* ── Emails & Correspondence ── */
-  { id:'t1', name:'Supervisor First-Contact Email', type:'Email template', icon:'mail', category:'Emails & Correspondence',
+
+  /* ── Master's track ──
+     A taught master's application is decided on the transcript and the
+     statement of purpose; there is no supervisor to court and no proposal
+     to write, so the two templates below are the master's equivalents of
+     t1 (supervisor email) and the PhD proposal outline. Both are free —
+     they are the funnel for the master's audience the way t1 is for PhD. */
+  { id:'tm1', name:'Master\u2019s Statement of Purpose', type:'Application document', icon:'history_edu', category:'Application Documents', track:'masters',
+    body:`STATEMENT OF PURPOSE — [Programme name], [University]
+[Your name] · [Intake: February / July 20XX]
+
+1. WHY THIS PROGRAMME (1 paragraph)
+Name the exact qualification and one specific thing about it — a named course,
+a specialisation, a research centre, an industry partnership. Admissions staff
+read hundreds of these; the ones that name nothing specific read as mass-sent.
+"I am applying for the [exact title] because [specific element] addresses
+[specific gap in your training or your industry back home]."
+
+2. WHAT YOU BRING (2 paragraphs)
+Paragraph 1 — your degree: institution, subject, classification/GPA, and the
+two or three courses most relevant to this programme. If your average is below
+the direct-entry bar, address it here in one honest sentence and point to what
+has changed since; do not leave the reader to guess.
+Paragraph 2 — your work or project experience: one concrete result with a
+number in it. "Rebuilt the reporting pipeline, cutting month-end close from
+9 days to 3" beats "gained experience in reporting".
+
+3. WHY NEW ZEALAND (1 short paragraph)
+Be specific and be honest. Post-study work rights, a named industry, a
+research strength, family already there — all are legitimate. Vague praise of
+the country reads as filler.
+
+4. WHAT YOU WILL DO AFTER (1 paragraph)
+A clear, plausible plan. If you intend to return to Sri Lanka, say so and say
+to what. If you intend to seek work in NZ, say so — the post-study work visa
+exists precisely for that, and admissions offices know it.
+
+5. FUNDING (2 sentences)
+State how the programme will be paid for: family funds, savings, a loan, a
+scholarship application in progress. Silence here invites doubt.
+
+— Keep it to ONE page unless the university asks for more. Write a separate
+   version for each programme; a generic statement reads as generic.
+— Do not repeat your CV. This is the argument your CV cannot make.`},
+
+  { id:'tm2', name:'Master\u2019s Programme Comparison Sheet', type:'Planning template', icon:'fact_check', category:'Application Documents', track:'masters',
+    body:`MASTER\u2019S PROGRAMME COMPARISON — [Your name]
+
+Fill one column per shortlisted programme. Four to six is the right number:
+fewer and you have no leverage, more and every application gets weaker.
+
+                                  | Option A | Option B | Option C |
+----------------------------------|----------|----------|----------|
+Exact qualification title         |          |          |          |
+Provider                          |          |          |          |
+NZQF level (8 or 9)               |          |          |          |
+Points (120 / 180 / 240)          |          |          |          |
+Length                            |          |          |          |
+Intakes offered                   |          |          |          |
+APPLICATION DEADLINE              |          |          |          |
+Tuition — total, not per year     |          |          |          |
+Entry requirement (exact wording) |          |          |          |
+Do I meet it? (yes / no / ask)    |          |          |          |
+English requirement               |          |          |          |
+Thesis component?                 |          |          |          |
+Scholarship + its deadline        |          |          |          |
+3-yr post-study work visa?        |          |          |          |
+Admissions contact + date emailed |          |          |          |
+
+THE THREE THAT DECIDE IT
+1. Points. A 240-point master\u2019s costs roughly a full extra year of tuition AND
+   living costs versus a 180-point one. Compare TOTAL cost, never per-year.
+2. Level. A level-9 master\u2019s carries post-study work rights a level-8
+   postgraduate diploma does not. If the diploma is a stepping stone, confirm
+   in writing that its credits transfer into the master\u2019s.
+3. The exact entry wording. "A bachelor\u2019s degree" and "a four-year bachelor\u2019s
+   degree" are completely different requirements. Email admissions and ask
+   directly — they answer, usually within days, and it is free to ask.
+
+— Pull the first ten rows straight from the PathFinder Course Catalogue.
+— Verify tuition on the provider\u2019s own fees page: the register does not carry it.`},
+
+  { id:'t1', name:'Supervisor First-Contact Email', type:'Email template', icon:'mail', category:'Emails & Correspondence', track:'phd',
     body:`Subject: Prospective PhD applicant — [Your research area] ([Intake] intake)
 
 Dear Professor [Name],
@@ -351,7 +542,7 @@ Would you be open to a brief conversation, or could you advise whether you are a
 Kind regards,
 [Name] · [LinkedIn / Scholar profile] · [Phone]`},
 
-  { id:'t5', name:'Follow-Up After No Supervisor Reply', type:'Email template', icon:'reply', category:'Emails & Correspondence',
+  { id:'t5', name:'Follow-Up After No Supervisor Reply', type:'Email template', icon:'reply', category:'Emails & Correspondence', track:'phd',
     body:`Subject: Following up — PhD enquiry / [Your name] / [Research area]
 
 Dear Professor [Name],
@@ -391,7 +582,7 @@ Kind regards,
 
 — Ask at least 4–6 weeks before the deadline. Attach your CV to this email.`},
 
-  { id:'t7', name:'Thank-You Email After Supervisor Meeting', type:'Email template', icon:'handshake', category:'Emails & Correspondence',
+  { id:'t7', name:'Thank-You Email After Supervisor Meeting', type:'Email template', icon:'handshake', category:'Emails & Correspondence', track:'phd',
     body:`Subject: Thank you — our conversation on [date]
 
 Dear Professor [Name],
@@ -621,7 +812,7 @@ QUESTIONS TO ASK THE SUPERVISOR
 AFTER THE INTERVIEW
   Send a brief thank-you email within 24 hours (use the thank-you template).`},
 
-  { id:'t15', name:'3-Year PhD Research Plan', type:'Planning template', icon:'calendar_month', category:'Research & Career',
+  { id:'t15', name:'3-Year PhD Research Plan', type:'Planning template', icon:'calendar_month', category:'Research & Career', track:'phd',
     body:`3-YEAR PhD RESEARCH PLAN — timeline template
 
 YEAR 1 — Foundation & Confirmation
@@ -800,6 +991,65 @@ NOTES
 ];
 
 /* Assessment definition */
+/* The NZQA subject-area roots that actually have postgraduate qualifications
+   (11 of 12 — nothing postgraduate exists under Food, Hospitality and Personal
+   Services). Mirrors data/subject_areas.json and the `roots` array in the
+   generated assets/js/catalogue.js; used as the synchronous fallback for the
+   master's field question when the catalogue hasn't loaded yet. */
+const PF_SUBJECT_ROOTS = [
+  { id:'76453', name:'Agriculture, Environmental and Related Studies' },
+  { id:'76452', name:'Architecture and Building' },
+  { id:'76458', name:'Creative Arts' },
+  { id:'76455', name:'Education' },
+  { id:'76451', name:'Engineering and Related Technologies' },
+  { id:'76454', name:'Health' },
+  { id:'76450', name:'Information Technology' },
+  { id:'76456', name:'Management and Commerce' },
+  { id:'76460', name:'Mixed Field Programmes' },
+  { id:'76449', name:'Natural and Physical Sciences' },
+  { id:'76457', name:'Society and Culture' },
+];
+
+/* ── Assessment: the master's track ───────────────────────────────────
+   Same shape and scoring range as PF_QUESTIONS below (four scored
+   questions, max 15), but it asks what actually decides a master's
+   admission: the bachelor's degree and its classification, relevant
+   work, and English. Research output — which decides a PhD — barely
+   matters for a taught master's, so it is not asked. */
+const PF_QUESTIONS_MASTERS = [
+  { id:'degree', q:'What is your highest completed (or in-progress) qualification?', opts:[
+    { v:1, t:'Diploma / part-way through a bachelor’s' },
+    { v:2, t:'Bachelor’s (3-year general)' },
+    { v:3, t:'Bachelor’s Honours / 4-year special degree' },
+    { v:4, t:'Postgraduate diploma or master’s already' } ] },
+  { id:'gpa', q:'How would you describe your academic results?', opts:[
+    { v:1, t:'Pass / GPA below 2.7' },
+    { v:2, t:'Second lower / GPA 2.7–3.0' },
+    { v:3, t:'Second upper / GPA 3.0–3.4' },
+    { v:4, t:'First class / GPA 3.5+' } ] },
+  { id:'work', q:'How much relevant work experience do you have?', opts:[
+    { v:0, t:'None yet — I’m applying straight from my degree' },
+    { v:1, t:'Internships or under a year' },
+    { v:2, t:'1–3 years in the field' },
+    { v:3, t:'3+ years, including some responsibility' } ] },
+  { id:'field', q:'Which subject area do you want to study?', opts: PF_SUBJECT_ROOTS.map(r => ({ v:r.id, t:r.name })) },
+  { id:'english', q:'Where are you with English proficiency tests?', opts:[
+    { v:0, t:'Not started' },
+    { v:1, t:'Preparing for IELTS / TOEFL' },
+    { v:2, t:'Scored — below requirements (IELTS < 6.5)' },
+    { v:3, t:'Scored — meets master’s requirements (IELTS 6.5+, no band < 6.0)' },
+    { v:4, t:'My whole degree was taught in English' } ] },
+  { id:'funding', q:'How will you fund your master’s?', opts:[
+    { v:'scholarship', t:'I need a full scholarship' },
+    { v:'partial', t:'Family support / savings + a scholarship' },
+    { v:'self', t:'Fully self-funded or a bank loan' } ] },
+  { id:'timeline', q:'Which intake are you aiming for?', opts:[
+    { v:'6m', t:'The next one — within 6 months' },
+    { v:'1y', t:'In about a year' },
+    { v:'2y', t:'1–2 years from now' },
+    { v:'explore', t:'Just exploring for now' } ] },
+];
+
 const PF_QUESTIONS = [
   { id:'degree', q:'What is your highest completed (or in-progress) qualification?', opts:[
     { v:0, t:'Bachelor’s (3-year general)' },
@@ -883,7 +1133,8 @@ const PF_VISA_STAGES = [
     ],
     steps:[
       { id:'vs4a', t:'Create RealMe / INZ online account', note:'' },
-      { id:'vs4b', t:'Complete the Fee Paying Student Visa form', note:'PhD students choose this category — domestic fees still apply' },
+      { id:'vs4b', t:'Complete the Fee Paying Student Visa form', note:'PhD students choose this category — domestic fees still apply',
+        masters_note:'The same category, but you are paying the international fee — the tuition receipt you upload must match it' },
       { id:'vs4c', t:'Upload all documents as clear PDF scans', note:'Photographs of documents are commonly rejected — scan properly' },
       { id:'vs4d', t:'Pay fee + levy (~NZ$430) by card', note:'An international-enabled card — call your bank to unlock online foreign payments' },
       { id:'vs4e', t:'Note your application number', note:'' },
@@ -903,11 +1154,14 @@ const PF_VISA_STAGES = [
     icon:'task_alt', consult:'visa-evisa',
     summary:'Your eVisa arrives by email. Check every detail on it the day it arrives.',
     where:[
-      { name:'Email + INZ portal', detail:'The eVisa letter states your visa conditions: institution, course, work rights (unlimited hours for PhD), and validity dates.' },
+      { name:'Email + INZ portal', detail:'The eVisa letter states your visa conditions: institution, course, work rights (unlimited hours for PhD), and validity dates.',
+        masters_detail:'The eVisa letter states your visa conditions: institution, course, work rights (20 hours a week in semester for a taught master’s), and validity dates.' },
     ],
     steps:[
       { id:'vs6a', t:'eVisa received — check name spelling and passport number', note:'Errors must be corrected before travel' },
-      { id:'vs6b', t:'Confirm work rights show unlimited hours (PhD)', note:'' },
+      { id:'vs6b', t:'Confirm work rights show unlimited hours (PhD)', note:'',
+        masters_t:'Confirm work rights show 20 hours a week during semester',
+        masters_note:'Full-time work is allowed only in scheduled breaks — check the dates on the letter' },
       { id:'vs6c', t:'Confirm validity covers your full first year+', note:'' },
     ]},
   { id:'vs7', title:'Pre-Departure', when:'Final 4–6 weeks', dur:'4–6 weeks', cost:'Flights ~LKR 250,000–400,000', color:'gold',
@@ -1009,18 +1263,25 @@ const PF_SETTLEMENT = [
            'Alternatively: book university halls for semester one and hunt in person' ]},
   { id:'set11', cat:'family', icon:'work', title:'Partner’s open work visa', consult:'settle-family',
     body:'Your partner can apply for an open work visa tied to your PhD enrolment — full-time work, any employer.',
+    masters_body:'Partners of students in level-9 master\u2019s study on the Green List or in specified fields can apply for an open work visa. It is NOT automatic for every master\u2019s — check your programme against the INZ list before you plan around two incomes.',
     tips:[ 'Apply together with your visa or after arrival — together is usually faster',
            'Evidence of relationship: marriage certificate + shared life evidence (photos, joint accounts)',
            'Partner’s income changes your budget completely — see the cost calculator',
-           'Your children attend school as domestic students (free state schooling)' ]},
+           'Your children attend school as domestic students (free state schooling)' ],
+    masters_tips:[ 'Confirm your specific programme qualifies before assuming a partner can work — this is the most common costly assumption',
+           'Apply together with your visa or after arrival — together is usually faster',
+           'Evidence of relationship: marriage certificate + shared life evidence (photos, joint accounts)',
+           'If the partner work visa does not apply, budget for a single income from day one' ]},
   { id:'set12', cat:'family', icon:'school', title:'Schools & early childhood for your kids', consult:'settle-family',
     body:'School-age children of PhD students are treated as domestic students — no international fees. Enrolment is by home address ("school zone").',
+    masters_body:'Children of students in level-9 or higher study are generally treated as domestic students, but the rule is narrower than for doctoral students — confirm your programme qualifies with INZ before you budget. Enrolment is by home address ("school zone").',
     tips:[ 'Pick the suburb by its school zone — check schoolzones.co.nz before signing a lease',
            'School year runs Feb–Dec in 4 terms',
            'ECE: 20 free hours/week from age 3',
            'Enrol with the school directly; you need proof of address + child’s passport/visa' ]},
   { id:'set13', cat:'family', icon:'medical_information', title:'Healthcare, pregnancy & babies', consult:'settle-family',
-    body:'PhD students (visa 2+ years) and their families are generally eligible for publicly funded healthcare — a major hidden benefit of NZ.',
+    body:'PhD students on a visa of 2 years or more, and their families, are generally eligible for publicly funded healthcare.',
+    masters_body:'Eligibility for publicly funded healthcare depends on holding a visa valid for 2 years or more. A one-year master\u2019s usually does NOT qualify, so budget for the private health insurance your provider requires.',
     tips:[ 'Enrol the whole family with a GP practice (PHO) in week one',
            'Maternity care is free for eligible students — register with a midwife (LMC) early',
            'Plunket supports new parents free — nurse visits, helpline, parent groups',
@@ -1109,6 +1370,9 @@ const PF_CONSULT_TOPICS = {
   'roadmap-proposal':  'Research proposal',
   'research-proposal': 'Research proposal review',
   'visa-funds':        'Visa funds & financial evidence',
+  'masters-intake':    'Choosing a master\'s programme',
+  'masters-sop':       'Statement of purpose review',
+  'masters-credential':'Credential recognition & entry',
 };
 
 /* ── Mentoring session records ────────────────────────────────────────
@@ -1377,6 +1641,16 @@ const PF_CONFIG = {
      Figures are indicative; the tool always tells the student to confirm
      with Immigration NZ and the university. */
   phdFeesDomesticPerYear: 8500,      // ~NZ$7,500–9,500 across the eight unis; midpoint
+
+  /* Master's students get NO domestic-fee concession — they pay full
+     international tuition, which is the single biggest number in their plan
+     and the one most likely to be underestimated. Hand-maintained: the NZQA
+     dataset cannot supply it (universities publish no programme-level rows,
+     and only 17 of the 128 polytechnic rows carry a numeric fee), so real
+     per-course fees are shown ONLY on the courses that actually have them.
+     VERIFY against university fee schedules — these move every year. */
+  mastersFeesIntlPerYear: { lo: 32000, hi: 48000, mid: 38000 },
+
   returnAirfareBuffer: 2500,         // INZ wants onward/return-travel evidence (NZ$)
   // Extra living-cost funds INZ expects for accompanying family, on top of
   // the student's own requirement (indicative multipliers — verify exact
@@ -1402,8 +1676,8 @@ const PF_CONFIG = {
 
 /* ── Partner placements (affiliate) — clearly labelled in the UI ── */
 const PF_PARTNERS = [
-  { id:'p1', placement:'ielts', name:'IELTS preparation', blurb:'Structured prep courses with band-score guarantees — most NZ PhDs need 6.5+ with no band below 6.0.', url:'#', cta:'Explore prep options' },
-  { id:'p2', placement:'forex', name:'Wise — money between LKR and NZD', blurb:'The route most students use for stipend-to-home transfers and bringing funds over.', url:'https://wise.com', cta:'Compare rates' },
-  { id:'p3', placement:'insurance', name:'Student travel & health insurance', blurb:'INZ-compliant cover for the journey and your first weeks before university insurance kicks in.', url:'#', cta:'Get a quote' },
+  { id:'p1', placement:'ielts', name:'IELTS preparation', blurb:'Structured prep courses. NZ postgraduate admission usually needs IELTS 6.5+ with no band below 6.0 — check your programme, some accept 6.0.', url:'#', cta:'Explore prep options' },
+  { id:'p2', placement:'forex', name:'Wise — money between LKR and NZD', blurb:'Usually cheaper than a bank for moving money between LKR and NZD — compare the rate before each transfer.', url:'https://wise.com', cta:'Compare rates' },
+  { id:'p3', placement:'insurance', name:'Student travel & health insurance', blurb:'Cover for the journey and your first weeks, before university insurance starts. Check it meets your provider\u2019s requirements.', url:'#', cta:'Get a quote' },
   { id:'p4', placement:'flights', name:'Student fares CMB → NZ', blurb:'Student tickets often include extra baggage — worth it when you are moving your whole life.', url:'#', cta:'Search flights' },
 ];

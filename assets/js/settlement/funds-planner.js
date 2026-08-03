@@ -189,6 +189,15 @@ window.PFFunds = (() => {
           <span class="ck-box"><span class="material-symbols-outlined" style="font-size:13px">check</span></span>
           <span>My partner expects to work (open work visa)</span>
         </label>
+        <!-- A partner's open work visa is automatic for doctoral students but
+             NOT for every master's: it depends on the programme being level 9
+             on the Green List or in a specified field. Planning a second
+             income that never materialises is an expensive mistake, so the
+             master's track says so rather than letting the checkbox imply it. -->
+        ${PFStore.getTrack() === 'masters'
+          ? `<p class="faint" style="font-size:11.5px;margin:6px 0 0 26px">Not automatic on a master\u2019s —
+             it depends on your programme being level 9 in a specified field. Confirm with INZ before
+             you budget on two incomes.</p>` : ''}
         <div class="grid-2 ${partner.on ? '' : 'hidden'}" id="fp-partner-fields" style="margin-top:10px">
           <div><label class="faint fp-lbl" for="fp-rate">Partner pay · NZ$/hour</label>
             <input type="number" min="0" step="0.05" class="field" id="fp-rate" value="${partner.rate}" style="margin-top:5px">
@@ -242,18 +251,31 @@ window.PFFunds = (() => {
         plan.monthly >= inzMo
           ? `Your budget clears the INZ minimum you must show funds for (${nz(cfg.visaFundsPerYear)}/yr).`
           : `Below the INZ minimum — you must still evidence at least ${nz(cfg.visaFundsPerYear)}/yr to get the visa.`);
-      bench += benchRow('Doctoral stipend band', plan.monthly, stipHi,
-        `${nz(stipLo)}–${nz(stipHi)}/mo`, true,
-        plan.monthly > stipHi
-          ? `Above the top stipend — you'd need ${nz(plan.monthly - stipHi)}/mo extra (partner/part-time work) or lower rent.`
-          : `Fits inside a typical stipend with ${nz(stipHi - plan.monthly)}/mo headroom at the top of the band.`);
+      /* The stipend benchmark only means something to a doctoral candidate.
+         A master's student has no stipend to measure against, so the same row
+         would quietly imply an income they will never receive — the bar it
+         compares to becomes tuition instead, which is their real problem. */
+      const masters = PFStore.getTrack() === 'masters';
+      if (masters) {
+        const feeMo = ((cfg.mastersFeesIntlPerYear || {}).mid || 38000) / 12;
+        bench += benchRow('Tuition, spread over the year', plan.monthly, plan.monthly + feeMo,
+          `+${nz(feeMo)}/mo`, true,
+          `Living costs are only half of it. International tuition works out around ${nz(feeMo)} a month on top, ` +
+          `so plan for roughly ${nz(plan.monthly + feeMo)}/mo all in. Master's study carries no stipend to offset it.`);
+      } else {
+        bench += benchRow('Doctoral stipend band', plan.monthly, stipHi,
+          `${nz(stipLo)}–${nz(stipHi)}/mo`, true,
+          plan.monthly > stipHi
+            ? `Above the top stipend — you'd need ${nz(plan.monthly - stipHi)}/mo extra (partner/part-time work) or lower rent.`
+            : `Fits inside a typical stipend with ${nz(stipHi - plan.monthly)}/mo headroom at the top of the band.`);
+      }
       if (status !== 'single' && partner.on) {
         const net = Math.max(0, plan.monthly - plan.partnerIncome);
         bench += benchRow('With partner income', net, plan.monthly,
           `+${nz(plan.partnerIncome)}/mo`, false,
           plan.partnerIncome >= plan.monthly
             ? `Partner income alone (${nz(plan.partnerIncome)}/mo) covers the whole monthly budget.`
-            : `Partner income covers most of it — about ${nz(net)}/mo left for your stipend or savings to cover.`);
+            : `Partner income covers most of it — about ${nz(net)}/mo left for your ${masters ? 'savings' : 'stipend or savings'} to cover.`);
       }
       $a('#fp-bench').innerHTML = bench;
 

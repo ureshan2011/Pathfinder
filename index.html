@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PathFinder helps Sri Lankan students get into a PhD in New Zealand. Eligibility assessment, personalized roadmap, supervisor search, scholarships, and application tracking." />
-  <meta property="og:title" content="PathFinder — Your PhD in New Zealand starts here" />
-  <meta property="og:description" content="Eligibility assessment, scholarships, supervisors, and application tracking — everything Sri Lankan students need to get into a New Zealand PhD." />
-  <title>PathFinder — Your PhD in New Zealand starts here</title>
+  <meta name="description" content="PathFinder helps Sri Lankan students apply for a master’s or a PhD in New Zealand. Eligibility assessment, 1,716 postgraduate qualifications from the NZQA register, a month-by-month plan, scholarships, and application tracking." />
+  <meta property="og:title" content="PathFinder — Your postgraduate degree in New Zealand starts here" />
+  <meta property="og:description" content="Eligibility assessment, the NZQA course catalogue, scholarships and application tracking, for Sri Lankan students applying to a New Zealand master’s or PhD." />
+  <title>PathFinder — Your postgraduate degree in New Zealand starts here</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -85,6 +85,14 @@
       box-shadow: 0 12px 32px -10px rgba(194,64,28,.55), inset 0 1px 0 rgba(255,255,255,.18);
     }
     .stage .btn-hero:hover { background: #D9531F; transform: translateY(-2px); }
+    /* the two tracks are equal choices, so the second reads as a peer of the
+       first rather than a lesser action — outlined, not ghosted away */
+    .actions-dual { gap: 12px; margin-top: 32px; }
+    .stage .btn-hero-alt {
+      background: transparent; color: #F0EDE6;
+      border: 1px solid rgba(240,237,230,.34); box-shadow: none;
+    }
+    .stage .btn-hero-alt:hover { background: rgba(240,237,230,.09); border-color: rgba(240,237,230,.6); }
     .stage .tlink { color: rgba(240,237,230,.85); }
     .stage .tlink:hover { color: #E8763F; }
     .stage .tlink::after { background: #E8763F; }
@@ -150,6 +158,31 @@
       .hero h1 { font-size: clamp(38px, 10.5vw, 52px); }
       .actions .btn { flex: 1; justify-content: center; }
     }
+
+    /* ════════ FEE SPLIT — PhD vs master's, stated side by side ════════ */
+    .fee-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .fee-col { background: var(--paper); padding: 28px 26px; }
+    .fee-col h3 { font-family: var(--font-display); font-size: 1.22rem; font-weight: 560; line-height: 1.25; margin: 12px 0 12px; }
+    .fee-col p { font-size: 14px; line-height: 1.68; color: var(--ink-soft); }
+    .fee-col strong { color: var(--ink); font-weight: 600; }
+    .chip-lite {
+      display: inline-block; padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 3px;
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      letter-spacing: .13em; text-transform: uppercase; color: var(--route);
+    }
+
+    /* ════════ CATALOGUE — the register, as proof ════════ */
+    .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .cat-cell {
+      background: var(--paper); padding: 20px 20px 18px; display: flex; flex-direction: column; gap: 6px;
+      transition: background .2s, transform .2s cubic-bezier(.22,1,.36,1);
+    }
+    .cat-cell:hover { background: var(--surface); transform: translateY(-2px); }
+    .cat-cell .n { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; color: var(--route); }
+    .cat-cell .t { font-size: 14.5px; line-height: 1.38; font-weight: 500; color: var(--ink); }
+    .cat-stats { display: flex; gap: 44px; flex-wrap: wrap; margin: 30px 0 34px; }
+    .cat-stat .fig { font-family: var(--font-display); font-size: clamp(2rem, 4.4vw, 3.1rem); font-weight: 560; line-height: 1; color: var(--ink); }
+    .cat-stat .cap { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-top: 8px; }
 
     /* ════════ INDEX STRIP — the legend ════════ */
     .legend-strip { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); padding: 18px 0; }
@@ -290,9 +323,10 @@
 <!-- ══════════ NAV ══════════ -->
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span><span class="mono" style="font-size:10px">PHD · NEW ZEALAND</span></a>
+    <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span><span class="mono" style="font-size:10px">POSTGRAD · NEW ZEALAND</span></a>
     <nav class="nav-links">
       <a href="#method">Assessment</a>
+      <a href="#catalogue">Courses</a>
       <a href="#funding">Funding</a>
       <a href="#labs">Labs</a>
       <a href="#crossing">Visa&nbsp;&amp;&nbsp;Arrival</a>
@@ -316,26 +350,36 @@
       <div class="copy" id="hero-copy">
         <div class="eyebrow">
           <span class="rule"></span>
-          <span class="mono">For Sri Lankan students <span class="tick">·</span> PhD in New Zealand</span>
+          <span class="mono">For Sri Lankan students <span class="tick">·</span> Master’s &amp; PhD in New Zealand</span>
         </div>
 
         <h1>
-          <span class="ln"><span style="animation-delay:.08s">Your PhD in</span></span>
+          <span class="ln"><span style="animation-delay:.08s">Your degree in</span></span>
           <span class="ln"><span class="serif" style="animation-delay:.2s">New Zealand</span></span>
           <span class="ln"><span style="animation-delay:.32s">starts here.</span></span>
         </h1>
 
         <p class="sub">
-          New Zealand charges PhD candidates domestic fees, pays stipends that cover rent,
-          and gives graduates a three-year work visa. PathFinder covers the rest —
-          eligibility, supervisors, scholarships, and every application, tracked.
+          1,716 postgraduate qualifications from the NZQA register, the 51 providers that
+          teach them, and the parts that are easy to get wrong — what you qualify for,
+          what it costs, the visa, and keeping track of it all.
         </p>
 
-        <div class="actions">
-          <a class="btn btn-hero" href="app.html#assessment">
-            Begin the assessment
+        <!-- Two journeys, chosen before the student ever reaches the app: the
+             ?track= parameter is consumed by adoptTrackFromQuery() in app.js.
+             The money, the entry bar and the work rights are genuinely
+             different, so asking up front beats guessing. -->
+        <div class="actions actions-dual">
+          <a class="btn btn-hero" href="app.html?track=masters#assessment">
+            I’m applying for a master’s
             <span class="material-symbols-outlined" style="font-size:17px">east</span>
           </a>
+          <a class="btn btn-hero btn-hero-alt" href="app.html?track=phd#assessment">
+            I’m applying for a PhD
+            <span class="material-symbols-outlined" style="font-size:17px">east</span>
+          </a>
+        </div>
+        <div class="actions" style="margin-top:14px">
           <a class="tlink" href="#method">How it works</a>
         </div>
 
@@ -628,13 +672,14 @@ navMode();
       <div>
         <h2 class="display sec-head" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:22px">First, find out<br><em>where you stand.</em></h2>
         <p class="muted" data-reveal style="max-width:44ch;margin-bottom:18px">
-          Seven questions on your degree, research record, field, and funding — under five
-          minutes — and PathFinder tells you how you get in: direct PhD admission, an
-          honours year, or a research master's first.
+          Seven questions on your degree, your results, your subject and your funding — under
+          five minutes — and you get a likely route in: direct entry, a postgraduate diploma
+          that bridges the gap, or an honours year first.
         </p>
         <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch">
-          Your answers generate a month-by-month roadmap, matched universities, and the
-          scholarships you actually qualify for. Nothing generic.
+          Your answers build a month-by-month plan and narrow the catalogue to the
+          qualifications and scholarships worth reading about first. It is a starting
+          point, not a decision — check the entry requirements yourself.
         </p>
       </div>
       <div data-reveal style="transition-delay:120ms">
@@ -654,19 +699,94 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 02 · FUNDING ══════════ -->
+<!-- ══════════ 02 · THE CATALOGUE ══════════
+     The strongest credibility signal on the page: not a curated shortlist
+     but the actual national register. Counts are baked in at build time
+     from assets/js/catalogue.js — see scripts/sync-astra-catalogue.js. -->
+<section class="sec" id="catalogue" style="padding-top:0">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no">02</span><span class="ttl">The Catalogue</span><span class="end">NZQA register</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Not a shortlist.<br><em>The register itself.</em></h2>
+      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
+        Every current postgraduate qualification on the NZQA register, with its entry
+        requirements, what it is for, and what it leads to. Universities, polytechnics
+        and private colleges — 29 of the private ones award master's degrees.
+      </p>
+    </div>
+
+    <div class="cat-stats" data-reveal>
+      <div class="cat-stat"><div class="fig">1,716</div><div class="cap">Qualifications</div></div>
+      <div class="cat-stat"><div class="fig">51</div><div class="cap">Providers</div></div>
+      <div class="cat-stat"><div class="fig">11</div><div class="cap">Subject areas</div></div>
+      <div class="cat-stat"><div class="fig">281</div><div class="cap">Scholarships</div></div>
+    </div>
+
+    <div class="cat-grid" data-reveal>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">321</span><span class="t">Society and Culture</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">275</span><span class="t">Management and Commerce</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">252</span><span class="t">Health</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">147</span><span class="t">Creative Arts</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">139</span><span class="t">Education</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">122</span><span class="t">Natural and Physical Sciences</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">111</span><span class="t">Engineering and Related Technologies</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">103</span><span class="t">Information Technology</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">64</span><span class="t">Agriculture &amp; Environmental Studies</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">63</span><span class="t">Architecture and Building</span></a>
+      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">54</span><span class="t">Mixed Field Programmes</span></a>
+      <a class="cat-cell" href="app.html?track=phd#courses"><span class="n">64</span><span class="t">Doctorates, every field</span></a>
+    </div>
+
+    <div style="margin-top:28px" data-reveal>
+      <a class="tlink" href="app.html#courses">Browse the catalogue — filter by level, subject and provider <span style="color:var(--route)">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 03 · FUNDING ══════════ -->
 <section class="sec" id="funding" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">02</span><span class="ttl">Funding</span><span class="end">Scholarships &amp; stipends</span>
+      <span class="no">03</span><span class="ttl">Funding</span><span class="end">Scholarships &amp; stipends</span>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px">
-      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Stipends that pay<br>the <em>rent and then some.</em></h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:32px">
+      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">The money works<br><em>differently</em> for each.</h2>
       <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
-        NZ doctoral scholarships cover fees plus NZ$28–33k a year, tax-free. Most are awarded
-        automatically with admission. The table below is the shortlist.
+        A PhD and a master's are funded on completely different terms in New Zealand.
+        It is worth knowing which one applies to you before you plan anything else.
       </p>
     </div>
+
+    <!-- The domestic-fee and stipend story is TRUE FOR DOCTORAL CANDIDATES
+         ONLY. Presented unqualified it would mislead the master's audience
+         this page now also serves, so the two are stated side by side. -->
+    <div class="fee-split" data-reveal>
+      <div class="fee-col">
+        <span class="chip-lite">PhD</span>
+        <h3>Domestic fees. A stipend. Rent covered.</h3>
+        <p>International PhD candidates pay the <strong>domestic</strong> tuition rate — about
+          NZ$8,500 a year, one of the few countries in the world to do this. Doctoral
+          scholarships add NZ$28–33k tax-free on top, and most are awarded automatically
+          with admission rather than by separate application.</p>
+      </div>
+      <div class="fee-col">
+        <span class="chip-lite">Master’s</span>
+        <h3>Full international fees. No stipend. Worth knowing early.</h3>
+        <p>The concession does not extend to master’s students: budget
+          <strong>NZ$32,000–48,000 a year</strong>, plus NZ$20,000 in living costs the visa
+          requires you to evidence. Scholarships here are competitive, deadline-bound and
+          usually discount fees rather than pay you. On the other side of it, a level-9
+          master’s qualifies for a <strong>three-year open work visa</strong>.</p>
+      </div>
+    </div>
+    <!-- The ledger lists DOCTORAL awards only. Under a heading that now serves
+         both tracks it must say so, and point master's students at the 275
+         provider scholarships in the app rather than implying these are theirs. -->
+    <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:44px 0 14px">
+      Doctoral scholarships · the shortlist
+    </p>
     <div data-reveal style="overflow-x:auto">
       <table class="ledger" id="ledger">
         <thead><tr>
@@ -679,18 +799,32 @@ navMode();
       </table>
     </div>
     <div style="margin-top:28px" data-reveal>
-      <a class="tlink" href="app.html#funding">Open the full funding hub — eligibility explained <span style="color:var(--route)">→</span></a>
+      <p class="muted" style="font-size:14px;max-width:60ch;margin-bottom:16px">
+        Master’s awards work differently. There are 281 in the funding hub, taken from the
+        providers’ own scholarship pages, with their closing dates and eligibility as published.
+      </p>
+      <a class="tlink" href="app.html?track=masters#funding">Master’s scholarships <span style="color:var(--route)">→</span></a>
+      <span style="display:inline-block;width:28px"></span>
+      <a class="tlink" href="app.html?track=phd#funding">Doctoral funding hub <span style="color:var(--route)">→</span></a>
     </div>
   </div>
 </section>
 
-<!-- ══════════ 03 · UNIVERSITIES &amp; LABS ══════════ -->
+<!-- ══════════ 04 · UNIVERSITIES &amp; PROVIDERS ══════════ -->
 <section class="sec" id="labs" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">03</span><span class="ttl">Universities &amp; Labs</span><span class="end">8 universities · 12 labs</span>
+      <span class="no">04</span><span class="ttl">Universities &amp; Providers</span><span class="end">51 providers</span>
     </div>
-    <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:40px">Find the right lab.<br>Then <em>write to it.</em></h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px">
+      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Find your programme.<br>Or find the <em>right lab.</em></h2>
+      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
+        A master’s applicant picks a programme and applies to an intake. A PhD applicant picks
+        a person and writes to them. The eight universities below carry named labs and
+        supervisors; 43 polytechnics and private colleges carry applied postgraduate
+        qualifications the universities don’t teach.
+      </p>
+    </div>
     <div class="lab-index" id="lab-index" data-reveal></div>
     <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-top:18px">
       Each entry opens the explorer — labs, named supervisors, and what to say in your first email.
@@ -698,11 +832,11 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 04 · THE CROSSING (visa · arrival · mentors) ══════════ -->
+<!-- ══════════ 05 · THE CROSSING (visa · arrival · mentors) ══════════ -->
 <section class="sec" id="crossing" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">04</span><span class="ttl">The Crossing</span><span class="end">Visa · Arrival · Mentors</span>
+      <span class="no">05</span><span class="ttl">The Crossing</span><span class="end">Visa · Arrival · Mentors</span>
     </div>
     <div class="split">
       <div>
@@ -713,8 +847,8 @@ navMode();
           your progress, and the Settle In guide covers banks, buses, flats, and family.
         </p>
         <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch;margin-bottom:30px">
-          And when a step gets confusing, mentors — Sri Lankan PhD students already in
-          New Zealand — are one message away.
+          And when a step gets confusing, mentors — Sri Lankan postgraduate students already
+          in New Zealand — are one message away.
         </p>
         <div style="display:flex;gap:14px;flex-wrap:wrap" data-reveal>
           <a class="btn btn-primary" href="app.html#visa">Open the Visa Hub</a>
@@ -730,12 +864,12 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 05 · TRACKING ══════════ -->
+<!-- ══════════ 06 · TRACKING ══════════ -->
 <div class="paper-to-night" aria-hidden="true"></div>
 <section class="sec night" style="padding-top:calc(var(--s7) - 32px)">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no" style="color:var(--route)">05</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
+      <span class="no" style="color:var(--route)">06</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
     </div>
     <div class="split" style="align-items:end">
       <div>
@@ -759,11 +893,11 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ 06 · THE PAPERS (starter kit) ══════════ -->
+<!-- ══════════ 07 · THE PAPERS (starter kit) ══════════ -->
 <section class="sec" id="kit">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">06</span><span class="ttl">Templates</span><span class="end">19 templates · 4 categories</span>
+      <span class="no">07</span><span class="ttl">Templates</span><span class="end">21 templates · 4 categories</span>
     </div>
     <div class="split">
       <div class="paper-stack" data-reveal aria-hidden="true">
@@ -786,14 +920,17 @@ navMode();
       <div>
         <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:18px">The difference between<br><em>read</em> and <em>deleted.</em></h2>
         <p class="muted" data-reveal style="max-width:46ch;margin-bottom:34px">
-          Supervisors skim hundreds of cold emails a term. The Starter Kit gives you the four
-          documents that get read — each one annotated with why it works.
+          Admissions offices read a lot of applications each intake, and supervisors a lot of
+          cold emails. The Starter Kit is a set of drafts to start from — a statement of purpose
+          and a programme comparison sheet for the master's route, a proposal outline and a
+          first-contact email for the PhD one — each annotated with the reasoning behind it.
         </p>
         <div class="kit-list" data-reveal>
-          <div class="kit-row"><span class="no">i.</span><strong>Supervisor first-contact email</strong><span class="mono">20–30% reply rate</span></div>
-          <div class="kit-row"><span class="no">ii.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
-          <div class="kit-row"><span class="no">iii.</span><strong>Academic CV skeleton</strong><span class="mono">2 pp. max</span></div>
-          <div class="kit-row"><span class="no">iv.</span><strong>Statement of purpose framework</strong><span class="mono">1,000 words</span></div>
+          <div class="kit-row"><span class="no">i.</span><strong>Master’s statement of purpose</strong><span class="mono">1 page</span></div>
+          <div class="kit-row"><span class="no">ii.</span><strong>Programme comparison sheet</strong><span class="mono">4–6 options</span></div>
+          <div class="kit-row"><span class="no">iii.</span><strong>Supervisor first-contact email</strong><span class="mono">one page</span></div>
+          <div class="kit-row"><span class="no">iv.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
+          <div class="kit-row"><span class="no">v.</span><strong>Academic CV skeleton</strong><span class="mono">2 pp. max</span></div>
         </div>
         <div style="margin-top:30px">
           <a class="btn btn-ghost" href="app.html#kit">Open the kit <span class="material-symbols-outlined" style="font-size:16px">east</span></a>
@@ -803,27 +940,40 @@ navMode();
   </div>
 </section>
 
-<!-- ══════════ FROM STUDENTS ══════════ -->
+<!-- ══════════ WHAT THIS IS ══════════
+     This replaced three invented testimonials attributed to named students.
+     They were footnoted "illustrative", but a quote with a name and a city
+     attached reads as a real person whatever the footnote says. Being
+     straight about what the product does and does not do is both honest and,
+     for an audience that has been oversold by agents, more persuasive. -->
 <section class="sec" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">07</span><span class="ttl">From Students</span><span class="end">Three accounts*</span>
+      <span class="no">08</span><span class="ttl">Straight Answers</span><span class="end">What this is</span>
     </div>
+    <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:40px">What PathFinder does,<br>and <em>what it doesn't.</em></h2>
     <div class="notes">
       <div class="note" data-reveal>
-        <blockquote>“I emailed eleven supervisors with the template. Four replied. One of them is now my primary supervisor at Otago.”</blockquote>
-        <div class="who mono">— K. Perera · Health Sciences · <span class="tick">Dunedin</span></div>
+        <blockquote>It shows you the register, not a shortlist.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Every current postgraduate
+          qualification NZQA lists, from all 51 providers that teach one — including the
+          polytechnics and private colleges that rarely make a shortlist. Entry requirements
+          as published, so you can check them against your own transcript.</p>
       </div>
       <div class="note" data-reveal style="transition-delay:100ms">
-        <blockquote>“Nobody told me NZ charges PhD students domestic fees. That single fact changed which country I applied to.”</blockquote>
-        <div class="who mono">— D. Wijesinghe · Engineering · <span class="tick">Christchurch</span></div>
+        <blockquote>It does the arithmetic you'd rather not.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Tuition, living costs,
+          the visa funds bar, what a scholarship actually covers — worked out for the route you are
+          on, in NZ$ and rupees. Most people find the number is different from what they assumed.</p>
       </div>
       <div class="note" data-reveal style="transition-delay:200ms">
-        <blockquote>“The roadmap said month 3: proposal draft. I was on time for the first deadline of my life.”</blockquote>
-        <div class="who mono">— R. Abeykoon · Computer Science · <span class="tick">Hamilton</span></div>
+        <blockquote>It can't get you admitted.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">No tool can. Admission
+          decisions sit with the university, the visa with Immigration NZ, and figures change
+          without notice. Treat everything here as a starting point to verify, not an answer to
+          rely on — and check the source links before you commit money.</p>
       </div>
     </div>
-    <p class="faint" data-reveal style="font-size:11px;margin-top:34px;font-family:var(--font-mono)">* Illustrative accounts.</p>
   </div>
 </section>
 
@@ -833,8 +983,8 @@ navMode();
     <div class="dispatch" data-reveal>
       <div class="rule-x"></div>
       <span class="mono">Email alerts · Scholarships &amp; visas</span>
-      <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.6rem);margin:16px 0 12px">Deadlines don't announce<br>themselves. <em>We do.</em></h2>
-      <p class="muted" style="font-size:14.5px">Scholarship rounds, funded positions, visa changes — sent only when they matter.</p>
+      <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.6rem);margin:16px 0 12px">Deadlines don't<br>announce <em>themselves.</em></h2>
+      <p class="muted" style="font-size:14.5px">Leave your email and we'll write when a scholarship round, funded position or visa rule changes. It's a small list and a new one — expect occasional, not constant.</p>
       <form id="lead-form" novalidate>
         <div class="email-row">
           <input type="email" id="lead-email" class="field" placeholder="you@example.com" autocomplete="email" required aria-label="Email address" />

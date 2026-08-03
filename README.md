@@ -1,6 +1,24 @@
 # PathFinder
 
-PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand — compare pathways, find supervisors and scholarships, generate a personalized roadmap, walk the visa process step by step, plan the move, and track applications from first email to enrollment.
+PathFinder helps Sri Lankan students get into a **master's or a PhD** in New Zealand — compare pathways, browse the full NZQA postgraduate course catalogue, find supervisors and scholarships, generate a personalized roadmap, walk the visa process step by step, plan the move, and track applications from first email to enrollment.
+
+### Study tracks
+
+The product serves **two journeys on one platform**, chosen by the student on the landing page (`app.html?track=masters|phd`) and switchable any time from the sidebar. The track is stored as the `track` key in `PFStore` (so it syncs like any other user data) and read everywhere through `trackCfg()` / `isMasters()` in `app.js`.
+
+Nearly everything that differs between the two lives in one object, **`PF_TRACK` in `assets/js/data.js`** — the fee model, the entry bar, the timeline shape, the work rights, and the words. Add a difference there rather than branching in a view. Where a single fact in a longer data record differs (a visa step, a Settle In card), the record carries a `masters_<field>` alternate and the renderer reads it through `tv(obj, field)`.
+
+The differences that matter most are financial and legal, not cosmetic:
+
+| | PhD | Master's |
+|---|---|---|
+| Tuition | **Domestic** rate, ~NZ$8,500/yr | **Full international** rate, ~NZ$32–48k/yr |
+| Stipend | NZ$28–33k/yr, usually automatic with admission | None — awards discount fees, and have hard deadlines |
+| Work rights | Unlimited hours | 20 hrs/week in semester, full-time in breaks |
+| Admission | Supervisor-led, enrol any month | Programme-led, February and July intakes |
+| NZQF levels | 10 | 8 (PGDip/PGCert/GradDip/Hons) and 9 |
+
+Getting the first row wrong understates a master's applicant's visa-funds requirement by **tens of thousands of dollars a year**, which is why `computeFunds()` branches on the track rather than sharing one tuition line.
 
 **Fully static. Zero build step. Cloud-first on Firebase (free Spark plan) — or runs 100% locally when Firebase is left unconfigured.**
 
@@ -9,15 +27,16 @@ PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand �
 | Page | Purpose |
 |---|---|
 | `index.html` | Landing page with the portal hero, feature overview, and email lead capture |
-| `app.html` | The application — hash-routed SPA with nine views |
+| `app.html` | The application — hash-routed SPA, track-aware |
 
 ### App views (`app.html#<view>`)
 
 - `#assessment` — 7-question pathway assessment (< 5 min) → readiness score + recommended entry route
 - `#roadmap` — interactive month-by-month roadmap, personalized from the assessment, with contextual mentor hooks
 - `#research` — **Research Studio**: a free, no-backend topic & proposal generator with a **New Zealand lean**. The student answers a few questions (field, topic in their own words, motivating problem, methodology, keywords), then PathFinder searches **real, recent academic literature** via free, no-key, browser-callable scholarly APIs (**OpenAlex**, with **Crossref** as a resilient fallback, then a degraded offline scaffold). It retrieves **by relevance, not just citations** (the old citation-only sort hid relevant niche work), running **two OpenAlex passes — a global one and one filtered to NZ-based authors** (`authorships.institutions.country_code:NZ`) — and reads each author's institutional affiliation straight from the API. For the *best-published NZ authors on the topic* it uses OpenAlex's native **`group_by=authorships.author.id` analytics** (an accurate ranked author facet, not a guess from a small page of papers), then blends that with the retrieved papers' authors and a **precomputed per-field NZ-author index** (top authors by total citations, shipped in the corpus index) — so leading NZ researchers surface with their campus and citation impact even from a thin result set or fully offline. It produces (1) a **literature map** — top recent papers (NZ-authored ones chipped), most-active authors (their NZ campus shown), trending sub-themes, a year histogram — plus a warm **"Research happening in New Zealand"** panel that surfaces those NZ researchers *indirectly, as the authors of the work the student is reading* (never labelled "your supervisor"), alongside the honest case for a NZ PhD (domestic fees, work rights, post-study visa) and links into Explore / the Starter Kit; **3–5 candidate research directions**; and **matched NZ research groups** from the dataset. Then (2) it expands any chosen direction into a **full structured proposal draft** (working title, abstract, background with inline citations **prioritising NZ-authored work**, research gap, research questions, methodology, indicative 3-year timeline, a "the people behind your citations — in New Zealand" section, NZ research groups, formatted references). The NZ side is anchored to a **large pre-scraped corpus of 10,000+ recent NZ-authored papers** (`scripts/scrape-nz-corpus.js` → a tiny index `assets/js/research-corpus.js` + per-field shards in `assets/js/corpus/`). The corpus is **sharded by field and lazy-loaded one shard at a time** — when a student searches, only that field's ~1 MB shard is fetched, never all 10k — so it stays fast on mobile and works fully offline. On top of that it's a **hybrid**: the live NZ-filtered OpenAlex queries still run for freshness/global context, and if both the corpus and the live calls are unavailable, a **curated seed** derived from `PF_LABS` (with `PF_UNI_MATCH` / `PF_NZ_INSTITUTES` in `data.js` mapping institution names to campuses) keeps the NZ panel populated. Rebuild the corpus any time with `node scripts/scrape-nz-corpus.js` (resumable, polite-pool). Copy / download `.md`/`.txt`, auto-saved to the account (one debounced `kv` write), and a one-click "send to a mentor for review" hook. No API key, no Cloud Function, no paid services — the literature calls hit external servers, not Firestore, so it stays well inside the free Spark plan.
-- `#explore` — all 8 NZ universities, 12 flagship research labs, named supervisors, field filters
-- `#funding` — doctoral scholarships (value, deadlines, eligibility) + immigration/visa updates
+- `#courses` — **Course Catalogue**: the NZQA postgraduate register, browsable. **1,716 current qualifications** (951 at level 8, 700 at level 9, 64 doctorates) across the **51 providers** that teach them — 8 universities, 14 polytechnics and 29 private colleges — indexed by the **NZQA subject-area taxonomy** (461 nodes / 11 subject roots with postgraduate study). Drill down subject → sub-area, filter by level, qualification type and provider, search by title or provider, and open any qualification for its entry requirements, purpose, graduate profile, further-study pathway, offering providers with real contact details, published fees where they exist, and a link to its NZQA record. Defaults to the active track's levels and to the subject area the student's assessment pointed at. Generated by `scripts/sync-astra-catalogue.js` — see *Course catalogue* below.
+- `#explore` — the 8 NZ universities with their 12 flagship research labs and named supervisors (PhD track), plus the other **43 providers** from the catalogue — polytechnics and private colleges — with live per-provider qualification counts and contact details, ranked by how much postgraduate study each teaches
+- `#funding` — **281 real scholarships** from the provider register, filtered to the active track's study levels, with an international-students-only filter and domestic-only awards excluded; falls back to the 8 curated doctoral awards in `PF_SCHOLARSHIPS` if the shard fails to load. Plus track-appropriate immigration/visa updates
 - `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
 - `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
 - `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
@@ -25,7 +44,7 @@ PathFinder helps Sri Lankan students discover PhD opportunities in New Zealand �
 - `#billing` — **Billing**: the student's own one-time unlocks and every mentoring session logged against their account, each with a downloadable **PDF invoice/receipt**. Private mentor notes are never shown here.
 - `#account` — **Account**: the unified front door for the three login roles. Clients/students can create a free account (no code) or sign in to sync across devices — **login is optional for explorer basics** (assessment, roadmap, explorer, funding, Research Studio, templates), and anonymous browsing always works for those. It becomes **required only to connect with a mentor or to make any purchase**. Vetted mentors are routed to the invite-only mentor sign-up, and admins to the admin sign-in.
 - `#dashboard` — the **client/student dashboard**: a metrics grid, a derived **insights** card (readiness, application funnel, active mentor requests, visa progress, next-step nudge, sync status), application tracker, visa progress, and your mentor requests
-- `#kit` — PhD Starter Kit: 19 templates across emails, application documents, research & career, and logistics
+- `#kit` — Starter Kit: 21 templates across emails, application documents, research & career, and logistics. Templates tagged `track:'masters'` (statement of purpose, programme comparison sheet) or `track:'phd'` (supervisor emails, 3-year research plan) show only on that track; the rest serve both
 - `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, **Accounting** (a unified ledger across every revenue source, with one-click PDF invoices/receipts), email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), **Sessions** (every mentoring session logged by any mentor — filter by mentor and payment state, log one on a mentor's behalf, CSV export, PDF invoices), **Orders**, and synced user records. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
 
 ## Architecture
@@ -38,9 +57,18 @@ firestore.rules            security rules (per-user data, create-only inboxes)
 assets/
   css/site.css             design tokens + shared components
   css/settlement.css       Settle In tools styling (extends site.css tokens only)
-  js/data.js               static dataset (universities, labs, scholarships, visa stages,
-                           settlement guide, city costs, price reference, mentors,
-                           partners, templates, questions; PF_CONFIG benchmarks)
+  js/data.js               static dataset (PF_TRACK study tracks, universities, labs,
+                           scholarships, visa stages, settlement guide, city costs,
+                           price reference, mentors, partners, templates, questions;
+                           PF_CONFIG benchmarks)
+  js/catalogue.js          GENERATED — NZQA catalogue index (taxonomy + 1,716 quals + 51 providers)
+  js/catalogue/            GENERATED — lazy-loaded detail shards, one per subject area,
+                           plus scholarships.js and programmes.js
+data/subject_areas.json    NZQA subject-area taxonomy (source input to the sync script)
+scripts/
+  sync-astra-catalogue.js  rebuilds the catalogue from AstraDB (see below)
+  scrape-nz-corpus.js      rebuilds the NZ research corpus from OpenAlex
+  build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
   js/invoice.js            PFInvoice — zero-dependency PDF invoice/receipt writer + print preview
@@ -55,6 +83,44 @@ functions/                 OPTIONAL Tier-2 Cloud Functions (require Blaze plan):
     buying-power.js        Part C — "What can NZ$20 buy?" explorer
     first-months.js        Part A — 90-day simulator, reads the planner's plan
 ```
+
+## Course catalogue (NZQA data)
+
+The catalogue is **generated at build time** and committed, exactly like the research corpus. `scripts/sync-astra-catalogue.js` reads the NZQA dataset out of AstraDB and writes:
+
+```
+assets/js/catalogue.js                  index — taxonomy, 1,716 qualification rows, 51 providers  (~40 KB gz)
+assets/js/catalogue/<subject-slug>.js   detail shard per subject area, lazy-loaded  (10–65 KB gz each)
+assets/js/catalogue/scholarships.js     281 postgraduate-relevant scholarships
+assets/js/catalogue/programmes.js       132 level-8+ programme rows (published fees where they exist)
+```
+
+Rebuild when the database is updated:
+
+```bash
+ASTRA_DB_TOKEN=AstraCS:... node scripts/sync-astra-catalogue.js
+```
+
+Use a **read-only** token — the script only reads. The token is never committed and never reaches the browser.
+
+**Why a build step rather than querying AstraDB live from the app:**
+
+1. **The Astra Data API sends no CORS headers.** A browser blocks every direct call, on the preflight and on the response alike. Verified against the live endpoint; OpenAlex and Crossref return `access-control-allow-origin` through the same network path, so it is the API, not the network. Serving live data would need a proxy (a Cloudflare Worker or a Blaze-plan Cloud Function) holding the token.
+2. **Shipping the token to the browser is not an option** even if CORS allowed it — an Astra token grants write access to the whole database.
+3. **Semantic search is unavailable on this data anyway.** The collections are configured with NVIDIA embeddings, lexical indexing and reranking, but **no document has `$vector` populated** — `$vectorize`, `$lexical` and `findAndRerank` all return empty. Search is therefore client-side substring matching over the generated index, which is instant at 1,716 rows and works offline.
+
+Loading is lazy and mirrors `ensureCorpusIndex()` / `ensureField()`: `ensureCatalogue()`, `ensureSubjectArea(rootId)`, `ensureScholarships()` and `ensureProgrammes()` in `app.js` reuse the same `_loadScript()` helper. The dashboard's first paint downloads no catalogue files at all; opening `#courses` pulls the index plus at most one subject shard.
+
+> **Never write catalogue data through `PFStore`.** Every `PFStore` key is mirrored to `users/{uid}/kv/{key}` with no allowlist (`assets/js/firebase.js`), so pushing megabytes of catalogue there would blow the Spark free tier immediately. Catalogue data lives in module-scope globals only. Saved courses and scholarships store just an id plus a short label, so the dashboard can list them without loading any shard.
+
+### What the sync script keeps
+
+- **Levels 8, 9 and 10** — postgraduate only. Level 8 matters because it carries the PGDip/PGCert/GradDip/Honours qualifications that bridge an under-qualified applicant into a master's.
+- **Every provider that teaches at least one of them** — 51, derived from the data rather than from NZQA's provider category. Category is a poor proxy: most private training establishments teach only level 1–5 certificates, but **29 of them award master's degrees** (Yoobee has three, Whitecliffe ten postgraduate qualifications, Media Design School six). Filtering by `type` dropped all of those along with the certificates. Providers teaching nothing above level 7 fall out on their own.
+- **Scholarships tagged** `Masters`, `Postgraduate`, `PhD / Doctorate` or `General`, from an in-scope provider.
+- `employmentPathway` is **dropped**: all 1,716 postgraduate rows carry the same CareersNZ boilerplate sentence and nothing else, so rendering it would show a heading with no content. Placeholder values (`.`, `null`, `Not available`) are stripped everywhere else.
+
+Joins are clean — `offering_org` → providers resolves 100%, as does `scholarships.offeringOrg`. `programmes.qualificationID` matches a qualification only ~40% of the time, so programme rows (the only source of real fee figures) attach opportunistically and are never a required join. Fees are sparse by nature: universities publish no programme-level rows at all, and only 17 of the 132 programme rows carry a numeric international fee — so `PF_CONFIG.mastersFeesIntlPerYear` supplies the hand-maintained band, and real per-course fees show only where they genuinely exist.
 
 ## Firebase (free Spark plan) — setup
 
@@ -195,7 +261,7 @@ Configure `PF_CONFIG.payhere` (`data.js`): `merchantId` (public — safe in clie
 ## Data model (Firestore)
 
 ```
-users/{uid}/kv/{key}        mirrored PFStore keys: assessment, saved, applications,
+users/{uid}/kv/{key}        mirrored PFStore keys: track, assessment, saved, applications,
                             checklist.visa, mentorRequests, calcPrefs, firstMonths,
                             fundsPlans, leads
 inbox_leads/{id}            { email, source, at, uid, ts }          create (visitors) · read (admin)
