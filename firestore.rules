@@ -70,10 +70,23 @@ service cloud.firestore {
     // Replaces inbox_consultations. Anyone authenticated (incl. anonymous)
     // may create an `open`, unclaimed request. Reads are limited to the
     // admin, any approved mentor (the queue), or the owning student.
+    //
+    // The second and third create branches are phone/walk-in intake: when
+    // someone rings the platform with no account at all, the admin (or the
+    // mentor who answered) writes them down and the request is born already
+    // assigned, so it never sits in the open queue waiting for a claim. A
+    // mentor may only assign such a request to THEMSELVES; only the admin
+    // can hand one to another mentor.
     match /mentor_requests/{id} {
       allow create: if request.auth != null
-        && request.resource.data.status == 'open'
-        && request.resource.data.mentorId == null
+        && (
+             (request.resource.data.status == 'open'
+              && request.resource.data.mentorId == null)
+          || (isAdmin() && request.resource.data.status == 'claimed')
+          || (isApprovedMentor()
+              && request.resource.data.status == 'claimed'
+              && request.resource.data.mentorId == request.auth.uid)
+           )
         && request.resource.data.name is string
         && request.resource.data.name.size() < 200
         && request.resource.data.contact is string

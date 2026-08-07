@@ -493,7 +493,8 @@ scholarship application in progress. Silence here invites doubt.
     body:`MASTER\u2019S PROGRAMME COMPARISON — [Your name]
 
 Fill one column per shortlisted programme. Four to six is the right number:
-fewer and you have no leverage, more and every application gets weaker.
+fewer and you have nothing to compare against, more and every application
+gets weaker.
 
                                   | Option A | Option B | Option C |
 ----------------------------------|----------|----------|----------|
@@ -1375,6 +1376,21 @@ const PF_CONSULT_TOPICS = {
   'masters-credential':'Credential recognition & entry',
 };
 
+/* ── How a request first reached us ───────────────────────────────────
+   Most people here call or WhatsApp before they ever open the site. The
+   admin or the mentor who picks up writes the caller down from their own
+   dashboard ("Someone called"), so a person with no account still gets a
+   proper record, a mentor, and later an invoice. `source` is where that
+   first contact came from. */
+const PF_REQUEST_SOURCES = {
+  call:     'Phone call',
+  whatsapp: 'WhatsApp message',
+  walkin:   'Walked in',
+  referral: 'Referred by someone',
+  email:    'Email',
+  platform: 'Asked on PathFinder',
+};
+
 /* ── Mentoring session records ────────────────────────────────────────
    Plenty of real mentoring never touches the in-app request queue — a
    student messages a mentor on WhatsApp, or the mentor gets a phone
@@ -1395,10 +1411,10 @@ const PF_SESSION_CHANNELS = {
    ledger can treat all three sources identically. `waived` is the free
    intro call — recorded, never invoiced for money. */
 const PF_SESSION_PAYMENT_STATES = {
-  unpaid:   'Unpaid — invoice issued',
-  reported: 'Payment reported',
+  unpaid:   'Not paid yet',
+  reported: 'They said they paid',
   paid:     'Paid',
-  waived:   'Free / no charge',
+  waived:   'Free — no charge',
 };
 
 /* ════════════════════════════════════════════════════════════

@@ -411,6 +411,55 @@ if (cfg && cfg.apiKey) {
       return snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     },
+    /* Phone / walk-in intake — someone rings or WhatsApps with no account
+       at all, and whoever picks up writes them down. The record lands in
+       the SAME `mentor_requests` queue as a request typed on the site, so
+       from there on it moves through one lifecycle, shows on one dashboard
+       and invoices through one session log. Pass `mentorId` to assign it on
+       the spot (a mentor may only assign to themselves; the admin may hand
+       it to anyone) or leave it empty to drop it in the open queue.
+
+       One write. Nothing is read back — the caller already holds the record
+       we just built, so the dashboard updates without a refetch. */
+    async createIntakeRequest(rec) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Sign in first');
+      const admin = isAdminUser(u);
+      const mentor = !!(mentorProfile && mentorProfile.approved);
+      if (!admin && !mentor) throw new Error('Only a mentor or the admin can take a call');
+
+      const cap = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+      // 'self' lets the caller assign without having to know its own uid.
+      const raw = cap(rec.mentorId, 120);
+      const assignTo = raw === 'self' ? u.uid : raw;
+      if (assignTo && !admin && assignTo !== u.uid)
+        throw new Error('You can only take a call for yourself');
+
+      const data = {
+        name: cap(rec.name, 199),
+        contact: cap(rec.contact, 199),
+        topic: cap(rec.topic, 60),
+        note: cap(rec.note, 1999),
+        // No account behind this person — that is the whole point of intake.
+        studentUid: '',
+        source: cap(rec.source || 'call', 20),
+        callback: cap(rec.callback, 199),
+        takenBy: u.uid,
+        takenByName: cap(admin ? 'Admin' : (mentorProfile && mentorProfile.displayName) || '', 199),
+        status: assignTo ? 'claimed' : 'open',
+        mentorId: assignTo || null,
+        introDoneAt: null,
+        payment: null,
+        at: new Date().toISOString(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      if (!data.name) throw new Error('Write down their name');
+      if (!data.contact) throw new Error('Write down a phone number or email');
+
+      const ref = await addDoc(collection(db, 'mentor_requests'), { ...data, ts: serverTimestamp() });
+      return { id: ref.id, ...data };
+    },
     // Atomic claim — only succeeds while the request is still open/unclaimed,
     // so two mentors can never claim the same request (first-come wins).
     async claimRequest(id) {
@@ -447,7 +496,7 @@ if (cfg && cfg.apiKey) {
       if (!isAdminUser(u) && !(mentorProfile && mentorProfile.approved))
         throw new Error('Only an approved mentor can log a session');
       const data = normaliseSession(rec, u.uid, mentorProfile && mentorProfile.displayName);
-      if (!data.studentName) throw new Error('Add the student’s name');
+      if (!data.studentName) throw new Error('Write down their name');
       if (!data.mentorId) throw new Error('Pick which mentor delivered the session');
       data.invoiceNo = data.invoiceNo || mintInvoiceNo();
       data.createdBy = u.uid;
