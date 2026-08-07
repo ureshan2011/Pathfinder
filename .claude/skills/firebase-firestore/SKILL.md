@@ -39,9 +39,13 @@ mentors/{uid}            { displayName, fields[], city, bio, langs, availability
                          create: self (approved:false) · read: any auth ·
                          update: self (descriptive fields) / admin (approved+active)
 mentor_requests/{id}     { topic, note, name, contact, studentUid, status, mentorId,
-                           introDoneAt, payment{...}, at, createdAt, updatedAt }
-                         create: any auth (status:'open') · read: admin / approved
-                         mentor / owning student · update: claim race + lifecycle
+                           introDoneAt, payment{...}, at, createdAt, updatedAt,
+                           source, callback, takenBy, takenByName }
+                         create: any auth (status:'open') · admin or approved
+                         mentor (status:'claimed', phone/walk-in intake — a
+                         mentor may only assign to themselves) ·
+                         read: admin / approved mentor / owning student ·
+                         update: claim race + lifecycle
 inbox_consultations/{id} LEGACY — admin read-only, no new writes
 ```
 
@@ -86,6 +90,13 @@ Limits: **50k reads / 20k writes / 1 GiB / day**, unlimited auth.
   write once.
 - **Admin & mentor reads are on-demand** (only when the panel opens / Refresh),
   never on a visitor's page load.
+- **Derive, don't collect.** Before adding a collection, check whether the view
+  can be folded out of docs the dashboard already loaded. The Accounting ledger
+  and the People / client book (`buildPeople()` in `app.js`) are both computed
+  client-side from `mentor_sessions` + `mentor_requests` — no `people`
+  collection, no extra query, no new rules, and they can never drift out of
+  step with the records they summarise. A phone caller is recognised across
+  visits by the last nine digits of their number, not by a stored id.
 - **No `onSnapshot` listeners** for ambient data — they bill continuous reads.
   Use one-shot `getDocs` behind an explicit action.
 - **Cloud Functions need Blaze.** Keep the core Tier-1 (no backend); the

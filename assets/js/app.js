@@ -832,14 +832,14 @@ function finishAssessment(main) {
   asmState = { step: 0, answers: {} };
   const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
   main.innerHTML = viewHead('celebration', 'Assessment complete', 'Your personalized result',
-    'Saved to your dashboard. Your roadmap has been generated from these answers.') +
+    'Saved to your dashboard. Your roadmap is built from these answers.') +
     resultCard(result) +
     // Endowed-progress login moment: the student now HAS a result worth
     // keeping — the strongest point to offer a free account (never forced).
     (cloudOn() && !synced
       ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
           <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
-          <span>You’re <strong>${result.readiness}% ${esc(trackCfg().label)}-ready</strong>. Create a free account to lock in your result and roadmap across every device.</span>
+          <span>You’re <strong>${result.readiness}% ${esc(trackCfg().label)}-ready</strong>. Create a free account and your result and roadmap stay with you on every device.</span>
           <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
         </a>`
       : '') +
@@ -3214,7 +3214,7 @@ function renderVisa(main) {
 
   const T = trackCfg();
   main.innerHTML = viewHead('flight_takeoff', 'NZ Student Visa Hub', 'The visa, stage by stage',
-    'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to consult, what it costs, and a checklist that remembers your progress.') +
+    'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to talk to, what it costs, and a checklist that remembers where you got to.') +
     // The stages are the same for everyone; the conditions attached to the
     // visa are not, and getting them wrong is expensive. State them up front.
     `<div class="card" style="max-width:760px;margin-bottom:22px">
@@ -3327,7 +3327,7 @@ function renderSettlement(main) {
   ];
 
   main.innerHTML = viewHead('luggage', 'Settle In', 'Your first months in New Zealand',
-    'Arrival, banking, transport, housing, family — plus a funds planner, a 90-day cost simulator, and a reality check on what NZ money actually buys.') +
+    'Arrival, banking, transport, housing, family — plus a funds planner, a 90-day cost simulator, and what NZ$20 actually buys you there.') +
     `<div id="set-tabs" class="set-tabs">
       ${PF_SETTLEMENT_CATS.map((c, i) => `<button class="chip-filter ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}
       <span class="set-tab-sep" aria-hidden="true"></span>
@@ -3599,8 +3599,8 @@ function renderPricing(main) {
       <div style="margin-top:auto;padding-top:20px">${pl.cta}</div>
     </div>`;
 
-  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay once for the big moments.',
-    'Discovery is always free. Explorer and Premium are single one-time payments — no subscription — that bundle the premium templates with real mentor time from someone who’s already done this.') +
+  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay only when you need help.',
+    'Looking around costs nothing. Explorer and Premium are one-time payments, not subscriptions — each one gives you the premium templates plus time with a mentor who has already done this.') +
     `<div class="price-tiers">${plans.map(card).join('')}</div>
     <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Want more mentor time beyond your plan? Extra sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors" class="route-link" style="color:var(--route)">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
 }
@@ -3608,7 +3608,7 @@ function renderPricing(main) {
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
 function renderBilling(main) {
   const head = viewHead('receipt_long', 'Billing', 'Your purchases & invoices',
-    'One-time unlocks and the mentoring sessions you’ve had, each with a downloadable invoice. Nothing recurring — you only ever pay once per item.');
+    'What you have bought and every mentoring session you have had, each with an invoice you can download. Nothing repeats — you pay once per item.');
 
   if (!cloudOn()) {
     main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px">Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a>.</p></div>`;
@@ -3770,6 +3770,300 @@ function accountAuth(main) {
   };
 }
 
+/* ── 9b0 · People — the client book ──────────────────────────────────
+   Someone rings in March, WhatsApps in May, and books a paid session in
+   June. To a mentor that is one person. To Firestore it is a request doc
+   and two session docs, with the phone number typed three different ways.
+
+   This groups them back into people. It is derived entirely from records
+   the dashboard has ALREADY loaded — there is no `people` collection, no
+   extra read and nothing new to secure — so the client book costs nothing
+   on the free plan and can never drift out of step with the records it
+   summarises.
+
+   The key is the last nine digits of the phone number, so 0771234567,
+   +94 77 123 4567 and 94771234567 all land on the same person; then an
+   email; then, if neither was written down, the name. */
+
+function contactEmailOf(contact) {
+  const m = String(contact || '').match(/[^\s,;<>()]+@[^\s,;<>()]+\.[^\s,;<>()]+/);
+  return m ? m[0].toLowerCase() : '';
+}
+
+function contactPhoneOf(contact) {
+  const email = contactEmailOf(contact);
+  const digits = String(contact || '').replace(email, '').replace(/\D/g, '');
+  return digits.length >= 7 ? digits : '';
+}
+
+function contactKey(contact, name) {
+  const phone = contactPhoneOf(contact);
+  if (phone) return 'p:' + phone.slice(-9);
+  const email = contactEmailOf(contact);
+  if (email) return 'e:' + email;
+  const n = String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return n ? 'n:' + n : '';
+}
+
+/* A Sri Lankan mobile written any of the usual ways → the international
+   form wa.me needs (94771234567). A number that already carries some other
+   country code is left as it is. */
+function waNumber(contact) {
+  const d = contactPhoneOf(contact);
+  if (!d) return '';
+  if (d.startsWith('94')) return d;
+  if (d.startsWith('0')) return '94' + d.slice(1);
+  if (d.length === 9) return '94' + d;
+  return d;
+}
+
+/* Fold requests + sessions into one row per person. Both lists are
+   optional — the mentor dashboard passes its own, the admin passes
+   everyone's, and the shape that comes out is identical. */
+function buildPeople({ sessions = [], requests = [] } = {}) {
+  const map = new Map();
+
+  const touch = (name, contact, uid) => {
+    const key = contactKey(contact, name);
+    if (!key) return null;
+    if (!map.has(key)) {
+      map.set(key, { key, name: '', contact: '', uid: '', sessions: [], requests: [],
+                     lastAt: 0, paid: 0, due: 0, minutes: 0, topics: [] });
+    }
+    const p = map.get(key);
+    if (!p.name && name) p.name = name;
+    if (!p.contact && contact) p.contact = contact;
+    if (!p.uid && uid) p.uid = uid;
+    return p;
+  };
+
+  (requests || []).forEach(r => {
+    const p = touch(r.name, r.contact, r.studentUid);
+    if (!p) return;
+    p.requests.push(r);
+    p.lastAt = Math.max(p.lastAt, r.updatedAt || r.createdAt || Date.parse(r.at) || 0);
+    if (r.topic && !p.topics.includes(r.topic)) p.topics.push(r.topic);
+  });
+
+  (sessions || []).forEach(s => {
+    const p = touch(s.studentName, s.studentContact, s.studentUid);
+    if (!p) return;
+    p.sessions.push(s);
+    const amt = Number(s.amountLKR) || 0;
+    if (s.paymentStatus === 'paid') p.paid += amt;
+    else if (s.paymentStatus !== 'waived') p.due += amt;
+    p.minutes += Number(s.durationMin) || 0;
+    p.lastAt = Math.max(p.lastAt, Date.parse(s.date) || s.createdAt || 0);
+    if (s.topic && !p.topics.includes(s.topic)) p.topics.push(s.topic);
+  });
+
+  return [...map.values()].map(p => {
+    p.sessions.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    p.requests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return p;
+  }).sort((a, b) => b.lastAt - a.lastAt);
+}
+
+/* The line that makes a returning caller obvious the moment their number
+   is typed into the session form: "3rd session with Nimali. Last one was
+   12 June — Visa documents." */
+function peopleFind(people, contact, name) {
+  const key = contactKey(contact, name);
+  return key ? (people || []).find(p => p.key === key) || null : null;
+}
+
+const dayLabel = v => {
+  const t = typeof v === 'number' ? v : Date.parse(v);
+  return t ? new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+};
+
+/* Everything already known about one person, ready to read before the
+   next call — what was covered, what was agreed, what is still owed. */
+function personHistoryHTML(p, opts = {}) {
+  if (!p) return '';
+  const rows = [];
+  p.sessions.forEach(s => rows.push({
+    at: Date.parse(s.date) || s.createdAt || 0, kind: 'session',
+    head: sessionTitle(s), when: dayLabel(s.date) || dayLabel(s.createdAt),
+    meta: [PF_SESSION_CHANNELS[s.channel] || s.channel,
+           Number(s.durationMin) ? s.durationMin + ' min' : '',
+           opts.showMentor && s.mentorName ? 'by ' + s.mentorName : ''].filter(Boolean).join(' · '),
+    body: s.summary, next: s.followUp, chip: sessionPayChip(s),
+  }));
+  p.requests.forEach(r => rows.push({
+    at: r.updatedAt || r.createdAt || Date.parse(r.at) || 0, kind: 'request',
+    head: PF_CONSULT_TOPICS[r.topic] || 'General guidance',
+    when: dayLabel(r.createdAt || r.at),
+    meta: PF_REQUEST_SOURCES[r.source] || 'Asked on PathFinder',
+    body: r.note, next: r.callback ? 'Call back: ' + r.callback : '',
+    chip: reqStatusChip(r.status),
+  }));
+  rows.sort((a, b) => b.at - a.at);
+
+  if (!rows.length) return `<p class="muted" style="font-size:13px;margin:0">Nothing on record yet.</p>`;
+  return rows.map(r => `<div style="padding:10px 0;border-top:1px dashed var(--line)">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <strong style="font-size:13.5px">${esc(r.head)}</strong>
+        <span class="faint" style="font-size:12px">${esc(r.when)}${r.meta ? ' · ' + esc(r.meta) : ''}</span>
+        <span style="margin-left:auto">${r.chip}</span>
+      </div>
+      ${r.body ? `<p class="muted" style="font-size:13px;margin:5px 0 0;white-space:pre-wrap">${esc(r.body)}</p>` : ''}
+      ${r.next ? `<p class="faint" style="font-size:12.5px;margin:5px 0 0;white-space:pre-wrap">→ ${esc(r.next)}</p>` : ''}
+    </div>`).join('');
+}
+
+/* One person as a dashboard card. The buttons are the three things you
+   actually do next: ring them, message them, or write up the session you
+   just finished with them. */
+function personCard(p, opts = {}) {
+  const wa = waNumber(p.contact);
+  const mail = contactEmailOf(p.contact);
+  const phone = contactPhoneOf(p.contact);
+  const openReq = p.requests.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const chips = [
+    p.sessions.length ? `<span class="chip chip-dim">${p.sessions.length} session${p.sessions.length === 1 ? '' : 's'}</span>` : '',
+    openReq ? `<span class="chip chip-gold">${openReq} open request${openReq === 1 ? '' : 's'}</span>` : '',
+    p.due ? `<span class="chip chip-gold">LKR ${p.due.toLocaleString()} due</span>` : '',
+    p.paid ? `<span class="chip chip-teal">LKR ${p.paid.toLocaleString()} paid</span>` : '',
+    p.uid ? `<span class="chip chip-dim">Has an account</span>` : `<span class="chip chip-dim">No account</span>`,
+  ].filter(Boolean).join('');
+
+  return `<div class="card" style="margin-bottom:12px" data-person="${esc(p.key)}">
+    <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <strong style="font-size:14.5px">${esc(p.name || 'Unnamed')}</strong>
+        ${p.contact ? `<span class="faint" style="font-size:12.5px"> · ${esc(p.contact)}</span>` : ''}
+        <div class="faint" style="font-size:12.5px;margin-top:3px">
+          ${p.lastAt ? 'Last contact ' + esc(dayLabel(p.lastAt)) : 'No date on record'}${p.minutes ? ' · ' + (p.minutes / 60).toFixed(1) + ' h together' : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${chips}</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+      ${phone ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(phone)}">Call</a>` : ''}
+      ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+      <button class="btn btn-ghost btn-sm px-history" data-person="${esc(p.key)}">History</button>
+      ${opts.canLog ? `<button class="btn btn-primary btn-sm px-log" data-person="${esc(p.key)}" style="margin-left:auto">
+        <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log a session</button>` : ''}
+    </div>
+    <div class="px-hist hidden" data-person="${esc(p.key)}" style="margin-top:6px"></div>
+  </div>`;
+}
+
+/* Delegated actions for person cards. `ctx = { people, canLog, onLog }`.
+   Returns true when the click belonged to a person card. */
+function personCardAction(e, ctx) {
+  const btn = e.target.closest('button[data-person]');
+  if (!btn) return false;
+  const p = (ctx.people || []).find(x => x.key === btn.dataset.person);
+  if (!p) return true;
+
+  if (btn.classList.contains('px-history')) {
+    const box = btn.closest('.card').querySelector('.px-hist');
+    const open = !box.classList.contains('hidden');
+    if (open) { box.classList.add('hidden'); btn.textContent = 'History'; }
+    else {
+      box.innerHTML = personHistoryHTML(p, { showMentor: ctx.showMentor });
+      box.classList.remove('hidden');
+      btn.textContent = 'Hide history';
+    }
+    return true;
+  }
+  if (btn.classList.contains('px-log') && ctx.onLog) { ctx.onLog(p); return true; }
+  return true;
+}
+
+/* ── 9b0b · Phone / walk-in intake ───────────────────────────────────
+   The call that starts everything. Someone rings the platform, or messages
+   the WhatsApp line, and they have no account and no intention of making
+   one before they know whether this is worth their money.
+
+   Whoever picks up opens this form and writes down four things: who they
+   are, how to reach them, what they need, and when to call back. Saving it
+   creates an ordinary `mentor_requests` doc — the SAME record a request
+   typed on the site produces — so from that moment the caller is in the
+   queue, on a dashboard, in the client book, and eventually on an invoice,
+   with no separate off-platform path to maintain.
+
+   `mentors` (admin only) turns on the assign-to picker; a mentor taking
+   their own call simply keeps it. */
+function openIntakeForm(o = {}) {
+  const opt = (v, lbl, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(lbl)}</option>`;
+  const lbl = t => `<label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">${t}</label>`;
+  const mentors = o.mentors || null;
+
+  const m = modal('Someone called', `
+    <p class="muted" style="font-size:13.5px;margin:0 0 16px">
+      Write down what they told you. They don’t need an account — this goes straight
+      into the request queue, and you can log the session and send an invoice from it later.
+    </p>
+    <form id="ix-form" style="display:flex;flex-direction:column;gap:14px">
+      <div class="grid-2" style="gap:14px">
+        <div>${lbl('Their name')}<input class="field" name="name" required placeholder="e.g. Nimali Perera" autocomplete="off"></div>
+        <div>${lbl('Phone / WhatsApp / email')}<input class="field" name="contact" required placeholder="077 123 4567" autocomplete="off"></div>
+      </div>
+      <div class="grid-2" style="gap:14px">
+        <div>${lbl('How they reached us')}
+          <select class="field" name="source">
+            ${Object.entries(PF_REQUEST_SOURCES).filter(([k]) => k !== 'platform')
+              .map(([k, v]) => opt(k, v, k === 'call')).join('')}
+          </select></div>
+        <div>${lbl('What they need help with')}
+          <select class="field" name="topic">
+            ${opt('', 'General guidance', true)}
+            ${Object.entries(PF_CONSULT_TOPICS).map(([k, v]) => opt(k, v)).join('')}
+          </select></div>
+      </div>
+      <div>${lbl('What they said')}
+        <textarea class="field" name="note" rows="3" placeholder="Finished her degree at Peradeniya, wants a master's in data science, asking how much money she has to show for the visa."></textarea></div>
+      <div class="grid-2" style="gap:14px">
+        <div>${lbl('Best time to call back')}
+          <input class="field" name="callback" placeholder="e.g. Weekdays after 6pm"></div>
+        ${mentors ? `<div>${lbl('Give it to')}
+          <select class="field" name="mentorId">
+            ${opt('', 'Leave in the open queue', true)}
+            ${mentors.map(x => opt(x.uid, x.displayName || x.uid.slice(0, 8))).join('')}
+          </select></div>`
+        : `<div>${lbl('Who handles it')}
+          <select class="field" name="mine">
+            ${opt('1', 'I’ll handle it', true)}
+            ${opt('', 'Leave in the open queue')}
+          </select></div>`}
+      </div>
+      <p class="faint" id="ix-msg" style="font-size:12.5px;min-height:16px;margin:0"></p>
+      <button class="btn btn-primary" type="submit" style="justify-content:center">Save this request</button>
+    </form>`);
+  m.el.querySelector('.modal-card').style.maxWidth = '620px';
+
+  const form = m.el.querySelector('#ix-form');
+  const msg = m.el.querySelector('#ix-msg');
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    if (!data.name.trim())    { msg.textContent = 'Write down their name.'; return; }
+    if (!data.contact.trim()) { msg.textContent = 'Write down a phone number or email.'; return; }
+    // A mentor taking their own call assigns it to themselves; the admin
+    // picks a mentor (or leaves it open for the queue).
+    if (!mentors) data.mentorId = data.mine ? 'self' : '';
+    delete data.mine;
+
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    msg.textContent = 'Saving…';
+    try {
+      await o.onSave(data);
+      m.close();
+      toast('Saved — ' + data.name.trim() + ' is in the queue');
+    } catch (err) {
+      btn.disabled = false;
+      msg.textContent = humanAuthError(err);
+    }
+  };
+  form.querySelector('[name=name]').focus();
+}
+
 /* ── 9b1 · Mentoring session records ─────────────────────────────────
    A lot of real mentoring never touches the in-app request queue: a
    student messages a mentor on WhatsApp, or rings them. The session log
@@ -3834,8 +4128,9 @@ function sessionCard(s, opts = {}) {
     ${block('Next steps', s.followUp)}
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <span class="faint mono" style="font-size:11px">${esc(s.invoiceNo || '—')}</span>
-      <button class="btn btn-primary btn-sm sx-invoice" data-sess="${esc(s.id)}" style="margin-left:auto">
-        <span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span> Invoice PDF</button>
+      <button class="btn btn-primary btn-sm sx-send" data-sess="${esc(s.id)}" style="margin-left:auto">
+        <span class="material-symbols-outlined" style="font-size:15px">send</span> Send it</button>
+      <button class="btn btn-ghost btn-sm sx-invoice" data-sess="${esc(s.id)}">PDF</button>
       <button class="btn btn-ghost btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
       ${!opts.readOnly && !paid && amt ? `<button class="btn btn-ghost btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
       ${!opts.readOnly ? `<button class="btn btn-ghost btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
@@ -3851,16 +4146,17 @@ function sessionFormHTML(s, mentors) {
   const lbl = t => `<label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">${t}</label>`;
 
   return `<form id="sx-form" style="display:flex;flex-direction:column;gap:14px">
-    ${mentors ? `<div>${lbl('Mentor who delivered it')}
+    ${mentors ? `<div>${lbl('Which mentor did this session')}
       <select class="field" name="mentorId">
         ${mentors.map(m => opt(m.uid, m.displayName || m.uid.slice(0, 8), s.mentorId === m.uid)).join('')}
       </select></div>` : ''}
     <div class="grid-2" style="gap:14px">
-      <div>${lbl('Student name')}<input class="field" name="studentName" required value="${esc(s.studentName)}" placeholder="e.g. Nimali P."></div>
-      <div>${lbl('Contact (WhatsApp / email)')}<input class="field" name="studentContact" value="${esc(s.studentContact)}" placeholder="+94 …"></div>
+      <div>${lbl('Their name')}<input class="field" name="studentName" required value="${esc(s.studentName)}" placeholder="e.g. Nimali Perera"></div>
+      <div>${lbl('Phone / WhatsApp / email')}<input class="field" name="studentContact" value="${esc(s.studentContact)}" placeholder="077 123 4567"></div>
     </div>
+    <div id="sx-known" class="hidden"></div>
     <div class="grid-2" style="gap:14px">
-      <div>${lbl('How the session happened')}
+      <div>${lbl('How it happened')}
         <select class="field" name="channel">
           ${Object.entries(PF_SESSION_CHANNELS).map(([k, v]) => opt(k, v, s.channel === k)).join('')}
         </select></div>
@@ -3870,34 +4166,34 @@ function sessionFormHTML(s, mentors) {
           ${Object.entries(PF_CONSULT_TOPICS).map(([k, v]) => opt(k, v, s.topic === k)).join('')}
         </select></div>
     </div>
-    <div>${lbl('Session title (optional — defaults to the topic)')}
-      <input class="field" name="title" value="${esc(s.title)}" placeholder="e.g. Proposal walkthrough + supervisor shortlist"></div>
+    <div>${lbl('Title (optional — the topic is used if you leave this)')}
+      <input class="field" name="title" value="${esc(s.title)}" placeholder="e.g. Went through her proposal and picked three supervisors"></div>
     <div class="grid-2" style="gap:14px">
       <div>${lbl('Date')}<input class="field" type="date" name="date" value="${esc(s.date)}"></div>
-      <div>${lbl('Duration (minutes)')}<input class="field" type="number" name="durationMin" min="0" step="5" value="${esc(s.durationMin)}"></div>
+      <div>${lbl('How long (minutes)')}<input class="field" type="number" name="durationMin" min="0" step="5" value="${esc(s.durationMin)}"></div>
     </div>
-    <div>${lbl('What you covered (prints on the invoice)')}
-      <textarea class="field" name="summary" rows="3" placeholder="Reviewed her SOP draft, shortlisted three supervisors at Otago, agreed on the funding evidence she still needs.">${esc(s.summary)}</textarea></div>
-    <div>${lbl('Private notes (never printed, never shown to the student)')}
+    <div>${lbl('What you covered — this goes on the invoice')}
+      <textarea class="field" name="summary" rows="3" placeholder="Read through her SOP draft, picked three supervisors at Otago, and worked out what funding evidence she still needs.">${esc(s.summary)}</textarea></div>
+    <div>${lbl('Private notes — only you see these')}
       <textarea class="field" name="notes" rows="2" placeholder="Anything you want to remember before the next call.">${esc(s.notes)}</textarea></div>
-    <div>${lbl('Agreed next steps (prints on the invoice)')}
-      <textarea class="field" name="followUp" rows="2" placeholder="She sends the revised SOP by Friday; I reply within two days.">${esc(s.followUp)}</textarea></div>
+    <div>${lbl('What you agreed to do next — this goes on the invoice')}
+      <textarea class="field" name="followUp" rows="2" placeholder="She sends the new SOP by Friday. I reply within two days.">${esc(s.followUp)}</textarea></div>
     <div class="grid-2" style="gap:14px">
-      <div>${lbl('Fee (LKR — 0 for a free intro)')}
+      <div>${lbl('Fee in LKR — put 0 for a free intro')}
         <input class="field" type="number" name="amountLKR" min="0" step="100" value="${esc(s.amountLKR)}"></div>
-      <div>${lbl('Payment')}
+      <div>${lbl('Has it been paid?')}
         <select class="field" name="paymentStatus">
           ${Object.entries(PF_SESSION_PAYMENT_STATES).map(([k, v]) => opt(k, v, s.paymentStatus === k)).join('')}
         </select></div>
     </div>
     <div class="grid-2" style="gap:14px">
-      <div>${lbl('Method (optional)')}<input class="field" name="method" value="${esc(s.method)}" placeholder="Bank transfer / eZ Cash / PayPal"></div>
-      <div>${lbl('Reference or txn id (optional)')}<input class="field" name="ref" value="${esc(s.ref)}" placeholder="Quoted on the transfer"></div>
+      <div>${lbl('How they paid (optional)')}<input class="field" name="method" value="${esc(s.method)}" placeholder="Bank transfer / eZ Cash / FriMi"></div>
+      <div>${lbl('Reference number (optional)')}<input class="field" name="ref" value="${esc(s.ref)}" placeholder="What they put on the transfer"></div>
     </div>
     <p class="faint" id="sx-msg" style="font-size:12.5px;min-height:16px;margin:0"></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center">Save record</button>
-      <button class="btn btn-ghost" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save &amp; invoice</button>
+      <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center">Save</button>
+      <button class="btn btn-ghost" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save and make the invoice</button>
     </div>
   </form>`;
 }
@@ -3915,7 +4211,7 @@ function openSessionForm(o = {}) {
   };
   const s = Object.assign(base, o.session || o.prefill || {});
   const editing = !!o.session;
-  const m = modal(editing ? 'Edit session record' : 'Log a mentoring session',
+  const m = modal(editing ? 'Edit this session' : 'Write up a session',
     sessionFormHTML(s, o.mentors));
   m.el.querySelector('.modal-card').style.maxWidth = '640px';
 
@@ -3932,7 +4228,7 @@ function openSessionForm(o = {}) {
     data.requestId = s.requestId || '';
     if (!data.mentorId && s.mentorId) data.mentorId = s.mentorId;
     if (data.paymentStatus === 'paid' && !s.paidAt) data.paidAt = Date.now();
-    if (!data.studentName.trim()) { msg.textContent = 'Add the student’s name.'; return; }
+    if (!data.studentName.trim()) { msg.textContent = 'Write down their name.'; return; }
 
     const btns = [...form.querySelectorAll('button')];
     btns.forEach(b => b.disabled = true);
@@ -3940,7 +4236,7 @@ function openSessionForm(o = {}) {
     try {
       const saved = await o.onSave(data);
       m.close();
-      toast(editing ? 'Session record updated' : 'Session logged');
+      toast(editing ? 'Session updated' : 'Session saved');
       if (alsoInvoice) {
         const rec = Object.assign({}, s, data, saved || {});
         PFInvoice.download(PFInvoice.fromSession(rec));
@@ -3951,9 +4247,150 @@ function openSessionForm(o = {}) {
     }
   }
 
+  /* Returning-caller strip. The moment the phone number matches someone
+     already in the client book, show what was covered last time — the
+     single most useful thing to have in front of you while writing up a
+     repeat session, and free, because the people list was derived from
+     records the dashboard already holds. */
+  const known = m.el.querySelector('#sx-known');
+  const nameIn = form.querySelector('[name=studentName]');
+  const contactIn = form.querySelector('[name=studentContact]');
+
+  function paintKnown() {
+    const p = peopleFind(o.people, contactIn.value, nameIn.value);
+    // Editing an existing record: its own row is the match, not a history.
+    const past = p ? { ...p, sessions: p.sessions.filter(x => x.id !== (o.session && o.session.id)) } : null;
+    if (!past || (!past.sessions.length && !past.requests.length)) { known.classList.add('hidden'); return; }
+    const last = past.sessions[0];
+    known.className = 'card';
+    known.style.cssText = 'padding:12px 14px;background:var(--surface)';
+    known.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span class="material-symbols-outlined" style="font-size:18px;color:var(--route)">history</span>
+        <p style="flex:1;min-width:200px;font-size:13px;margin:0">
+          You’ve already worked with <strong>${esc(past.name || 'them')}</strong> —
+          ${past.sessions.length} session${past.sessions.length === 1 ? '' : 's'}${past.due ? `, <strong>LKR ${past.due.toLocaleString()}</strong> still due` : ''}.
+          ${last ? `Last time: ${esc(sessionTitle(last))}${last.date ? ' on ' + esc(dayLabel(last.date)) : ''}.` : ''}
+        </p>
+        <button class="btn btn-ghost btn-sm" type="button" id="sx-known-more">Show</button>
+      </div>
+      <div id="sx-known-body" class="hidden" style="margin-top:4px"></div>`;
+    const more = known.querySelector('#sx-known-more');
+    const bodyEl = known.querySelector('#sx-known-body');
+    more.onclick = () => {
+      const open = !bodyEl.classList.contains('hidden');
+      if (open) { bodyEl.classList.add('hidden'); more.textContent = 'Show'; }
+      else { bodyEl.innerHTML = personHistoryHTML(past); bodyEl.classList.remove('hidden'); more.textContent = 'Hide'; }
+    };
+  }
+  if (o.people && o.people.length) {
+    nameIn.addEventListener('input', paintKnown);
+    contactIn.addEventListener('input', paintKnown);
+    paintKnown();
+  }
+
   form.onsubmit = e => { e.preventDefault(); submit(false); };
   m.el.querySelector('#sx-save-inv').onclick = () => submit(true);
-  form.querySelector('[name=studentName]').focus();
+  nameIn.focus();
+}
+
+/* ── 9b2 · Getting the invoice to the client ─────────────────────────
+   Someone who rang the platform has no account, so they will never open
+   #billing to find their receipt. It has to be sent to them, and here that
+   means WhatsApp — which is where the conversation already happened.
+
+   A browser cannot attach a file to a wa.me link, so the flow is honest
+   about the two steps: download the PDF, then send the message with the
+   PDF attached. The message itself is written out in full, so the mentor
+   never has to compose one at 10pm after a call. */
+
+/* Bank / wallet lines for an unpaid invoice, from PF_CONFIG.manualPay.
+   Blank until the owner fills those in before launch — in which case the
+   message simply omits the "to pay" block rather than printing "TODO". */
+function payInstructionLines() {
+  const m = PF_CONFIG.manualPay || {};
+  if (!m.enabled) return [];
+  const out = [];
+  const bank = [m.bankName, m.accountName, m.accountNo, m.branch].filter(Boolean).join(' · ');
+  if (m.accountNo) out.push(bank);
+  (m.wallets || []).forEach(w => { if (w && w.number) out.push(w.name + ': ' + w.number); });
+  return out;
+}
+
+function sessionInvoiceMessage(s) {
+  const amt = Number(s.amountLKR) || 0;
+  const paid = s.paymentStatus === 'paid';
+  const waived = s.paymentStatus === 'waived' || !amt;
+  const first = String(s.studentName || '').trim().split(/\s+/)[0] || 'there';
+  const when = dayLabel(s.date) || dayLabel(s.createdAt);
+
+  const out = [`Hi ${first},`, ''];
+  out.push(waived ? `Here is the record of our session${when ? ' on ' + when : ''}. There is no charge for it.`
+    : paid ? `Thanks for the payment. Here is your receipt for our session${when ? ' on ' + when : ''}.`
+    : `Here is the invoice for our session${when ? ' on ' + when : ''}.`);
+  out.push('', sessionTitle(s));
+  out.push(waived ? 'Amount: no charge' : 'Amount: LKR ' + amt.toLocaleString());
+  if (s.invoiceNo) out.push('Invoice no: ' + s.invoiceNo);
+  if (s.followUp) out.push('', 'What we agreed:', s.followUp);
+  if (!paid && !waived) {
+    const pay = payInstructionLines();
+    if (pay.length) out.push('', 'You can pay to:', ...pay, 'Please put the invoice number in the payment note.');
+  }
+  out.push('', 'The PDF is attached.', '', s.mentorName ? s.mentorName + ' — PathFinder' : 'PathFinder');
+  return out.join('\n');
+}
+
+function openSendInvoice(s) {
+  const msg = sessionInvoiceMessage(s);
+  const wa = waNumber(s.studentContact);
+  const mail = contactEmailOf(s.studentContact);
+  const subject = (s.invoiceNo ? s.invoiceNo + ' — ' : '') + 'Your PathFinder session';
+  const waHref = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(msg);
+  const mailHref = 'mailto:' + mail + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(msg);
+
+  const m = modal('Send the invoice', `
+    <p class="muted" style="font-size:13.5px;margin:0 0 14px">
+      For <strong>${esc(s.studentName || 'this client')}</strong>${s.studentContact ? ` · ${esc(s.studentContact)}` : ''}.
+      ${s.studentUid ? 'They also have an account, so this invoice already shows up under their Billing.'
+        : 'They have no account, so send it to them directly.'}
+    </p>
+    <div class="card" style="margin-bottom:14px">
+      <div class="faint" style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase">Step 1</div>
+      <p style="font-size:13.5px;margin:4px 0 10px">Download the PDF, then attach it to the message.</p>
+      <button class="btn btn-primary btn-sm" id="ix-dl">
+        <span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span> Download ${esc(s.invoiceNo || 'the PDF')}</button>
+    </div>
+    <div class="card">
+      <div class="faint" style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase">Step 2</div>
+      <p style="font-size:13.5px;margin:4px 0 10px">Send it. The message below is ready — change anything you like.</p>
+      <textarea class="field" id="ix-msg-body" rows="9" style="font-size:13px">${esc(msg)}</textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        ${wa ? `<a class="btn btn-primary btn-sm" id="ix-wa" href="${esc(waHref)}" target="_blank" rel="noopener">Open WhatsApp</a>`
+             : `<span class="faint" style="font-size:12.5px">No phone number on this record — copy the message instead.</span>`}
+        ${mail ? `<a class="btn btn-ghost btn-sm" id="ix-mail" href="${esc(mailHref)}">Open email</a>` : ''}
+        <button class="btn btn-ghost btn-sm" id="ix-copy">Copy message</button>
+      </div>
+    </div>`);
+  m.el.querySelector('.modal-card').style.maxWidth = '560px';
+
+  const box = m.el.querySelector('#ix-msg-body');
+  // Keep the share links in step with any edit the mentor makes.
+  box.addEventListener('input', () => {
+    const t = encodeURIComponent(box.value);
+    const w = m.el.querySelector('#ix-wa');
+    const e = m.el.querySelector('#ix-mail');
+    if (w) w.href = 'https://wa.me/' + wa + '?text=' + t;
+    if (e) e.href = 'mailto:' + mail + '?subject=' + encodeURIComponent(subject) + '&body=' + t;
+  });
+
+  m.el.querySelector('#ix-dl').onclick = () => {
+    PFInvoice.download(PFInvoice.fromSession(s));
+    toast('Downloaded ' + (s.invoiceNo || 'the invoice'));
+  };
+  m.el.querySelector('#ix-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(box.value); toast('Message copied'); }
+    catch { box.select(); toast('Press Ctrl+C to copy'); }
+  };
 }
 
 /* Delegated actions for session cards. Returns true when the click was a
@@ -3965,6 +4402,7 @@ async function sessionCardAction(e, ctx) {
   const s = ctx.get(btn.dataset.sess);
   if (!s) return true;
 
+  if (btn.classList.contains('sx-send')) { openSendInvoice(s); return true; }
   if (btn.classList.contains('sx-invoice')) {
     PFInvoice.download(PFInvoice.fromSession(s));
     toast('Downloaded ' + (s.invoiceNo || 'invoice'));
@@ -3983,7 +4421,7 @@ async function sessionCardAction(e, ctx) {
   }
   if (btn.classList.contains('sx-edit')) {
     openSessionForm({
-      session: s, mentors: ctx.mentors,
+      session: s, mentors: ctx.mentors, people: ctx.people,
       onSave: async data => { await ctx.save(s.id, data); Object.assign(s, data); ctx.repaint(); },
     });
     return true;
@@ -4191,21 +4629,31 @@ function mentorInsights() {
   </div>`;
 }
 
+/* The mentor's own client book, folded out of the two lists the dashboard
+   already loaded. Zero extra reads. */
+function mentorPeople() {
+  return buildPeople({ sessions: mentorState.sessions || [], requests: mentorState.claimed || [] });
+}
+
 function mentorDashboard(main) {
   const p = PFCloud.getMentorProfile() || {};
   const active = p.active !== false;
-  const TABS = [['open', 'Open requests'], ['claimed', 'My claimed'], ['sessions', 'Session log']];
+  const people = mentorPeople();
+  const TABS = [['open', 'Open requests'], ['claimed', 'My claimed'], ['sessions', 'Session log'], ['people', 'People']];
   const counts = {
     open: mentorState.open ? mentorState.open.length : '·',
     claimed: mentorState.claimed ? mentorState.claimed.length : '·',
     sessions: mentorState.sessions ? mentorState.sessions.length : '·',
+    people: mentorState.loaded ? people.length : '·',
   };
 
   main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', `Welcome, ${esc(p.displayName || 'mentor')}`,
-    'Claim requests from the shared queue, run the free intro, then — if the student wants more — generate a PayHere link for a paid follow-on session. Sessions that came to you over WhatsApp or a phone call belong in the session log, where you can record what you covered and issue a PDF invoice.') +
+    'Claim a request from the queue, run the free intro, and if the student wants more, send them a payment link. Sessions that came to you on WhatsApp or by phone go in the session log — write down what you covered and send the invoice from there.') +
     `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
       <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Available for requests' : 'Not taking requests'}</span>
-      <p class="muted" style="flex:1;min-width:200px;font-size:13px;margin:0">${active ? 'You appear in the active mentor count and can claim from the queue.' : 'You’re paused — toggle back on when you have time.'}</p>
+      <p class="muted" style="flex:1;min-width:200px;font-size:13px;margin:0">${active ? 'You appear in the active mentor count and can claim from the queue.' : 'You’re paused — turn this back on when you have time.'}</p>
+      <button class="btn btn-primary btn-sm" id="mt-intake">
+        <span class="material-symbols-outlined" style="font-size:15px">phone_in_talk</span> Someone called</button>
       <button class="btn btn-ghost btn-sm" id="mt-toggle">${active ? 'Pause requests' : 'Resume requests'}</button>
       <button class="btn btn-ghost btn-sm" id="mt-out">Sign out</button>
     </div>
@@ -4224,6 +4672,46 @@ function mentorDashboard(main) {
     catch { toast('Could not update'); }
   };
 
+  // Someone rang this mentor directly — write them into the queue as an
+  // already-claimed request, so it behaves like any other from here on.
+  $('#mt-intake').onclick = () => openIntakeForm({
+    onSave: async data => {
+      const saved = await PFCloud.createIntakeRequest(data);
+      if (saved.mentorId) mentorState.claimed = [saved, ...(mentorState.claimed || [])];
+      else mentorState.open = [saved, ...(mentorState.open || [])];
+      mentorState.tab = saved.mentorId ? 'claimed' : 'open';
+      route();
+    },
+  });
+
+  /* Write up a session for someone already in the book — the form opens
+     with their name and number filled in and their history on screen. */
+  const logFor = (prefill = {}) => openSessionForm({
+    people,
+    prefill: Object.assign({ channel: 'whatsapp' }, prefill),
+    onSave: async data => {
+      const saved = await PFCloud.createSession(data);
+      mentorState.sessions = [saved, ...(mentorState.sessions || [])];
+      route();
+      return saved;
+    },
+  });
+
+  function paintPeople() {
+    if (mentorState.sessions === null && mentorState.claimed === null) { body.innerHTML = admErrCard('your people'); return; }
+    const due = people.reduce((n, x) => n + x.due, 0);
+    body.innerHTML = `
+      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+        <span class="material-symbols-outlined" style="color:var(--route)">contacts</span>
+        <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
+          Everyone you have spoken to, in one place — whether they came through the site or just rang you.
+          Open their history before the next call so you don’t ask the same questions twice.
+          ${due ? `<strong>LKR ${due.toLocaleString()}</strong> is still owed across them.` : ''}</p>
+      </div>
+      ${people.length ? people.map(x => personCard(x, { canLog: true })).join('')
+        : `<div class="card"><p class="muted" style="font-size:14px">Nobody here yet. When someone calls, tap “Someone called” above — they’ll show up here with everything you write down about them.</p></div>`}`;
+  }
+
   function paintSessions() {
     const list = mentorState.sessions;
     if (list === null) { body.innerHTML = admErrCard('your session log'); return; }
@@ -4234,34 +4722,28 @@ function mentorDashboard(main) {
       <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
         <span class="material-symbols-outlined" style="color:var(--route)">history_edu</span>
         <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
-          Record every session you deliver — including the ones that arrive over WhatsApp or a phone call.
-          Each record carries your notes and generates a PDF invoice or receipt.
-          ${outstanding ? `<strong>LKR ${outstanding.toLocaleString()}</strong> invoiced and not yet paid.` : ''}</p>
+          Write down every session you do — including the ones that come to you on WhatsApp or by phone.
+          Each one keeps your notes and makes a PDF invoice or receipt you can send them.
+          ${outstanding ? `<strong>LKR ${outstanding.toLocaleString()}</strong> invoiced and not paid yet.` : ''}</p>
         <button class="btn btn-primary btn-sm" id="mtd-log">
           <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
       </div>
       ${list.length ? list.map(s => sessionCard(s)).join('')
-        : `<div class="card"><p class="muted" style="font-size:14px">No sessions logged yet. Tap “Log a session” right after your next call — it takes under a minute and gives the student an invoice.</p></div>`}`;
+        : `<div class="card"><p class="muted" style="font-size:14px">Nothing here yet. Tap “Log a session” right after your next call — it takes under a minute, and it gives them an invoice.</p></div>`}`;
 
-    $('#mtd-log', body).onclick = () => openSessionForm({
-      onSave: async data => {
-        const saved = await PFCloud.createSession(data);
-        mentorState.sessions = [saved, ...(mentorState.sessions || [])];
-        route();          // full re-render so the insight metrics move too
-        return saved;
-      },
-    });
+    $('#mtd-log', body).onclick = () => logFor();
   }
 
   function paint() {
     if (mentorState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
+    if (mentorState.tab === 'people') return paintPeople();
     if (mentorState.tab === 'sessions') return paintSessions();
     if (mentorState.tab === 'open') {
       const list = mentorState.open;
       if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
       cacheReqs(list);
       body.innerHTML = list.length ? list.map(openReqCard).join('')
-        : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones appear here — hit Refresh.</p></div>`;
+        : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
     } else {
       const list = mentorState.claimed;
       if (list === null) { body.innerHTML = admErrCard('your requests'); return; }
@@ -4283,13 +4765,24 @@ function mentorDashboard(main) {
     await mentorLoad(); route();
   };
 
-  // delegated actions inside request cards (claim / status / payment) and
-  // session cards (invoice / mark paid / edit)
+  // delegated actions inside request cards (claim / status / payment),
+  // session cards (send / invoice / mark paid / edit) and person cards
+  // (history / log a session)
   body.addEventListener('click', async e => {
     if (await sessionCardAction(e, {
       get: id => (mentorState.sessions || []).find(s => s.id === id),
       save: (id, patch) => PFCloud.updateSession(id, patch),
+      people,
       repaint: route,   // earnings live in the header strip, outside `body`
+    })) return;
+    if (personCardAction(e, {
+      people,
+      // studentUid is deliberately NOT carried over: firestore.rules only
+      // lets a session name an account when it came from a request this
+      // mentor owns (namedStudentIsOwn), and a fresh session has no request
+      // behind it. The invoice is addressed by name and number instead —
+      // which is the off-platform case anyway.
+      onLog: x => logFor({ studentName: x.name, studentContact: x.contact }),
     })) return;
     mentorCardAction(e);
   });
@@ -4302,15 +4795,23 @@ function mentorDashboard(main) {
   }
 }
 
+/* A request in the open queue. Identity stays hidden until it is claimed —
+   but HOW it arrived does not, because a phone lead needs ringing back and
+   a form on the site does not. */
 function openReqCard(r) {
+  const phoned = r.source && r.source !== 'platform';
   return `<div class="card" style="margin-bottom:12px" data-req="${r.id}">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
       <div style="flex:1;min-width:200px">
         <strong style="font-size:14.5px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'}</strong>
-        <div class="faint" style="font-size:12.5px">${r.at ? new Date(r.at).toLocaleDateString() : ''}</div>
+        <div class="faint" style="font-size:12.5px">${r.at ? new Date(r.at).toLocaleDateString() : ''}${phoned ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) : ''}</div>
         ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
+        ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
       </div>
-      <button class="btn btn-primary btn-sm mt-claim" data-req="${r.id}">Claim</button>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${phoned ? `<span class="chip chip-violet">Rang us</span>` : ''}
+        <button class="btn btn-primary btn-sm mt-claim" data-req="${r.id}">Claim</button>
+      </div>
     </div>
   </div>`;
 }
@@ -4339,8 +4840,20 @@ function claimedReqCard(r) {
       <div style="flex:1;min-width:200px">
         <strong style="font-size:14.5px">${esc(r.name || 'Student')}</strong>
         <span class="faint" style="font-size:12.5px"> · ${esc(r.contact || 'no contact')}</span>
-        <div class="faint" style="font-size:12.5px;margin-top:2px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}</div>
+        <div class="faint" style="font-size:12.5px;margin-top:2px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}${r.source && r.source !== 'platform' ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) : ''}</div>
         ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
+        ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
+        ${(() => {
+          // Someone with no account can only be reached the way they got in
+          // touch — put those one-tap links right on the card.
+          const wa = waNumber(r.contact), mail = contactEmailOf(r.contact), tel = contactPhoneOf(r.contact);
+          if (r.studentUid || !(wa || mail)) return '';
+          return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+            ${tel ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(tel)}">Call</a>` : ''}
+            ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+          </div>`;
+        })()}
         ${reported ? `<div class="muted" style="font-size:12.5px;margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:3px">Student reported payment via <strong>${esc(r.payment.method || 'transfer')}</strong>${r.payment.payerRef ? ` · ref <strong class="mono">${esc(r.payment.payerRef)}</strong>` : ''}${r.payment.payerTxn ? ` · txn <span class="mono">${esc(r.payment.payerTxn)}</span>` : ''}. Verify in your banking app, then “Mark payment received”.</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
@@ -4396,14 +4909,20 @@ async function mentorCardAction(e) {
   if (btn.classList.contains('mt-log')) {
     const r = reqCache.get(id) || {};
     const existing = (mentorState.sessions || []).find(s => s.requestId === id);
+    const people = mentorPeople();
     if (existing) return openSessionForm({
-      session: existing,
+      session: existing, people,
       onSave: async data => { await PFCloud.updateSession(existing.id, data); Object.assign(existing, data); route(); },
     });
     return openSessionForm({
+      people,
       prefill: {
         requestId: id, studentName: r.name || '', studentContact: r.contact || '',
-        studentUid: r.studentUid || '', topic: r.topic || '', channel: 'platform',
+        studentUid: r.studentUid || '', topic: r.topic || '',
+        // A request that came in by phone was almost certainly delivered by
+        // phone too — default the channel to how they first reached us.
+        channel: r.source === 'whatsapp' ? 'whatsapp' : r.source === 'walkin' ? 'inperson'
+          : r.source === 'call' ? 'call' : 'platform',
         amountLKR: (r.payment && r.payment.amountLKR) || PF_CONFIG.defaultSessionPriceLKR,
         paymentStatus: r.payment && r.payment.paymentStatus === 'paid' ? 'paid' : 'unpaid',
         method: (r.payment && r.payment.method) || '', ref: (r.payment && r.payment.payerRef) || '',
@@ -4531,11 +5050,13 @@ function admErrCard(what) {
 }
 
 function adminDashboard(main) {
-  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['sessions', 'Sessions'], ['orders', 'Orders'], ['users', 'User records']];
+  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['people', 'People'], ['sessions', 'Sessions'], ['orders', 'Orders'], ['users', 'User records']];
+  const people = adminPeople();
   const counts = {
     leads: adminState.leads ? adminState.leads.length : '·',
     mentors: adminState.mentors ? adminState.mentors.length : '·',
     requests: adminState.requests ? adminState.requests.length : '·',
+    people: adminState.loaded ? people.length : '·',
     sessions: adminState.sessions ? adminState.sessions.length : '·',
     orders: adminState.orders ? adminState.orders.length : '·',
     users: adminState.users ? adminState.users.length : '·',
@@ -4543,7 +5064,13 @@ function adminDashboard(main) {
 
   main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Platform admin',
     'Live data from Firestore. Visible only to the admin account — ordinary visitors are blocked by security rules.') +
-    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="adm-tabs">
+    `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+      <span class="material-symbols-outlined" style="color:var(--route)">phone_in_talk</span>
+      <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
+        Someone rang and they’re not on the system? Write them down here — it goes into the same queue as a request from the site, and you can hand it to a mentor straight away.</p>
+      <button class="btn btn-primary btn-sm" id="adm-intake">Someone called</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="adm-tabs">
       ${TABS.map(([id, lbl]) => `<button class="chip-filter ${adminState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="mono" style="opacity:.6">${counts[id]}</span>` : ''}</button>`).join('')}
       <button class="chip-filter" id="adm-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
     </div>
@@ -4555,8 +5082,21 @@ function adminDashboard(main) {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
     ({ overview: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors,
-       requests: admRequests, sessions: admSessions, orders: admOrders, users: admUsers })[adminState.tab](body, paint);
+       requests: admRequests, people: admPeople, sessions: admSessions, orders: admOrders,
+       users: admUsers })[adminState.tab](body, paint);
   }
+
+  // Phone / walk-in intake. The admin can hand the caller to a mentor on
+  // the spot, or leave it in the open queue for whoever is free.
+  $('#adm-intake').onclick = () => openIntakeForm({
+    mentors: (adminState.mentors || []).filter(m => m.approved && m.active !== false),
+    onSave: async data => {
+      const saved = await PFCloud.createIntakeRequest(data);
+      adminState.requests = [saved, ...(adminState.requests || [])];
+      adminState.tab = 'requests';
+      route();
+    },
+  });
 
   $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
     adminState.tab = b.dataset.tab;
@@ -4582,8 +5122,13 @@ function adminDashboard(main) {
       get: id => (adminState.sessions || []).find(s => s.id === id),
       save: (id, patch) => PFCloud.updateSession(id, patch),
       mentors: (adminState.mentors || []).filter(m => m.approved),
+      people,
       repaint: paint,
     })) return;
+
+    // person cards (history / log a session on a mentor's behalf)
+    if (personCardAction(e, { people, showMentor: true, onLog: x => admLogSession(paint, people, {
+      studentName: x.name, studentContact: x.contact }) })) return;
 
     const mb = e.target.closest('button[data-muid]');
     if (mb) {
@@ -4794,8 +5339,10 @@ function admRequests(body) {
             <span class="faint" style="font-size:12.5px"> · ${esc(r.contact || 'no contact')}</span>
             <div class="faint" style="font-size:12.5px;margin-top:2px">
               ${PF_CONSULT_TOPICS[r.topic] || 'General'} · ${r.mentorId ? 'mentor: ' + esc(nameOf(r.mentorId)) : 'unclaimed'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}
+              ${r.source && r.source !== 'platform' ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) + (r.takenByName ? ', taken by ' + esc(r.takenByName) : '') : ''}
             </div>
             ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
+            ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
             ${reqStatusChip(r.status)}
@@ -4811,8 +5358,10 @@ function admRequests(body) {
 
   const dl = $('#adm-dl-reqs', body);
   if (dl) dl.onclick = () => csvDownload('pathfinder-mentor-requests.csv',
-    ['name', 'contact', 'topic', 'status', 'mentorId', 'paymentStatus', 'amountLKR', 'note', 'at'],
+    ['name', 'contact', 'topic', 'source', 'callback', 'status', 'mentorId', 'paymentStatus', 'amountLKR', 'note', 'at'],
     reqs.map(r => ({ ...r,
+      source: PF_REQUEST_SOURCES[r.source] || 'Asked on PathFinder',
+      callback: r.callback || '',
       mentorId: r.mentorId || '',
       paymentStatus: r.payment ? r.payment.paymentStatus : 'none',
       amountLKR: r.payment ? r.payment.amountLKR : '' })));
@@ -4862,6 +5411,8 @@ function admOrders(body) {
    WhatsApp or a phone call. Filterable by mentor and payment state, with
    CSV export and one-click PDF invoices. */
 let admSessionFilter = { mentor: '', pay: '' };
+// Free-text filter for the admin People tab (name or phone number).
+let admPeopleQuery = '';
 
 function admSessions(body, repaint) {
   if (adminState.sessions === null) { body.innerHTML = admErrCard('session records'); return; }
@@ -4897,26 +5448,13 @@ function admSessions(body, repaint) {
         <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
     </div>
     ${list.length ? list.map(s => sessionCard(s, { showMentor: true })).join('')
-      : `<div class="card"><p class="muted" style="font-size:14px">${all.length ? 'No sessions match those filters.' : 'No sessions logged yet. Mentors log them from their dashboard — or record one here on their behalf after a WhatsApp or phone consultation.'}</p></div>`}`;
+      : `<div class="card"><p class="muted" style="font-size:14px">${all.length ? 'No sessions match those filters.' : 'No sessions yet. Mentors write theirs up from their own dashboard — or you can add one here for them after a WhatsApp or phone consultation.'}</p></div>`}`;
 
   $('#adm-sx-mentor', body).onchange = e => { admSessionFilter.mentor = e.target.value; repaint(); };
   $('#adm-sx-pay', body).onchange = e => { admSessionFilter.pay = e.target.value; repaint(); };
 
   const log = $('#adm-sx-log', body);
-  log.onclick = () => {
-    if (!mentors.length) return toast('Approve a mentor first — a session belongs to one.');
-    openSessionForm({
-      mentors,
-      prefill: { mentorId: mentors[0].uid },
-      onSave: async data => {
-        const m = mentors.find(x => x.uid === data.mentorId);
-        const saved = await PFCloud.createSession({ ...data, mentorName: m ? m.displayName : '' });
-        adminState.sessions = [saved, ...(adminState.sessions || [])];
-        repaint();
-        return saved;
-      },
-    });
-  };
+  log.onclick = () => admLogSession(repaint, adminPeople());
 
   const dl = $('#adm-dl-sx', body);
   if (dl) dl.onclick = () => csvDownload('pathfinder-mentoring-sessions.csv',
@@ -4924,6 +5462,79 @@ function admSessions(body, repaint) {
      'title', 'durationMin', 'amountLKR', 'paymentStatus', 'method', 'ref', 'summary', 'followUp'],
     list.map(s => ({ ...s, channel: PF_SESSION_CHANNELS[s.channel] || s.channel,
       topic: PF_CONSULT_TOPICS[s.topic] || s.topic || 'General guidance' })));
+}
+
+/* Log a session on a mentor's behalf — the admin's version of the mentor's
+   own "Log a session", with a mentor picker on top. Used from the Sessions
+   tab and from a person card in the People tab. */
+function admLogSession(repaint, people, prefill = {}) {
+  const mentors = (adminState.mentors || []).filter(m => m.approved);
+  if (!mentors.length) return toast('Approve a mentor first — a session belongs to one.');
+  openSessionForm({
+    mentors, people,
+    prefill: Object.assign({ mentorId: mentors[0].uid }, prefill),
+    onSave: async data => {
+      const m = mentors.find(x => x.uid === data.mentorId);
+      const saved = await PFCloud.createSession({ ...data, mentorName: m ? m.displayName : '' });
+      adminState.sessions = [saved, ...(adminState.sessions || [])];
+      repaint();
+      return saved;
+    },
+  });
+}
+
+/* ── People (admin) ─────────────────────────────────────────────────────
+   The whole client book across every mentor, folded out of the requests
+   and sessions the panel already loaded — no extra query, no `people`
+   collection. This is where a phone caller with no account becomes a
+   person with a history rather than a row in a queue. */
+function adminPeople() {
+  return buildPeople({ sessions: adminState.sessions || [], requests: adminState.requests || [] });
+}
+
+function admPeople(body) {
+  if (adminState.requests === null && adminState.sessions === null) { body.innerHTML = admErrCard('people'); return; }
+  const people = adminPeople();
+  const q = (admPeopleQuery || '').trim().toLowerCase();
+  const list = q ? people.filter(p =>
+    (p.name || '').toLowerCase().includes(q) || (p.contact || '').toLowerCase().includes(q)) : people;
+
+  const noAccount = people.filter(p => !p.uid).length;
+  const due = people.reduce((n, p) => n + p.due, 0);
+
+  body.innerHTML = `
+    <div class="grid-4" style="margin-bottom:20px">
+      ${admMetric('contacts', people.length, 'People on record')}
+      ${admMetric('phone_in_talk', noAccount, 'Without an account')}
+      ${admMetric('pending_actions', 'LKR ' + due.toLocaleString(), 'Still owed')}
+      ${admMetric('history_edu', people.reduce((n, p) => n + p.sessions.length, 0), 'Sessions across them')}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <input class="field" id="adm-px-q" placeholder="Search by name or number" value="${esc(admPeopleQuery)}" style="width:auto;min-width:220px;flex:1;max-width:340px">
+      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+    </div>
+    ${list.length ? list.map(p => personCard(p, { canLog: true })).join('')
+      : `<div class="card"><p class="muted" style="font-size:14px">${people.length ? 'Nobody matches that search.' : 'No one on record yet. Requests from the site and calls you write down both land here.'}</p></div>`}`;
+
+  const search = $('#adm-px-q', body);
+  search.oninput = e => {
+    admPeopleQuery = e.target.value;
+    // Repaint the list only, so the caret stays where the admin is typing.
+    const rows = body.querySelectorAll('[data-person].card');
+    rows.forEach(r => r.remove());
+    const term = admPeopleQuery.trim().toLowerCase();
+    const next = term ? people.filter(p => (p.name || '').toLowerCase().includes(term)
+      || (p.contact || '').toLowerCase().includes(term)) : people;
+    body.insertAdjacentHTML('beforeend', next.length ? next.map(p => personCard(p, { canLog: true })).join('')
+      : `<div class="card" data-person="none"><p class="muted" style="font-size:14px">Nobody matches that search.</p></div>`);
+  };
+
+  const dl = $('#adm-dl-px', body);
+  if (dl) dl.onclick = () => csvDownload('pathfinder-people.csv',
+    ['name', 'contact', 'sessions', 'requests', 'paidLKR', 'dueLKR', 'minutes', 'hasAccount', 'lastContact'],
+    list.map(p => ({ name: p.name, contact: p.contact, sessions: p.sessions.length,
+      requests: p.requests.length, paidLKR: p.paid, dueLKR: p.due, minutes: p.minutes,
+      hasAccount: p.uid ? 'yes' : 'no', lastContact: p.lastAt ? new Date(p.lastAt).toISOString().slice(0, 10) : '' })));
 }
 
 /* ── Accounting: one ledger from every revenue source ───────────────────

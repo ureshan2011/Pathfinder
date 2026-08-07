@@ -40,12 +40,12 @@ Getting the first row wrong understates a master's applicant's visa-funds requir
 - `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
 - `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
 - `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
-- `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, a **Session log**, an at-a-glance insights strip (open / active / delivered / earned / invoiced-unpaid), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). The **Session log** records every session you actually deliver — including the many that arrive over **WhatsApp or a phone call** and never touch the request queue — with who, when, how long, over which channel, what you covered, private notes, agreed next steps, the fee and its payment state; each record generates a **PDF invoice or receipt** in one click ("Save & invoice" issues it as you write the record up). Claimed requests get a **Log session** button that pre-fills the form from the request. Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
+- `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, a **Session log**, a **People** client book, an at-a-glance insights strip (open / active / delivered / earned / invoiced-unpaid), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). The **Session log** records every session you actually deliver — including the many that arrive over **WhatsApp or a phone call** and never touch the request queue — with who, when, how long, over which channel, what you covered, private notes, agreed next steps, the fee and its payment state; each record generates a **PDF invoice or receipt** in one click ("Save & invoice" issues it as you write the record up). Claimed requests get a **Log session** button that pre-fills the form from the request. Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
 - `#billing` — **Billing**: the student's own one-time unlocks and every mentoring session logged against their account, each with a downloadable **PDF invoice/receipt**. Private mentor notes are never shown here.
 - `#account` — **Account**: the unified front door for the three login roles. Clients/students can create a free account (no code) or sign in to sync across devices — **login is optional for explorer basics** (assessment, roadmap, explorer, funding, Research Studio, templates), and anonymous browsing always works for those. It becomes **required only to connect with a mentor or to make any purchase**. Vetted mentors are routed to the invite-only mentor sign-up, and admins to the admin sign-in.
 - `#dashboard` — the **client/student dashboard**: a metrics grid, a derived **insights** card (readiness, application funnel, active mentor requests, visa progress, next-step nudge, sync status), application tracker, visa progress, and your mentor requests
 - `#kit` — Starter Kit: 21 templates across emails, application documents, research & career, and logistics. Templates tagged `track:'masters'` (statement of purpose, programme comparison sheet) or `track:'phd'` (supervisor emails, 3-year research plan) show only on that track; the rest serve both
-- `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, **Accounting** (a unified ledger across every revenue source, with one-click PDF invoices/receipts), email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), **Sessions** (every mentoring session logged by any mentor — filter by mentor and payment state, log one on a mentor's behalf, CSV export, PDF invoices), **Orders**, and synced user records. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
+- `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, **Accounting** (a unified ledger across every revenue source, with one-click PDF invoices/receipts), email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), **People** (every person on record across all mentors — searchable, with each one's full consultation history and how much they still owe; CSV export), **Sessions** (every mentoring session logged by any mentor — filter by mentor and payment state, log one on a mentor's behalf, CSV export, PDF invoices), **Orders**, and synced user records. A **Someone called** button sits above the tabs for the phone and walk-in enquiries that arrive with no account behind them. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
 
 ## Architecture
 
@@ -144,6 +144,7 @@ The design keeps reads/writes far below the daily caps (50k reads / 20k writes /
 - **Deduplicated inbox.** Each lead / consultation is written **once** (tracked in `__inboxSynced`).
 - **Admin reads are on-demand.** Leads, mentors, requests and user records are fetched only when *you* open the admin panel and press Refresh — never on a normal visitor's page load.
 - **No live listeners.** All reads are one-shot `getDocs` behind explicit actions; nothing uses `onSnapshot` (which would bill continuous reads).
+- **Derived views cost nothing.** The Accounting ledger and the People / client book are folded client-side out of records the dashboard already holds — no `people` collection, no second query, no new rules. Phone intake adds **one write per call actually taken** (plus the single `mentors/{uid}` read the rules do to check the mentor is approved), and sending an invoice adds none at all: the PDF is generated in the browser and WhatsApp/email are external. Answering a hundred calls a day would use 0.5% of the daily write budget.
 
 Cloud Functions require the paid (Blaze) plan, so the core marketplace is built **Tier 1** (no server code): the claim race is enforced purely by Firestore rules + an atomic `runTransaction`, and payment confirmation is a manual mentor/admin click. The **optional Tier-2** webhook (`functions/payhere-notify.js`) automates payment confirmation if you upgrade to Blaze — the app runs correctly with or without it.
 
@@ -224,6 +225,27 @@ open ──claim──▶ claimed ──intro──▶ intro_done ──gen link
 - **paid** — payment confirmed (Tier 1: mentor/admin marks it; Tier 2: the webhook does).
 - **completed** — paid session delivered.
 
+### Someone rings who isn't on the system
+
+Most enquiries in Sri Lanka arrive as a phone call or a WhatsApp message, long before anyone signs up for anything. The platform is built to absorb that rather than route around it.
+
+Whoever picks up — the admin (`#admin` → **Someone called**) or the mentor whose number was passed on (`#mentor` → **Someone called**) — opens a short form and writes down four things: **who they are, how to reach them, what they need, and when to call back**. Saving it creates an ordinary `mentor_requests` doc, the *same* record a request typed on the site produces. From that moment the caller is in the queue, on a dashboard, in the client book, and eventually on an invoice — there is no separate off-platform path to maintain.
+
+- The doc carries `source` (phone call · WhatsApp · walked in · referred · email), `callback` (their preferred time) and `takenBy`/`takenByName` (who answered), so a queue card shows a **"Rang us"** chip and the call-back time. A mentor picking one up knows to ring rather than wait.
+- The admin can hand the caller to a mentor on the spot, or leave it open for whoever is free. A mentor taking their own call assigns it to themselves in the same write — enforced in the rules, where a mentor may create a `claimed` request **only** with `mentorId == their own uid`.
+- `studentUid` stays empty, which is exactly what `namedStudentIsOwn()` in the rules expects: an off-platform person has no account, so the invoice is addressed by name and number instead.
+- Because these people have no `#billing` page, request and person cards carry one-tap **WhatsApp / Call / Email** links straight off the contact field.
+
+### People — the client book
+
+Someone rings in March, WhatsApps in May, and books a paid session in June. To a mentor that is one person; to Firestore it is a request doc and two session docs with the phone number typed three different ways.
+
+**People** (`#mentor` → *People*, `#admin` → *People*) folds them back together. Open anyone's **history** before the next call and you see every earlier consultation — what was covered, what was agreed, what is still owed — so the second session starts where the first one ended instead of repeating it. The session form does the same inline: type a number that matches someone already on record and a strip appears above the fields — *"You've already worked with Nimali Perera — 2 sessions, LKR 2,500 still due. Last time: Visa documents on 12 June."*
+
+Matching is on the **last nine digits** of the phone number, so `0771234567`, `+94 77 123 4567` and `94771234567` are one person; then email; then, if neither was written down, the name.
+
+> There is **no `people` collection**. The whole client book is derived client-side (`buildPeople()` in `app.js`) from the `mentor_sessions` and `mentor_requests` the dashboard has already loaded — so it costs **zero extra reads**, needs no new security rules, and can never drift out of step with the records it summarises. Same principle as the Accounting ledger.
+
 ### Session records & invoicing
 
 Not every mentoring session starts in the app. A student messages a mentor on **WhatsApp**, or rings them, and the whole consultation happens off-platform. Those sessions still need a written record and the student still wants an invoice — so the platform records them first-class.
@@ -246,6 +268,8 @@ The **session log** (`#mentor` → *Session log*, `#admin` → *Sessions*) captu
 - **Preview** — opens a print-ready page in a new tab with both a *Download PDF* button and *Print*.
 
 The document is a **receipt** when paid, an **invoice** when not, and a **session record** when the fee was waived — same layout, honest label. Until `PF_CONFIG.org.legalName` is filled in, the footer says plainly that it is a payment confirmation and not a tax invoice.
+
+**Getting it to the client.** Someone who rang the platform has no account and will never open `#billing` to find their receipt, so every session card carries **Send it** — a two-step hand-off that is honest about what a browser can and cannot do: *download the PDF*, then *send the message with it attached*. The message is written out in full and editable, and opens in **WhatsApp** (`wa.me`, with the number normalised to `947…`), email, or the clipboard. When the fee is unpaid it appends the bank and wallet lines from `PF_CONFIG.manualPay` and asks them to quote the invoice number — and simply omits that block while those fields are still blank, rather than printing placeholders at a paying customer.
 
 Session records also feed the admin **Accounting** ledger. A logged session **supersedes** the request that spawned it (matched on `requestId`), so money is never counted twice; off-platform sessions appear in the ledger for the first time there.
 
@@ -271,10 +295,13 @@ mentors/{uid}               { displayName, fields[], city, bio, langs, availabil
                             update (self: descriptive fields / admin: approved+active)
 mentor_requests/{id}        { topic, note, name, contact, studentUid, status, mentorId,
                               introDoneAt, payment{amountLKR, payhereLink, paymentStatus,
-                              paidAt}, at, createdAt, updatedAt, ts }
-                            create (any signed-in, status:'open') · read (admin / approved
-                            mentor / owning student) · update (admin / claiming or owning
-                            mentor / student-cancel) — claim race closed in rules
+                              paidAt}, at, createdAt, updatedAt, ts,
+                              source, callback, takenBy, takenByName }
+                            create (any signed-in, status:'open'; OR admin/approved mentor
+                            with status:'claimed' for phone & walk-in intake — a mentor may
+                            only assign to themselves) · read (admin / approved mentor /
+                            owning student) · update (admin / claiming or owning mentor /
+                            student-cancel) — claim race closed in rules
 mentor_sessions/{id}        { mentorId, mentorName, studentName, studentContact, studentUid,
                               channel, topic, title, date, durationMin, summary, notes,
                               followUp, amountLKR, paymentStatus, method, ref, payerTxn,
@@ -319,6 +346,9 @@ Static reference data (`PF_UNIVERSITIES`, `PF_LABS`, `PF_SCHOLARSHIPS`, `PF_VISA
 - [ ] Set `PF_CONFIG.payhere.merchantId` and flip `PF_CONFIG.payhere.sandbox` to `false` for live LKR payments; adjust `defaultSessionPriceLKR`
 - [ ] (Optional, Blaze) deploy `functions/payhere-notify.js` for automatic payment confirmation
 - [ ] Set `PF_CONFIG.contactEmail` in `data.js`
+- [ ] Fill `PF_CONFIG.manualPay` (bank account + eZ Cash / FriMi numbers) — these are the "you can pay to" lines in the WhatsApp invoice message a mentor sends an off-platform client; the block is silently omitted while they're blank
+- [ ] Fill `PF_CONFIG.org.legalName` once registered, so invoices stop printing as informal payment confirmations
+- [ ] Publish the number people should ring, and tell mentors and the admin to use **Someone called** for every enquiry that arrives by phone or WhatsApp — that is what puts a caller with no account into the queue, the client book and the invoice trail
 - [ ] Replace `PF_PARTNERS` placeholder `url:'#'` entries with real affiliate links (or remove the rows)
 - [ ] Paste Firebase config into `assets/js/firebase-config.js`, deploy `firestore.rules`
 - [ ] Verify all costs/figures (visa fees, rents, stipends) are current
