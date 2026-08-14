@@ -8,8 +8,15 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <!-- Source Serif 4 and Inter (the brand display/body faces) are self-hosted
+       in brand.css below — not requested from Google Fonts. IBM Plex Mono and
+       Material Symbols are unchanged from the shared site look. -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/site.css" />
+  <!-- "Survey Blue" brand system — overrides site.css's tokens for the app
+       shell only. index.html and the legal pages load site.css directly and
+       never see this file, so they keep today's look. -->
+  <link rel="stylesheet" href="assets/css/brand.css" />
   <link rel="stylesheet" href="assets/css/settlement.css" />
 
   <!-- Three.js for the Settlement 3D visualisations — pulled in lazily via
