@@ -99,12 +99,32 @@ function toast(msg) {
    moment they want a mentor or want to pay, they must have a real account and
    be signed in (not the anonymous device session), so the request/order is
    tied to a person and reachable across devices. Returns true when allowed;
-   otherwise nudges to #account and returns false. */
-function requireAccount(reason) {
+   otherwise nudges to #account (carrying where they were headed, so signing
+   up doesn't strand them back on the dashboard) and returns false.
+
+   `opts.next` is the hash (without the leading #) to resume once they're
+   signed in — e.g. 'mentors?topic=visa-medical' so a student who got gated
+   asking about their visa documents lands right back on that pre-filled
+   form, not on the generic dashboard. Defaults to the current hash. */
+function requireAccount(reason, opts = {}) {
   if (window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn()) return true;
   toast(reason || 'Create a free account to continue.');
-  location.hash = '#account';
+  location.hash = accountHref(opts.next || location.hash.slice(1));
   return false;
+}
+
+/* '#account?next=<encoded target hash>' — read back by resumeAfterAuth()
+   once sign-up/sign-in succeeds. */
+function accountHref(next) {
+  return '#account' + (next ? '?next=' + encodeURIComponent(next) : '');
+}
+
+/* Where to land after a successful sign-up/sign-in on #account: back to
+   whatever the visitor was trying to do (?next=), or the dashboard by
+   default for a visitor who came to #account directly. */
+function resumeAfterAuth() {
+  const next = hashQuery().next;
+  location.hash = next || '#dashboard';
 }
 
 /* Lightweight modal — the only one in the app. Returns { el, close } so
@@ -575,11 +595,16 @@ function payStatusChip(payment) {
   return `<span class="chip ${cls[ps] || 'chip-dim'}">${lbl[ps] || ps}${amt}</span>`;
 }
 
-/* inline "Ask a mentor" hook — expand + submit, no navigation */
+/* inline "Ask a mentor" hook — expand + submit, no navigation. Gated
+   visitors are sent to sign up with their topic carried along, so signing
+   up lands them back on a pre-filled "Ask a mentor" request instead of the
+   dashboard, with no memory of what they were stuck on. */
 document.addEventListener('click', e => {
   const tgl = e.target.closest('.consult-hook-toggle');
   if (!tgl) return;
-  if (!requireAccount('Create a free account to connect with a mentor.')) return;
+  const topic = tgl.parentElement.querySelector('.consult-hook-form').dataset.topic;
+  if (!requireAccount('Create a free account to connect with a mentor.',
+    { next: 'mentors' + (topic ? '?topic=' + topic : '') })) return;
   const form = tgl.parentElement.querySelector('.consult-hook-form');
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) form.querySelector('.ch-name').focus();
@@ -588,7 +613,9 @@ document.addEventListener('submit', e => {
   const form = e.target.closest('.consult-hook-form');
   if (!form) return;
   e.preventDefault();
-  if (!requireAccount('Create a free account to connect with a mentor.')) return;
+  const topic = form.dataset.topic;
+  if (!requireAccount('Create a free account to connect with a mentor.',
+    { next: 'mentors' + (topic ? '?topic=' + topic : '') })) return;
   const name = form.querySelector('.ch-name').value.trim();
   const contact = form.querySelector('.ch-contact').value.trim();
   const note = form.querySelector('.ch-note').value.trim();
@@ -3447,7 +3474,7 @@ function renderMentors(main) {
         <p class="muted" style="font-size:13.5px;margin-bottom:16px">
           Connecting with a mentor needs a free account, so your request is tied to you and you can follow it across devices. Exploring everything else stays free — no account needed.${topicLabel ? ` We’ll keep your topic: <strong>${topicLabel}</strong>.` : ''}
         </p>
-        <a class="btn btn-primary" href="#account" style="align-self:flex-start">
+        <a class="btn btn-primary" href="${accountHref('mentors' + (topic ? '?topic=' + topic : ''))}" style="align-self:flex-start">
           <span class="material-symbols-outlined" style="font-size:16px">account_circle</span>
           Create a free account to ask
         </a>
@@ -3754,18 +3781,18 @@ function accountAuth(main) {
     const { e, p } = creds();
     if (!e || p.length < 6) { msg.textContent = 'Enter an email and a 6+ character password.'; return; }
     msg.textContent = 'Creating account…';
-    try { await PFCloud.signUpEmail(e, p); toast('Account created — your data now syncs'); location.hash = '#dashboard'; }
+    try { await PFCloud.signUpEmail(e, p); toast('Account created — your data now syncs'); resumeAfterAuth(); }
     catch (err) { msg.textContent = humanAuthError(err); }
   };
   $('#ac-signin').onclick = async () => {
     const { e, p } = creds();
     if (!e || !p) { msg.textContent = 'Enter your email and password.'; return; }
     msg.textContent = 'Signing in…';
-    try { await PFCloud.signInEmail(e, p); toast('Signed in'); location.hash = '#dashboard'; }
+    try { await PFCloud.signInEmail(e, p); toast('Signed in'); resumeAfterAuth(); }
     catch (err) { msg.textContent = humanAuthError(err); }
   };
   $('#ac-google').onclick = async () => {
-    try { await PFCloud.signInGoogle(); toast('Signed in'); location.hash = '#dashboard'; }
+    try { await PFCloud.signInGoogle(); toast('Signed in'); resumeAfterAuth(); }
     catch (err) { msg.textContent = humanAuthError(err); }
   };
 }
@@ -4430,11 +4457,10 @@ async function sessionCardAction(e, ctx) {
 }
 
 /* ── 9b · Mentor Dashboard (#mentor) ─────────────────────────
-   Invite code → sign up → pending review → (admin approves) → claim queue.
-   Visually a sibling of #admin: same chip-filter tabs, cards, ledgers. */
+   Invite code + sign up (one screen) → profile → pending review →
+   (admin approves) → claim queue. Visually a sibling of #admin: same
+   chip-filter tabs, cards, ledgers. */
 let mentorState = { tab: 'open', open: null, claimed: null, sessions: null, loading: false, loaded: false };
-// Set once the visitor enters the correct mentor invite code this session.
-let mentorInviteOk = false;
 
 function renderMentor(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
@@ -4450,57 +4476,67 @@ function renderMentor(main) {
 
   if (PFCloud.isMentor()) return mentorDashboard(main);
   if (PFCloud.hasMentorProfile()) return mentorPending(main);
-  if (!mentorInviteOk) return mentorInviteGate(main);
   return mentorApply(main);
 }
 
-/* Invite-only gate: mentoring is no longer a public self-service sign-up.
-   A vetted person enters the mentor invite code (shared privately by the
-   admin) before they can create a mentor account — and even then the new
-   account is PENDING until an admin approves it. */
-function mentorInviteGate(main) {
-  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Mentoring is invite-only',
-    'PathFinder mentors are vetted Sri Lankan postgrads already in New Zealand. If an admin has given you an invite code, enter it to set up your mentor account — it’s reviewed and approved before you take any requests.') +
-    `<div class="card" style="max-width:440px">
-      <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Mentor invite code</label>
-      <input class="field" id="mt-code" autocomplete="off" placeholder="Enter your invite code" style="margin-top:6px;text-transform:uppercase">
-      <p class="faint" id="mt-code-msg" style="font-size:12.5px;margin-top:10px;min-height:16px"></p>
-      <button class="btn btn-primary" id="mt-code-go" style="margin-top:4px;width:100%;justify-content:center">Continue</button>
-      <p class="faint" style="font-size:12px;margin-top:14px">Not a mentor? <a href="#account" style="color:var(--route)">Back to account</a> · <a href="#mentors" style="color:var(--route)">Ask a mentor instead</a></p>
-    </div>`;
-
-  const code = $('#mt-code'), msg = $('#mt-code-msg'), go = $('#mt-code-go');
-  const submit = () => {
-    if (norm(code.value) !== norm(ROLE_CODES().mentor)) {
-      msg.textContent = 'That invite code isn’t valid. Ask the PathFinder team for a current code.';
-      return;
-    }
-    mentorInviteOk = true;
-    route();
-  };
-  go.onclick = submit;
-  code.onkeydown = e => { if (e.key === 'Enter') submit(); };
-  code.focus();
-}
-
+/* Invite-only, one screen: mentoring is no longer a public self-service
+   sign-up, but the invite code is a soft client-side check (the real gate
+   is admin approval) — so it asks for the code alongside the account
+   fields rather than as a separate page first. Whichever account action
+   is clicked, the code is checked first. */
 function mentorApply(main) {
   const signedIn = PFCloud.isSignedIn();
-  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Set up your mentor account',
-    'Invite confirmed. Create your account, tell us what you can help with, and an admin will review and approve your profile before it goes live.') +
-    (signedIn ? '' : `<div class="card" style="max-width:520px;margin-bottom:18px">
-      <h2 style="font-size:1.1rem;margin-bottom:4px">1 · Create your mentor account</h2>
-      <p class="muted" style="font-size:13px;margin-bottom:14px">Use email and a password, or continue with Google.</p>
-      <input class="field" id="mt-email" type="email" autocomplete="email" placeholder="you@example.com" style="margin-bottom:10px">
-      <input class="field" id="mt-pass" type="password" autocomplete="new-password" placeholder="Choose a password (6+ characters)" style="margin-bottom:12px">
-      <p class="faint" id="mt-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" id="mt-signup">Create account</button>
-        <button class="btn btn-ghost btn-sm" id="mt-signin">I already have one</button>
-        <button class="btn btn-ghost btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
-      </div>
-    </div>`) +
-    `<div class="card" style="max-width:520px ${signedIn ? '' : ';opacity:.5;pointer-events:none'}" id="mt-profile-card">
-      <h2 style="font-size:1.1rem;margin-bottom:14px">${signedIn ? '' : '2 · '}Your mentor profile</h2>
+
+  if (!signedIn) {
+    main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Mentor sign-up',
+      'PathFinder mentors are vetted Sri Lankan postgrads already in New Zealand. Enter your invite code and create your account — an admin reviews and approves your profile before you take any requests.') +
+      `<div class="card" style="max-width:440px">
+        <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Mentor invite code</label>
+        <input class="field" id="mt-code" autocomplete="off" placeholder="Enter your invite code" style="margin:6px 0 14px;text-transform:uppercase">
+        <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Email &amp; password</label>
+        <input class="field" id="mt-email" type="email" autocomplete="email" placeholder="you@example.com" style="margin:6px 0 10px">
+        <input class="field" id="mt-pass" type="password" autocomplete="new-password" placeholder="Choose a password (6+ characters)" style="margin-bottom:12px">
+        <p class="faint" id="mt-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="mt-signup">Create account</button>
+          <button class="btn btn-ghost btn-sm" id="mt-signin">I already have one</button>
+          <button class="btn btn-ghost btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+        </div>
+        <p class="faint" style="font-size:12px;margin-top:14px">Not a mentor? <a href="#account" style="color:var(--route)">Back to account</a> · <a href="#mentors" style="color:var(--route)">Ask a mentor instead</a></p>
+      </div>`;
+
+    const code = $('#mt-code'), email = $('#mt-email'), pass = $('#mt-pass'), msg = $('#mt-msg');
+    const creds = () => ({ e: email.value.trim(), p: pass.value });
+    const codeOk = () => {
+      if (norm(code.value) !== norm(ROLE_CODES().mentor)) {
+        msg.textContent = 'That invite code isn’t valid. Ask the PathFinder team for a current code.';
+        return false;
+      }
+      return true;
+    };
+    $('#mt-signup').onclick = async () => {
+      if (!codeOk()) return;
+      const { e, p } = creds(); if (!e || p.length < 6) { msg.textContent = 'Enter an email and a 6+ character password.'; return; }
+      msg.textContent = 'Creating account…';
+      try { await PFCloud.signUpEmail(e, p); route(); } catch (err) { msg.textContent = humanAuthError(err); }
+    };
+    $('#mt-signin').onclick = async () => {
+      if (!codeOk()) return;
+      const { e, p } = creds(); if (!e || !p) { msg.textContent = 'Enter your email and password.'; return; }
+      msg.textContent = 'Signing in…';
+      try { await PFCloud.signInEmail(e, p); route(); } catch (err) { msg.textContent = humanAuthError(err); }
+    };
+    $('#mt-google').onclick = async () => {
+      if (!codeOk()) return;
+      try { await PFCloud.signInGoogle(); route(); } catch (err) { msg.textContent = humanAuthError(err); }
+    };
+    code.focus();
+    return;
+  }
+
+  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Your mentor profile',
+    'Tell us what you can help with — an admin will review and approve your profile before it goes live.') +
+    `<div class="card" style="max-width:520px" id="mt-profile-card">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Display name (students see this after they’re matched with you)</label>
       <input class="field" id="mp-name" placeholder="e.g. Kasun J." style="margin:5px 0 14px">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Fields you can help with</label>
@@ -4519,27 +4555,8 @@ function mentorApply(main) {
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Short bio</label>
       <textarea class="field" id="mp-bio" rows="3" placeholder="Where you study, when you moved, what you’re good at helping with." style="margin:5px 0 14px"></textarea>
       <p class="faint" id="mp-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
-      <button class="btn btn-primary" id="mp-submit" style="width:100%;justify-content:center" ${signedIn ? '' : 'disabled'}>Submit application</button>
+      <button class="btn btn-primary" id="mp-submit" style="width:100%;justify-content:center">Submit application</button>
     </div>`;
-
-  if (!signedIn) {
-    const email = $('#mt-email'), pass = $('#mt-pass'), msg = $('#mt-msg');
-    const creds = () => ({ e: email.value.trim(), p: pass.value });
-    $('#mt-signup').onclick = async () => {
-      const { e, p } = creds(); if (!e || p.length < 6) { msg.textContent = 'Enter an email and a 6+ character password.'; return; }
-      msg.textContent = 'Creating account…';
-      try { await PFCloud.signUpEmail(e, p); route(); } catch (err) { msg.textContent = humanAuthError(err); }
-    };
-    $('#mt-signin').onclick = async () => {
-      const { e, p } = creds(); if (!e || !p) { msg.textContent = 'Enter your email and password.'; return; }
-      msg.textContent = 'Signing in…';
-      try { await PFCloud.signInEmail(e, p); route(); } catch (err) { msg.textContent = humanAuthError(err); }
-    };
-    $('#mt-google').onclick = async () => {
-      try { await PFCloud.signInGoogle(); route(); } catch (err) { msg.textContent = humanAuthError(err); }
-    };
-    return;
-  }
 
   $$('#mp-fields .mp-field input').forEach(cb => cb.onchange = () =>
     cb.closest('.mp-field').classList.toggle('chip-rose', cb.checked));
@@ -4639,10 +4656,13 @@ function mentorDashboard(main) {
   const p = PFCloud.getMentorProfile() || {};
   const active = p.active !== false;
   const people = mentorPeople();
-  const TABS = [['open', 'Open requests'], ['claimed', 'My claimed'], ['sessions', 'Session log'], ['people', 'People']];
+  // "My claimed" used to be its own tab, but it's the same requests that
+  // already show up inside People (buildPeople folds claimed + sessions
+  // together) — one tab fewer, no data left out: active claimed requests
+  // now surface as their own actionable section at the top of People.
+  const TABS = [['open', 'Open requests'], ['people', 'My people'], ['sessions', 'Session log']];
   const counts = {
     open: mentorState.open ? mentorState.open.length : '·',
-    claimed: mentorState.claimed ? mentorState.claimed.length : '·',
     sessions: mentorState.sessions ? mentorState.sessions.length : '·',
     people: mentorState.loaded ? people.length : '·',
   };
@@ -4679,7 +4699,7 @@ function mentorDashboard(main) {
       const saved = await PFCloud.createIntakeRequest(data);
       if (saved.mentorId) mentorState.claimed = [saved, ...(mentorState.claimed || [])];
       else mentorState.open = [saved, ...(mentorState.open || [])];
-      mentorState.tab = saved.mentorId ? 'claimed' : 'open';
+      mentorState.tab = saved.mentorId ? 'people' : 'open';
       route();
     },
   });
@@ -4699,9 +4719,13 @@ function mentorDashboard(main) {
 
   function paintPeople() {
     if (mentorState.sessions === null && mentorState.claimed === null) { body.innerHTML = admErrCard('your people'); return; }
+    const claimed = mentorState.claimed || [];
+    cacheReqs(claimed);
+    const active = claimed.filter(r => !['completed', 'cancelled'].includes(r.status));
     const due = people.reduce((n, x) => n + x.due, 0);
     body.innerHTML = `
-      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+      ${active.length ? `<h3 style="font-size:1rem;margin:0 0 10px">${active.length} claimed and active</h3>${active.map(claimedReqCard).join('')}` : ''}
+      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:${active.length ? '18px' : '0'} 0 16px">
         <span class="material-symbols-outlined" style="color:var(--route)">contacts</span>
         <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
           Everyone you have spoken to, in one place — whether they came through the site or just rang you.
@@ -4738,19 +4762,12 @@ function mentorDashboard(main) {
     if (mentorState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (mentorState.tab === 'people') return paintPeople();
     if (mentorState.tab === 'sessions') return paintSessions();
-    if (mentorState.tab === 'open') {
-      const list = mentorState.open;
-      if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
-      cacheReqs(list);
-      body.innerHTML = list.length ? list.map(openReqCard).join('')
-        : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
-    } else {
-      const list = mentorState.claimed;
-      if (list === null) { body.innerHTML = admErrCard('your requests'); return; }
-      cacheReqs(list);
-      body.innerHTML = list.length ? list.map(claimedReqCard).join('')
-        : `<div class="card"><p class="muted" style="font-size:14px">You haven’t claimed any requests yet. Open the queue and claim one.</p></div>`;
-    }
+    // Only 'open' is left — claimed requests now live inside People.
+    const list = mentorState.open;
+    if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
+    cacheReqs(list);
+    body.innerHTML = list.length ? list.map(openReqCard).join('')
+      : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
   }
 
   $$('#mtd-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
@@ -4882,7 +4899,7 @@ async function mentorCardAction(e) {
   const id = btn.dataset.req;
   const doAction = async (fn, ok) => { btn.disabled = true; try { await fn(); toast(ok); await mentorLoad(); route(); } catch (err) { btn.disabled = false; toast(humanAuthError(err)); } };
 
-  if (btn.classList.contains('mt-claim'))    return doAction(() => PFCloud.claimRequest(id), 'Claimed — it’s in “My claimed”');
+  if (btn.classList.contains('mt-claim'))    return doAction(() => PFCloud.claimRequest(id), 'Claimed — it’s in “My people”');
   if (btn.classList.contains('mt-intro'))    return doAction(() => PFCloud.updateRequest(id, { status: 'intro_done', introDoneAt: Date.now() }), 'Intro marked complete');
   if (btn.classList.contains('mt-genlink')) {
     const amount = Math.round(+btn.closest('.card').querySelector('.mt-amount').value);
@@ -4965,8 +4982,8 @@ function paintMentorSidebarLink() {
    Email/Password admin login (see firebase-config.js) — so the data
    reads below are enforced by Firestore rules, not by client JS.
    Shows: overview analytics · leads · mentors · requests · user records. */
-let adminState = { tab: 'overview', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' };
-const ADMIN_BLANK = () => ({ tab: 'overview', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' });
+let adminState = { tab: 'action', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' };
+const ADMIN_BLANK = () => ({ tab: 'action', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' });
 
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
@@ -5050,9 +5067,14 @@ function admErrCard(what) {
 }
 
 function adminDashboard(main) {
-  const TABS = [['overview', 'Overview'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['people', 'People'], ['sessions', 'Sessions'], ['orders', 'Orders'], ['users', 'User records']];
+  // "Action needed" is the landing tab — the handful of things that
+  // actually require a click today. Everything else (Analytics, ledgers,
+  // records) is one click away but no longer what greets a returning
+  // admin. See admActionCount() for what counts as "needs action".
+  const TABS = [['action', 'Action needed'], ['analytics', 'Analytics'], ['accounting', 'Accounting'], ['leads', 'Leads'], ['mentors', 'Mentors'], ['requests', 'Requests'], ['people', 'People'], ['sessions', 'Sessions'], ['orders', 'Orders'], ['users', 'User records']];
   const people = adminPeople();
   const counts = {
+    action: adminState.loaded ? admActionCount() : '·',
     leads: adminState.leads ? adminState.leads.length : '·',
     mentors: adminState.mentors ? adminState.mentors.length : '·',
     requests: adminState.requests ? adminState.requests.length : '·',
@@ -5081,7 +5103,7 @@ function adminDashboard(main) {
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
     if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
-    ({ overview: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors,
+    ({ action: admAction, analytics: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors,
        requests: admRequests, people: admPeople, sessions: admSessions, orders: admOrders,
        users: admUsers })[adminState.tab](body, paint);
   }
@@ -5206,6 +5228,50 @@ function admMetric(ic, n, label) {
     <div class="faint" style="font-size:12.5px">${label}</div></div>`;
 }
 
+/* How many things on the landing tab need a click today — the tab's own
+   count badge reads this, so it matches what's actually rendered below. */
+function admActionCount() {
+  const pendingMentors = (adminState.mentors || []).filter(m => !m.approved).length;
+  const awaitingPay = (adminState.requests || []).filter(r => r.status === 'awaiting_payment').length;
+  const unpaidSessions = (adminState.sessions || []).filter(s => Number(s.amountLKR) && s.paymentStatus !== 'paid' && s.paymentStatus !== 'waived').length;
+  const ordersToConfirm = (adminState.orders || []).filter(o => o.status === 'reported' || o.status === 'pending').length;
+  return pendingMentors + awaitingPay + unpaidSessions + ordersToConfirm;
+}
+
+/* The landing tab — only the things that actually need a click today.
+   Pending mentor approvals and awaiting-payment requests reuse the exact
+   same cards (and the same delegated data-muid/data-radoc click handling)
+   as their full tabs, so approving or marking-paid here IS that one
+   action, not a second copy of it. Unpaid sessions and orders-to-confirm
+   are counted rather than itemised — confirming those needs the fuller
+   session/order record, so they link straight through instead of
+   duplicating that tab's cards here. */
+function admAction(body) {
+  const pendingMentors = (adminState.mentors || []).filter(m => !m.approved);
+  const awaitingPay = (adminState.requests || []).filter(r => r.status === 'awaiting_payment');
+  const unpaidSessions = (adminState.sessions || []).filter(s => Number(s.amountLKR) && s.paymentStatus !== 'paid' && s.paymentStatus !== 'waived').length;
+  const ordersToConfirm = (adminState.orders || []).filter(o => o.status === 'reported' || o.status === 'pending').length;
+  const nothing = !pendingMentors.length && !awaitingPay.length && !unpaidSessions && !ordersToConfirm;
+
+  const jumpCard = (tab, icon, text) => `<a class="card" href="#" data-jump="${tab}" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;border-color:var(--ochre)">
+      <span class="material-symbols-outlined" style="color:var(--ochre)">${icon}</span>
+      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${text}</p>
+      <span class="btn btn-ghost btn-sm">Open</span>
+    </a>`;
+
+  body.innerHTML = `
+    ${unpaidSessions ? jumpCard('sessions', 'request_quote', `<strong>${unpaidSessions} session${unpaidSessions === 1 ? '' : 's'}</strong> invoiced, not yet paid.`) : ''}
+    ${ordersToConfirm ? jumpCard('orders', 'receipt_long', `<strong>${ordersToConfirm} order${ordersToConfirm === 1 ? '' : 's'}</strong> reported paid, waiting to be confirmed.`) : ''}
+    ${nothing ? `<div class="card"><p class="muted" style="font-size:14px">Nothing needs your attention right now — everything's approved, claimed or paid.</p></div>` : ''}
+    ${pendingMentors.length ? `<h3 style="font-size:1rem;margin:18px 0 10px">${pendingMentors.length} mentor application${pendingMentors.length === 1 ? '' : 's'} awaiting approval</h3>${pendingMentors.map(mentorCard).join('')}` : ''}
+    ${awaitingPay.length ? `<h3 style="font-size:1rem;margin:18px 0 10px">${awaitingPay.length} request${awaitingPay.length === 1 ? '' : 's'} awaiting payment confirmation</h3>${awaitingPay.map(requestCard).join('')}` : ''}`;
+
+  $$('a[data-jump]', body).forEach(a => a.onclick = e => {
+    e.preventDefault();
+    $(`#adm-tabs .chip-filter[data-tab="${a.dataset.jump}"]`)?.click();
+  });
+}
+
 function admOverview(body) {
   const users = adminState.users || [];
   const assessments = users.filter(u => u.data.assessment).length;
@@ -5235,11 +5301,6 @@ function admOverview(body) {
   const fieldRows = Object.entries(fields).sort((a, b) => b[1] - a[1]);
 
   body.innerHTML = `
-    ${pendingM ? `<a class="card" href="#" id="adm-pending-jump" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px;border-color:var(--ochre)">
-      <span class="material-symbols-outlined" style="color:var(--ochre)">hourglass_top</span>
-      <p style="flex:1;min-width:220px;font-size:13.5px;margin:0"><strong>${pendingM} mentor application${pendingM === 1 ? '' : 's'}</strong> waiting for approval. Review and approve them in the Mentors tab.</p>
-      <span class="btn btn-ghost btn-sm">Review now</span>
-    </a>` : ''}
     <div class="grid-4" style="margin-bottom:28px">
       ${admMetric('mark_email_read', (adminState.leads || []).length, 'Email leads')}
       ${admMetric('support_agent', `${approvedM}/${pendingM}`, 'Mentors approved / pending')}
@@ -5264,9 +5325,6 @@ function admOverview(body) {
             <td class="mono" style="width:1%;text-align:right">${n}</td></tr>`).join('')}</tbody></table>`
         : `<p class="muted" style="font-size:13.5px">No completed assessments synced yet.</p>`}
     </div>`;
-
-  const jump = $('#adm-pending-jump', body);
-  if (jump) jump.onclick = e => { e.preventDefault(); $('#adm-tabs .chip-filter[data-tab="mentors"]')?.click(); };
 }
 
 function admLeads(body) {
@@ -5289,72 +5347,84 @@ function admLeads(body) {
   if (dl) dl.onclick = () => csvDownload('pathfinder-leads.csv', ['email', 'source', 'at'], leads);
 }
 
+/* One mentor row — shared by the Mentors tab (everyone) and the Action
+   needed tab (pending only), so approve/revoke wiring only exists once. */
+function mentorCard(m) {
+  const active = m.active !== false;
+  return `<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <strong style="font-size:14.5px">${esc(m.displayName || 'Mentor')}</strong>
+        <span class="faint" style="font-size:12.5px"> · ${esc(m.city || '')}</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <span class="chip ${m.approved ? 'chip-teal' : 'chip-gold'}">${m.approved ? 'Approved' : 'Pending'}</span>
+          <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Active' : 'Inactive'}</span>
+          ${(m.fields || []).map(f => `<span class="chip chip-dim">${PF_CONSULT_TOPICS[f] || f}</span>`).join('')}
+        </div>
+        ${m.bio ? `<div class="muted" style="font-size:13px;margin-top:8px">${esc(m.bio)}</div>` : ''}
+        <div class="faint mono" style="font-size:11px;margin-top:6px">${esc(m.langs || '')}${m.availability ? ' · ' + esc(m.availability) : ''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+        ${m.approved
+          ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
+          : `<button class="btn btn-primary btn-sm" data-muid="${m.uid}" data-act="approve">Approve</button>`}
+        ${m.approved ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
 function admMentors(body) {
   if (adminState.mentors === null) { body.innerHTML = admErrCard('mentors'); return; }
   const mentors = adminState.mentors.slice().sort((a, b) => (a.approved === b.approved) ? 0 : (a.approved ? 1 : -1));
   body.innerHTML = `
     <p class="faint" style="font-size:12.5px;margin:0 0 14px">${mentors.length} mentor account${mentors.length === 1 ? '' : 's'} · pending first</p>
-    ${mentors.length ? mentors.map(m => {
-      const active = m.active !== false;
-      return `<div class="card" style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
-          <div style="flex:1;min-width:220px">
-            <strong style="font-size:14.5px">${esc(m.displayName || 'Mentor')}</strong>
-            <span class="faint" style="font-size:12.5px"> · ${esc(m.city || '')}</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-              <span class="chip ${m.approved ? 'chip-teal' : 'chip-gold'}">${m.approved ? 'Approved' : 'Pending'}</span>
-              <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Active' : 'Inactive'}</span>
-              ${(m.fields || []).map(f => `<span class="chip chip-dim">${PF_CONSULT_TOPICS[f] || f}</span>`).join('')}
-            </div>
-            ${m.bio ? `<div class="muted" style="font-size:13px;margin-top:8px">${esc(m.bio)}</div>` : ''}
-            <div class="faint mono" style="font-size:11px;margin-top:6px">${esc(m.langs || '')}${m.availability ? ' · ' + esc(m.availability) : ''}</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-            ${m.approved
-              ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
-              : `<button class="btn btn-primary btn-sm" data-muid="${m.uid}" data-act="approve">Approve</button>`}
-            ${m.approved ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
-          </div>
+    ${mentors.length ? mentors.map(mentorCard).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor applications yet.</p></div>`}`;
+}
+
+function admRequestNameOf(uid) {
+  const m = (adminState.mentors || []).find(x => x.uid === uid);
+  return m ? m.displayName : (uid ? uid.slice(0, 8) + '…' : '—');
+}
+
+/* One request row — shared by the Requests tab (everyone) and the Action
+   needed tab (awaiting-payment only). */
+function requestCard(r) {
+  const canPaid = r.status === 'awaiting_payment';
+  const canCancel = !['paid', 'completed', 'cancelled'].includes(r.status);
+  return `<div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <strong style="font-size:14.5px">${esc(r.name || 'Unknown')}</strong>
+        <span class="faint" style="font-size:12.5px"> · ${esc(r.contact || 'no contact')}</span>
+        <div class="faint" style="font-size:12.5px;margin-top:2px">
+          ${PF_CONSULT_TOPICS[r.topic] || 'General'} · ${r.mentorId ? 'mentor: ' + esc(admRequestNameOf(r.mentorId)) : 'unclaimed'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}
+          ${r.source && r.source !== 'platform' ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) + (r.takenByName ? ', taken by ' + esc(r.takenByName) : '') : ''}
         </div>
-      </div>`;
-    }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor applications yet.</p></div>`}`;
+        ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
+        ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        ${reqStatusChip(r.status)}
+        ${r.payment ? payStatusChip(r.payment) : ''}
+      </div>
+    </div>
+    ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
+      ${canPaid ? `<button class="btn btn-primary btn-sm" data-radoc="${r.id}" data-act="paid">Mark payment received</button>` : ''}
+      ${canCancel ? `<button class="btn btn-ghost btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+    </div>` : ''}
+  </div>`;
 }
 
 function admRequests(body) {
   if (adminState.requests === null) { body.innerHTML = admErrCard('mentor requests'); return; }
   const reqs = adminState.requests;
-  const nameOf = uid => { const m = (adminState.mentors || []).find(x => x.uid === uid); return m ? m.displayName : (uid ? uid.slice(0, 8) + '…' : '—'); };
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${reqs.length} request${reqs.length === 1 ? '' : 's'}</p>
       ${reqs.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-reqs"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
-    ${reqs.length ? reqs.map(r => {
-      const canPaid = r.status === 'awaiting_payment';
-      const canCancel = !['paid', 'completed', 'cancelled'].includes(r.status);
-      return `<div class="card" style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
-          <div style="flex:1;min-width:220px">
-            <strong style="font-size:14.5px">${esc(r.name || 'Unknown')}</strong>
-            <span class="faint" style="font-size:12.5px"> · ${esc(r.contact || 'no contact')}</span>
-            <div class="faint" style="font-size:12.5px;margin-top:2px">
-              ${PF_CONSULT_TOPICS[r.topic] || 'General'} · ${r.mentorId ? 'mentor: ' + esc(nameOf(r.mentorId)) : 'unclaimed'} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}
-              ${r.source && r.source !== 'platform' ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) + (r.takenByName ? ', taken by ' + esc(r.takenByName) : '') : ''}
-            </div>
-            ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
-            ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-            ${reqStatusChip(r.status)}
-            ${r.payment ? payStatusChip(r.payment) : ''}
-          </div>
-        </div>
-        ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
-          ${canPaid ? `<button class="btn btn-primary btn-sm" data-radoc="${r.id}" data-act="paid">Mark payment received</button>` : ''}
-          ${canCancel ? `<button class="btn btn-ghost btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
-        </div>` : ''}
-      </div>`;
-    }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor requests yet.</p></div>`}`;
+    ${reqs.length ? reqs.map(requestCard).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor requests yet.</p></div>`}`;
 
   const dl = $('#adm-dl-reqs', body);
   if (dl) dl.onclick = () => csvDownload('pathfinder-mentor-requests.csv',
