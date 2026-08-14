@@ -91,67 +91,10 @@
   /* --font-mono unchanged — IBM Plex Mono was already correct. */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ink:       #EDEFEF;
-    --ink-soft:  rgba(237,239,239,.66);
-    --ink-faint: rgba(237,239,239,.42);
-    --paper:     #10161C;
-    --paper-2:   #171F27;
-    --surface:   #151D24;
-    --surface-2: #1B242C;
-    --line:      rgba(237,239,239,.12);
-    --line-2:    rgba(237,239,239,.22);
-
-    --route: #4C93B8;
-    --brand: #4C93B8;
-    --brand-hover: #6FADCE;
-    --brand-soft:  rgba(76,147,184,.16);
-
-    --pine:  #5FAE86;
-    --ochre: #D2A94E;
-    --sea:   #4FA3AE;
-
-    --alert: #E2664A;
-    --alert-soft: rgba(226,102,74,.16);
-    --rose:  var(--alert);
-
-    --teal-soft:   rgba(95,174,134,.14);
-    --violet-soft: rgba(79,163,174,.14);
-    --gold-soft:   rgba(210,169,78,.16);
-
-    --shadow-1: 0 1px 2px rgba(0,0,0,.30), 0 8px 28px rgba(0,0,0,.28);
-    --shadow-2: 0 2px 6px rgba(0,0,0,.34), 0 24px 64px rgba(0,0,0,.45);
-  }
-}
-/* Mirrors the media-query block above for an explicit dark choice, if a
-   theme toggle is ever added — no such toggle exists in app.html today. */
-:root[data-theme="dark"] {
-  --ink:       #EDEFEF;
-  --ink-soft:  rgba(237,239,239,.66);
-  --ink-faint: rgba(237,239,239,.42);
-  --paper:     #10161C;
-  --paper-2:   #171F27;
-  --surface:   #151D24;
-  --surface-2: #1B242C;
-  --line:      rgba(237,239,239,.12);
-  --line-2:    rgba(237,239,239,.22);
-  --route: #4C93B8;
-  --brand: #4C93B8;
-  --brand-hover: #6FADCE;
-  --brand-soft:  rgba(76,147,184,.16);
-  --pine:  #5FAE86;
-  --ochre: #D2A94E;
-  --sea:   #4FA3AE;
-  --alert: #E2664A;
-  --alert-soft: rgba(226,102,74,.16);
-  --rose:  var(--alert);
-  --teal-soft:   rgba(95,174,134,.14);
-  --violet-soft: rgba(79,163,174,.14);
-  --gold-soft:   rgba(210,169,78,.16);
-  --shadow-1: 0 1px 2px rgba(0,0,0,.30), 0 8px 28px rgba(0,0,0,.28);
-  --shadow-2: 0 2px 6px rgba(0,0,0,.34), 0 24px 64px rgba(0,0,0,.45);
-}
+/* No automatic dark mode: the product never had one before this rebrand —
+   every page always rendered the light palette regardless of OS setting —
+   and switching that on for app.html only, unrequested, was a mistake.
+   Light is the only theme, same as index.html and the legal pages. */
 
 /* ── The one status chip that shared --route with the brand ──────────
    Every other decorative use of --route (links, active nav, progress,

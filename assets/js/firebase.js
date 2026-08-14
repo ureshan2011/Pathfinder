@@ -32,7 +32,7 @@ const ADMIN_EMAIL = window.PF_ADMIN_EMAIL || 'admin@pathfinder.app';
 
 if (cfg && cfg.apiKey) {
   const [{ initializeApp },
-         { getAuth, GoogleAuthProvider, EmailAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+         { getAuth, GoogleAuthProvider, EmailAuthProvider, signInWithPopup, signInWithCredential, signInWithEmailAndPassword,
            createUserWithEmailAndPassword, linkWithPopup, linkWithCredential,
            signInAnonymously, onAuthStateChanged, signOut },
          { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection,
@@ -181,14 +181,23 @@ if (cfg && cfg.apiKey) {
 
   /* Sign in with Google, upgrading the current anonymous account in place
      when there is one — so the visitor's already-synced data carries over
-     to the named account instead of being orphaned under the anon uid. */
+     to the named account instead of being orphaned under the anon uid.
+
+     Most returning visitors hit the "already in use" branch below (their
+     Google account is already a real PathFinder account, just under a
+     different anon uid than this device's current one) — reuse the
+     credential the popup already produced instead of opening a second
+     Google popup for the same account. */
   async function googleSignIn() {
     const provider = new GoogleAuthProvider();
     const cur = auth.currentUser;
     if (cur && cur.isAnonymous) {
       try { return await linkWithPopup(cur, provider); }
       catch (e) {
-        // Credential already belongs to an existing account → just sign in.
+        if (e.code === 'auth/credential-already-in-use') {
+          const cred = GoogleAuthProvider.credentialFromError(e);
+          if (cred) return await signInWithCredential(auth, cred);
+        }
         if (e.code === 'auth/credential-already-in-use' || e.code === 'auth/email-already-in-use')
           return await signInWithPopup(auth, provider);
         throw e;
