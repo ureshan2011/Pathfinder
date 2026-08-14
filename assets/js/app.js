@@ -3675,7 +3675,7 @@ function renderBilling(main) {
     const orders = o.status === 'fulfilled' ? o.value : [];
     sessions = s.status === 'fulfilled' ? s.value : [];
     if (o.status === 'rejected' && s.status === 'rejected') {
-      body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
+      body.innerHTML = `<div class="card" style="border-color:var(--alert)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
       return;
     }
     body.innerHTML = (orders.length
@@ -4764,7 +4764,7 @@ function mentorDashboard(main) {
     if (mentorState.tab === 'sessions') return paintSessions();
     // Only 'open' is left — claimed requests now live inside People.
     const list = mentorState.open;
-    if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
+    if (list === null) { body.innerHTML = `<div class="card" style="border-color:var(--alert)"><p class="muted">Couldn’t load the queue — your account may not be approved yet.</p></div>`; return; }
     cacheReqs(list);
     body.innerHTML = list.length ? list.map(openReqCard).join('')
       : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
@@ -5062,7 +5062,7 @@ async function adminLoad() {
 }
 
 function admErrCard(what) {
-  return `<div class="card" style="border-color:var(--route)"><p class="muted" style="font-size:13.5px">
+  return `<div class="card" style="border-color:var(--alert)"><p class="muted" style="font-size:13.5px">
     Couldn't load ${what} — your account may lack permission, or the rules need redeploying.</p></div>`;
 }
 
@@ -5102,7 +5102,7 @@ function adminDashboard(main) {
 
   function paint() {
     if (adminState.loading) { body.innerHTML = `<div class="card"><p class="muted">Loading…</p></div>`; return; }
-    if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--route)"><p class="muted">${adminState.error}</p></div>`; return; }
+    if (adminState.error)   { body.innerHTML = `<div class="card" style="border-color:var(--alert)"><p class="muted">${adminState.error}</p></div>`; return; }
     ({ action: admAction, analytics: admOverview, accounting: admAccounting, leads: admLeads, mentors: admMentors,
        requests: admRequests, people: admPeople, sessions: admSessions, orders: admOrders,
        users: admUsers })[adminState.tab](body, paint);
