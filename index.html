@@ -10,7 +10,23 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <!-- Google Fonts is loaded ASYNCHRONOUSLY, on purpose.
+       As a plain stylesheet link this file is render-blocking: the browser
+       paints NOTHING until fonts.googleapis.com answers. Measured on a
+       connection where that host was unreachable, first contentful paint
+       went from 88ms to 12.7 SECONDS — a blank screen, on the exact mobile
+       networks this audience is on. media="print" makes the browser fetch
+       it at low priority without blocking the render, and the onload
+       handler promotes it to "all" the moment it arrives.
+
+       `display=block` (not swap) on Material Symbols is deliberate: these
+       icons are ligatures, so with `swap` the fallback font briefly renders
+       the LITERAL WORDS ("location_on", "check") all over the page. `block`
+       keeps the glyph invisible for up to ~3s instead, then swaps in. Text
+       faces keep `swap`, where a fallback is the right behaviour. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" media="print" onload="this.media='all';this.onload=null" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" /></noscript>
   <link rel="stylesheet" href="assets/css/site.css" />
 
   <style>
@@ -1018,6 +1034,7 @@ navMode();
       <nav style="display:flex;gap:20px;flex-wrap:wrap" class="mono">
         <a class="tlink" style="font-size:10px" href="privacy.html">Privacy</a>
         <a class="tlink" style="font-size:10px" href="terms.html">Terms</a>
+        <a class="tlink" style="font-size:10px" href="terms.html#refunds">Refunds</a>
         <a class="tlink" style="font-size:10px" href="cookies.html">Cookies</a>
         <a class="tlink" style="font-size:10px" href="disclaimer.html">Disclaimer</a>
       </nav>

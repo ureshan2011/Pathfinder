@@ -11,7 +11,23 @@
   <!-- Source Serif 4 and Inter (the brand display/body faces) are self-hosted
        in brand.css below — not requested from Google Fonts. IBM Plex Mono and
        Material Symbols are unchanged from the shared site look. -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <!-- Google Fonts is loaded ASYNCHRONOUSLY, on purpose.
+       As a plain stylesheet link this file is render-blocking: the browser
+       paints NOTHING until fonts.googleapis.com answers. Measured on a
+       connection where that host was unreachable, first contentful paint
+       went from 88ms to 12.7 SECONDS — a blank screen, on the exact mobile
+       networks this audience is on. media="print" makes the browser fetch
+       it at low priority without blocking the render, and the onload
+       handler promotes it to "all" the moment it arrives.
+
+       `display=block` (not swap) on Material Symbols is deliberate: these
+       icons are ligatures, so with `swap` the fallback font briefly renders
+       the LITERAL WORDS ("location_on", "check") all over the page. `block`
+       keeps the glyph invisible for up to ~3s instead, then swaps in. Text
+       faces keep `swap`, where a fallback is the right behaviour. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" media="print" onload="this.media='all';this.onload=null" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" /></noscript>
   <link rel="stylesheet" href="assets/css/site.css" />
   <!-- "Ink & Brass" brand system — overrides site.css's tokens for the app
        shell only. index.html and the legal pages load site.css directly and
@@ -298,7 +314,64 @@
     .pay-row { display: flex; justify-content: space-between; gap: 14px; padding: 10px 14px; font-size: 13.5px; border-top: 1px solid var(--line-soft); }
     .pay-row:first-child { border-top: none; }
     .pay-row span { color: var(--ink-faint); }
-    .pay-row strong { text-align: right; word-break: break-word; }
+    .pay-row strong { text-align: right; word-break: break-word; display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; }
+
+    /* One-tap copy on the two fields people retype into a banking app.
+       A mistyped account number sends the money to a stranger; a mistyped
+       reference makes a real payment unmatchable for days. */
+    .pay-copy {
+      appearance: none; border: 1px solid var(--line); background: transparent;
+      color: var(--ink-faint); border-radius: 4px; cursor: pointer;
+      width: 26px; height: 26px; flex: none; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .pay-copy .material-symbols-outlined { font-size: 15px; }
+    .pay-copy:hover { color: var(--ink); border-color: var(--line-2); }
+    .pay-copy:focus-visible { outline: 2px solid var(--pine); outline-offset: 2px; }
+    .pay-copy.is-copied { color: var(--pine); border-color: var(--pine); }
+
+    /* The amount, given its own line. It was previously one bold word in a
+       sentence above the account box — the single most important number in
+       the modal, styled as the least important thing on it. */
+    .pay-amt {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-size: 13px; color: var(--ink-faint);
+    }
+    .pay-amt strong { font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .pay-amt-lead {
+      justify-content: space-between; padding: 12px 14px; margin: 0 0 12px;
+      border: 1px solid var(--line); border-radius: 4px; background: var(--paper-2, rgba(0,0,0,.02));
+    }
+
+    /* LankaQR — the cheapest and fastest rail, so it leads the modal. */
+    .pay-qr {
+      display: grid; grid-template-columns: auto 1fr; gap: 14px 16px;
+      align-items: start; padding: 14px; border: 1px solid var(--line);
+      border-radius: 5px; margin-bottom: 14px;
+    }
+    .pay-qr-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+    .pay-qr-head strong { font-size: 14px; }
+    .pay-qr-img {
+      width: 148px; height: 148px; display: block; border-radius: 4px;
+      background: #fff; padding: 6px; border: 1px solid var(--line-soft);
+    }
+    .pay-qr-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .pay-qr-name { font-size: 12.5px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+    .pay-or {
+      display: flex; align-items: center; gap: 12px; margin: 0 0 12px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint);
+    }
+    .pay-or::before, .pay-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    .pay-ref-why { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin: 12px 0 0; }
+
+    @media (max-width: 460px) {
+      .pay-qr { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+      .pay-qr-side { align-items: center; }
+      .pay-amt-lead { justify-content: space-between; }
+    }
 
     /* locked premium template card */
     .locked-card { position: relative; border-style: dashed; }
@@ -349,6 +422,7 @@
           <span id="sync-state">Data stays on device</span>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
+          <a href="terms.html#refunds">Refunds</a>
           <a href="disclaimer.html">Disclaimer</a>
         </div>
       </div>
@@ -371,25 +445,28 @@
 
 <div id="toast" role="status"></div>
 
+<!-- ── The critical path ────────────────────────────────────────────────
+     Only what every visitor needs to see a first screen. Three bundles
+     that used to sit here are now fetched by the view that wants them
+     (ensureRoi / ensureInvoice / ensureSettlementTools in app.js):
+
+       roi-data.js + roi.js     ~15 KB gz — only #cost
+       invoice.js               ~11 KB gz — only #cost, #billing, #mentor, #admin
+       settlement/*.js (×4)     ~17 KB gz — only the Settle In tool tabs
+
+     That is ~43 KB gzipped taken off the landing → dashboard → courses
+     funnel, which is where nearly all the traffic is, on an audience
+     mostly arriving over mobile data. -->
 <script src="assets/js/data.js"></script>
-<!-- Cost-and-payback dataset + model (#cost). roi-data.js is the dated,
-     hand-verified source of every fee, wage, tax and earnings figure;
-     roi.js is the pure model over it. Both must load before app.js. -->
-<script src="assets/js/roi-data.js"></script>
-<script src="assets/js/roi.js"></script>
 <script src="assets/js/store.js"></script>
+<!-- Checkout rails stay eager: several views call PFPay during render
+     (pay labels, plan names on #billing and #pricing), so deferring them
+     would trade 8 KB for a flash of missing prices. -->
 <script src="assets/js/payhere.js"></script>
 <script src="assets/js/paypal.js"></script>
 <script src="assets/js/pay.js"></script>
-<script src="assets/js/invoice.js"></script>
 <script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/app.js"></script>
-<!-- Settlement module (Settle In → tools). Classic scripts attaching to
-     the global scope, loaded after app.js so its shared helpers exist. -->
-<script src="assets/js/settlement/scene3d.js"></script>
-<script src="assets/js/settlement/funds-planner.js"></script>
-<script src="assets/js/settlement/buying-power.js"></script>
-<script src="assets/js/settlement/first-months.js"></script>
 <script type="module" src="assets/js/firebase.js"></script>
 </body>
 </html>

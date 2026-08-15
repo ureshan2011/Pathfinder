@@ -322,6 +322,10 @@ const PFInvoice = (() => {
       o.legalName || o.name || 'PathFinder',
       o.address || '',
       o.email || '',
+      // A Sri Lankan sole trader's Business Name Registration number is
+      // what makes a receipt traceable to a registered business; the TIN
+      // is the tax identity. Both print only once they exist.
+      o.regNo ? 'Reg. No: ' + o.regNo : '',
       o.taxId ? 'Tax ID: ' + o.taxId : '',
     ].filter(Boolean);
     issuer.forEach(l => { idTop += p.text(l, M, idTop, 8.5, { color: FAINT }); });
@@ -466,7 +470,7 @@ const PFInvoice = (() => {
       @media print{.noprint{display:none}}
     </style></head><body>
       <div class="top">
-        <div><div class="brand">Path<i>finder</i></div><div class="muted">${e(o.legalName || o.name || 'PathFinder')}${o.email ? ' &middot; ' + e(o.email) : ''}${o.address ? '<br>' + e(o.address) : ''}${o.taxId ? '<br>Tax ID: ' + e(o.taxId) : ''}</div></div>
+        <div><div class="brand">Path<i>finder</i></div><div class="muted">${e(o.legalName || o.name || 'PathFinder')}${o.email ? ' &middot; ' + e(o.email) : ''}${o.address ? '<br>' + e(o.address) : ''}${o.regNo ? '<br>Reg. No: ' + e(o.regNo) : ''}${o.taxId ? '<br>Tax ID: ' + e(o.taxId) : ''}</div></div>
         <div class="doc">${e(inv.title)}<div class="muted" style="text-transform:none;letter-spacing:0;color:#1C1A15;font-weight:400;margin-top:6px">${e(inv.invoiceNo)}</div></div>
       </div>
       <div class="cols">

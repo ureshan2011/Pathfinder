@@ -2542,7 +2542,23 @@ document.addEventListener('click', e => {
    collections are configured for vector search but hold no embeddings,
    so there is no semantic option; at 1,716 rows a plain scan is instant
    anyway and works with the network off. */
-let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '', open: null };
+/* `shown` caps how many result rows are in the DOM at once.
+
+   Without it this view renders every match — 1,716 qualifications on "All
+   subjects", which measured at 18,383 DOM nodes. Chrome's own guidance is
+   under 1,500. That cost is paid again on every keystroke of the search
+   box and every filter change, because each one re-renders the whole list;
+   on the mid-range Android phones this audience actually uses, that is a
+   visible freeze per character typed.
+
+   Rendering the first 60 and appending on demand keeps the DOM around
+   700 nodes for the common case. It is not virtualisation — rows already
+   shown stay shown — because a student who has scrolled and opened a few
+   courses should never have them vanish underneath them. The count is
+   reset on any change to the filters, which is the only time the result
+   set means something different. */
+const COURSES_PAGE = 60;
+let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '', open: null, shown: COURSES_PAGE };
 
 function renderCourses(main) {
   const T = trackCfg();
@@ -2607,6 +2623,10 @@ function coursesMatching(cat) {
 function paintCourses(main, cat) {
   const T = trackCfg();
   const rows = coursesMatching(cat);
+  // Never render more rows than the student has asked to see, and never
+  // fewer than one page — `shown` can outlive a filter change that shrank
+  // the result set.
+  const shown = Math.min(Math.max(coursesState.shown || COURSES_PAGE, COURSES_PAGE), rows.length);
   const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : null;
   const savedCount = PFStore.getSaved().filter(s => s.kind === 'course').length;
 
@@ -2650,10 +2670,15 @@ function paintCourses(main, cat) {
     </div>
     ${coursesState.root ? subAreaRail(cat) : ''}
 
-    <p class="listcard-summary mt-4">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
+    <p class="listcard-summary mt-4">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}${
+      shown < rows.length ? ` <span class="faint">· showing ${shown.toLocaleString()}</span>` : ''}</p>
     <div class="card-grid mt-3" id="crs-list">${rows.length
-      ? rows.map(courseRow).join('')
+      ? rows.slice(0, shown).map(courseRow).join('')
       : '<p>Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
+    ${shown < rows.length ? `<div class="crs-more">
+      <button type="button" class="btn btn-quiet" id="crs-more">Show ${Math.min(COURSES_PAGE, rows.length - shown)} more</button>
+      <span class="faint">${(rows.length - shown).toLocaleString()} still to come — or narrow it with the filters above</span>
+    </div>` : ''}
 
     <p class="row-sub mt-7">Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
       requirements and fees with the provider before you apply.</p>`;
@@ -2664,15 +2689,20 @@ function paintCourses(main, cat) {
   const rerender = () => paintCourses(main, cat);
   $$('#crs-rail .tab').forEach(b => b.onclick = () => {
     coursesState.root = b.dataset.root; coursesState.sub = null; coursesState.open = null;
+    coursesState.shown = COURSES_PAGE;
     rerender();
     if (coursesState.root) ensureSubjectArea(coursesState.root).then(rerender);
   });
   $$('#crs-sub .tab').forEach(b => b.onclick = () => {
-    coursesState.sub = b.dataset.sub || null; coursesState.open = null; rerender();
+    coursesState.sub = b.dataset.sub || null; coursesState.open = null;
+    coursesState.shown = COURSES_PAGE; rerender();
   });
   ['level', 'type', 'org'].forEach(k => {
     const el = $('#crs-' + k);
-    if (el) el.onchange = () => { coursesState[k] = el.value; coursesState.open = null; rerender(); };
+    if (el) el.onchange = () => {
+      coursesState[k] = el.value; coursesState.open = null;
+      coursesState.shown = COURSES_PAGE; rerender();
+    };
   });
   const search = $('#crs-q');
   let debounce;
@@ -2680,9 +2710,20 @@ function paintCourses(main, cat) {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       coursesState.q = search.value; coursesState.open = null;
+      coursesState.shown = COURSES_PAGE;
       rerender();
       const s = $('#crs-q'); s.focus(); s.setSelectionRange(s.value.length, s.value.length);
     }, 220);
+  };
+
+  const more = $('#crs-more');
+  if (more) more.onclick = () => {
+    coursesState.shown = (coursesState.shown || COURSES_PAGE) + COURSES_PAGE;
+    rerender();
+    // Put focus back on the button in its new position so a keyboard or
+    // screen-reader user is not dumped at the top of a longer page.
+    const again = $('#crs-more');
+    if (again) again.focus();
   };
 
   $$('#crs-list .crs-head').forEach(h => h.onclick = e => {
@@ -3840,6 +3881,54 @@ function visaProgress() {
    dashboard's first paint never fetches it. Resolves false when the file
    is missing so every caller degrades to showing nothing at all rather
    than to showing a blank where a number should be. */
+/* ── Deferred bundles ───────────────────────────────────────────────────
+   Everything below used to be a plain <script> tag in app.html, so every
+   visitor downloaded and parsed all of it before the app would run —
+   including a PDF writer they will use only if they buy something, a cost
+   model only the master's #cost screen touches, and four Settle In tools
+   behind a tab most sessions never open.
+
+   Together that is ~43 KB gzipped (~110 KB parsed) on the critical path of
+   the landing → dashboard → courses funnel, which is where nearly all the
+   traffic is. Now each one loads the first time a view actually needs it.
+
+   The pattern is the same as ensureCatalogue()/ensureProviderQuality():
+   one cached promise per bundle, resolved through _loadScript(), with the
+   caller re-rendering when it lands. Order matters for the cost model —
+   roi.js reads PF_ROI at call time, so its data file is loaded first. */
+function _ensureBundle(state, files, test) {
+  if (test()) return Promise.resolve(true);
+  if (state.p) return state.p;
+  state.p = files.reduce((chain, f) => chain.then(() => _loadScript(f)), Promise.resolve())
+    .then(() => test())
+    .catch(() => false);
+  return state.p;
+}
+
+const _roiState = {};
+function ensureRoi() {
+  return _ensureBundle(_roiState, ['assets/js/roi-data.js', 'assets/js/roi.js'],
+    () => typeof PF_ROI !== 'undefined' && typeof PFRoi !== 'undefined');
+}
+
+const _invoiceState = {};
+function ensureInvoice() {
+  // `const PFInvoice` is script-scoped, not a property of window — same trap
+  // as PF_ROI, so test the binding rather than a window key.
+  return _ensureBundle(_invoiceState, ['assets/js/invoice.js'],
+    () => typeof PFInvoice !== 'undefined');
+}
+
+const _settleState = {};
+function ensureSettlementTools() {
+  return _ensureBundle(_settleState, [
+    'assets/js/settlement/scene3d.js',
+    'assets/js/settlement/funds-planner.js',
+    'assets/js/settlement/buying-power.js',
+    'assets/js/settlement/first-months.js',
+  ], () => !!(window.PFFunds && window.PFBuying && window.PFFirstMonths));
+}
+
 let _govtPromise = null;
 function ensureGovtData() {
   if (window.PF_GOVT) return Promise.resolve(false);
@@ -4224,12 +4313,30 @@ function renderSettlement(main) {
     }
   }
 
+  const TOOL_IDS = TOOLS.map(t => t.id);
+
   function open(cat) {
     if (window.PFScene3D) PFScene3D.disposeAll();
     const body = $('#set-body');
-    if (cat === 'first-months')  return PFFirstMonths.render(body);
-    if (cat === 'funds-planner') return PFFunds.render(body);
-    if (cat === 'buying-power')   return PFBuying.render(body);
+    // The three tools are a deferred bundle (~17 KB gzipped, plus Three.js
+    // on top). Most sessions never open this tab, so the cost is paid on
+    // the tap that needs it — with a line of copy in the gap, because on a
+    // slow connection an empty panel reads as a broken one.
+    if (TOOL_IDS.includes(cat)) {
+      if (!window.PFFunds) {
+        body.innerHTML = `<p class="muted" style="padding:24px 0">Loading the planner…</p>`;
+        ensureSettlementTools().then(ok => {
+          const active = $('#set-tabs .chip-filter.active');
+          if (!active || active.dataset.cat !== cat) return;   // they moved on
+          if (!ok) { body.innerHTML = `<p class="muted" style="padding:24px 0">Couldn't load the planner — check your connection and try again.</p>`; return; }
+          open(cat);
+        });
+        return;
+      }
+      if (cat === 'first-months')  return PFFirstMonths.render(body);
+      if (cat === 'funds-planner') return PFFunds.render(body);
+      if (cat === 'buying-power')  return PFBuying.render(body);
+    }
     paintCards(cat);
   }
 
@@ -4515,14 +4622,26 @@ function roiDefaults() {
 function roiSave() { PFStore.set('roiPlan', roiState); }
 
 function renderCost(main) {
-  // roi-data.js and roi.js are classic scripts declaring top-level `const`,
-  // which is script-scoped and NOT a property of window — so test the
-  // bindings themselves, exactly as PF_CONFIG is tested elsewhere.
+  // roi-data.js and roi.js are a DEFERRED bundle — only this view uses the
+  // cost model, and making every visitor download it to reach the dashboard
+  // was 15 KB gzipped on the wrong critical path. They are classic scripts
+  // declaring top-level `const`, which is script-scoped and NOT a property
+  // of window, so test the bindings themselves the way PF_CONFIG is tested.
   if (typeof PF_ROI === 'undefined' || typeof PFRoi === 'undefined') {
-    main.innerHTML = renderHero({ kicker: 'Cost & payback', title: 'Cost data unavailable',
-      body: 'The cost dataset did not load. Reload the page — if it keeps happening, the roi-data.js script tag is missing from app.html.' });
+    main.innerHTML = renderHero({
+      kicker: 'Cost & payback',
+      title: 'Working out what this costs…',
+      body: 'Loading the fee schedules and the earnings tables.',
+    });
+    ensureRoi().then(ok => {
+      if (location.hash.slice(1).split('?')[0] !== 'cost') return;
+      if (ok) return route();
+      main.innerHTML = renderHero({ kicker: 'Cost & payback', title: 'Cost data unavailable',
+        body: 'The cost dataset did not load. Check your connection and reload.' });
+    });
     return;
   }
+  ensureInvoice();   // the family decision sheet is one tap away from here
   if (!roiState) roiState = roiDefaults();
   const cat = window.PF_CATALOGUE;
   if (!cat) ensureCatalogue().then(() => { if (location.hash.slice(1).split('?')[0] === 'cost') route(); });
@@ -5225,6 +5344,7 @@ function renderPricing(main) {
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
 function renderBilling(main) {
+  ensureInvoice();   // every row here can mint a PDF invoice or receipt
   const head = renderHero({ kicker: 'Billing', title: 'Your purchases & invoices',
     body: 'Every purchase and mentoring session, each with an invoice you can download.' });
 
@@ -6094,6 +6214,7 @@ async function sessionCardAction(e, ctx) {
 let mentorState = { tab: 'open', open: null, claimed: null, sessions: null, loading: false, loaded: false };
 
 function renderMentor(main) {
+  ensureInvoice();   // every row here can mint a PDF invoice or receipt
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
     main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Mentoring needs Firebase',
       body: 'The mentor marketplace runs on Firebase — configure firebase-config.js and deploy firestore.rules to enable it.' });
@@ -6631,6 +6752,7 @@ let adminState = { tab: 'action', leads: null, mentors: null, requests: null, se
 const ADMIN_BLANK = () => ({ tab: 'action', leads: null, mentors: null, requests: null, sessions: null, orders: null, users: null, loading: false, loaded: false, error: '' });
 
 function renderAdmin(main) {
+  ensureInvoice();   // every row here can mint a PDF invoice or receipt
   // Firebase off entirely → nothing to administer.
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
     main.innerHTML = renderHero({ kicker: 'Admin', title: 'Admin panel unavailable',

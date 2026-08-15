@@ -501,6 +501,46 @@ A request raised against a credit is prepaid, and the mentor's queue card says s
 
 > Credit *consumption* is derived client-side, like the Starter Kit's template gate. The root of trust is the admin-only `paid` flag on the order; the spend accounting is a soft gate on top of it. Worst case is a queue-position or an extra session, never data access — the rules never widen.
 
+## Performance — what loads, and when
+
+The audience browses on mid-range Android phones over Sri Lankan mobile data, so the loading strategy is a product decision, not a build-tool one. There is still no bundler and no build step; the discipline is entirely in what is on the critical path.
+
+### The one that mattered: fonts were blocking first paint
+
+Every page linked Google Fonts as a plain `<link rel="stylesheet">`. That is **render-blocking** — the browser paints nothing at all until `fonts.googleapis.com` answers. Measured with that host unreachable:
+
+| | First contentful paint |
+|---|---|
+| Before | **12,732 ms** — a blank white screen |
+| After | **72 ms** |
+
+Every page now loads it with `media="print"` and promotes it on `onload`, with a `<noscript>` fallback. Two further details, both deliberate:
+
+- **Material Symbols uses `display=block`, not `swap`.** These icons are ligatures, so a `swap` fallback briefly renders the *literal words* — "location_on", "space_dashboard" — across the page. `block` keeps the glyph invisible for ~3s instead.
+- **The icon box is reserved in CSS** (`brand.css` for the app, `site.css` for the landing and legal pages), so an async arrival does not shift the layout, and an outright failure leaves a blank square rather than English text mid-sentence.
+
+### Three bundles now load on demand
+
+`app.html` used to load everything for every visitor. These are fetched by the view that needs them, through `ensureRoi()` / `ensureInvoice()` / `ensureSettlementTools()` in `app.js` — the same cached-promise pattern as `ensureCatalogue()`:
+
+| Bundle | Size (gz) | Needed by |
+|---|---|---|
+| `roi-data.js` + `roi.js` | ~15 KB | `#cost` only |
+| `invoice.js` | ~11 KB | `#cost`, `#billing`, `#mentor`, `#admin` |
+| `settlement/*.js` (×4) | ~17 KB | the Settle In tool tabs |
+
+That is **~43 KB gzipped off the landing → dashboard → courses funnel**, where nearly all the traffic is: 21 requests → 14, and `DOMContentLoaded` from 12,830 ms → 84 ms.
+
+> **`const` at the top of a classic script is script-scoped, not `window`.** `PFRoi`, `PF_ROI` and `PFInvoice` are all declared that way, so an `ensure` helper must test the *binding* (`typeof PFInvoice !== 'undefined'`), never `window.PFInvoice` — which is always `undefined` and makes the guard silently fail open. `PFFunds` and friends do attach to `window`; both styles are in the tree, so check before adding a fourth bundle.
+
+The checkout rails (`pay.js`, `payhere.js`, `paypal.js`, ~8 KB gz) stay eager on purpose: several views call `PFPay` *during render* to label buttons and name plans, so deferring them would trade 8 KB for a flash of missing prices.
+
+### The course list renders a page at a time
+
+`#courses` rendered every match — 1,716 qualifications on "All subjects", measured at **18,383 DOM nodes** against Chrome's ~1,500 guidance. Worse, the whole list was re-rendered on every filter change and every debounced keystroke, which on the phones this audience uses is a visible freeze per character.
+
+It now renders `COURSES_PAGE` (60) rows with a **Show 60 more** button: **870 nodes, 7 ms** instead of 18,383 nodes and 120 ms. Deliberately not virtualisation — rows already shown stay shown, because a student who has scrolled and opened a few courses should never have them vanish. `coursesState.shown` resets on any filter, sub-area, provider or search change, which is the only time the result set means something different.
+
 ## Monetization
 
 **Live in the product:**
@@ -518,6 +558,51 @@ A request raised against a credit is prepaid, and the mentor's queue card says s
 - **University referral commissions**: agency-style referral agreements with NZ universities (they pay per enrolled student; students pay nothing) — the explorer becomes the funnel.
 - **Email automation**: leads currently land in `inbox_leads`; connect Mailchimp/Brevo (free tiers) for the deadline-alert newsletter promised on the landing page.
 
+## Taking money as a Sri Lankan sole trader
+
+This section is the practical answer to "how do I actually get paid, legally, with the least friction for me and for the student". Figures are as at **August 2026** — re-check before acting, and treat this as engineering notes, not professional tax or legal advice.
+
+### The rails, cheapest first
+
+| Rail | Cost to you | Student's effort | Use it for |
+|---|---|---|---|
+| **LankaQR** | **0%** up to Rs 5,000; 1% cap above (CBSL) | Open bank app → scan → confirm | **The default.** Both session tiers (2,500 / 4,000) are under the free cap |
+| Bank transfer / eZ Cash / FriMi | 0% | Type an account number and a reference | Fallback, and off-platform WhatsApp clients |
+| **PayHere** | ~3.3% cards · **1.99% HelaPay** · +1% FX | Card checkout, no app needed | Premium (LKR 24,990), where cards are expected |
+| PayPal | PayPal's own rate + FX spread | Overseas card | Parents or relatives paying from abroad |
+
+**LankaQR is the finding worth acting on.** Under the National QR Payment Promotion Programme (CBSL, Ministry of Digital Economy and LankaPay, from **6 April 2026**) the merchant fee on LankaQR transactions **up to Rs 5,000 is zero**. `PF_CONFIG.sessionTiers` is `{ quick: 2500, standard: 4000 }` — so the most common transaction on this platform costs **nothing** to collect, versus roughly LKR 132 lost to a card fee on the same LKR 4,000 session. It is also the least work for the student: one code, accepted by 20+ banks and wallets, nothing to type.
+
+Get your code from your own bank once you are onboarded as a merchant — a sole trader can be, with an NIC and a personal bank account — then drop the image in `assets/img/` and point `PF_CONFIG.manualPay.lankaQR.image` at it. Leave it blank and the whole block simply does not render.
+
+### What the payment screen now does
+
+- **The amount leads, and is stated once.** It used to be one bold word inside a sentence above the account box — the most important number in the modal, styled as the least important thing on it.
+- **LankaQR sits first**, chipped *Fastest*, with the merchant name printed so a student paying a stranger's QR can check it matches before confirming.
+- **One-tap copy** on the amount, the account number and the reference. These get retyped into a banking app by hand, and one wrong digit means the money lands somewhere else or arrives unmatchable. Falls back to `execCommand` where the clipboard API is unavailable — which includes the in-app browsers a lot of this audience arrives through.
+- **The reference is explained, not just displayed**: *"without it, confirming takes days instead of hours."*
+- The method dropdown is ordered to match the panel above it, so the two can never contradict each other.
+
+Every rail still writes the same `paymentStatus` field, so switching one on changes no UI anywhere else.
+
+### Registering the business
+
+You are trading under a name that is not your own full name, so:
+
+1. **Business Name Registration** at your **Divisional Secretariat** — within **14 days** of starting (extendable to 30). Bring the application form, a certified copy of your NIC, a Grama Niladhari report, proof of the business address, and an affidavit of initial capital. Certificate usually issues in 1–2 weeks. Put the number in `PF_CONFIG.org.regNo`; it prints on every invoice.
+2. **TIN from the IRD** — within 30 days of registering.
+3. **A business bank account** in the registered name. PayHere will settle to a personal account for a sole trader, but a separate account is what keeps the bookkeeping honest once the Accounting tab is producing real numbers.
+4. **VAT: almost certainly not yet.** Registration is mandatory only above **LKR 9M in a taxable period** or **LKR 36M in any 12 months** (the annual threshold dropped from 60M to 36M on 1 April 2026). A launching consultancy is nowhere near it — but the Accounting ledger is where you will see it coming.
+5. **Income tax** is on you as an individual: personal relief **LKR 1.8M** (Y/A 2025-26), then 6% / 18% / 24% / 30% / 36% bands.
+
+### What the gateways will ask for
+
+PayHere approves sole traders on **NIC + a Sri Lankan bank account** (no BR strictly required, though having one helps), typically in 3–7 working days, with no setup fee and T+2 settlement. What it *does* check is the site: a live domain with visible **privacy**, **refund** and **contact** information. PathFinder has `privacy.html`, `terms.html` and `cookies.html`; `terms.html#refunds` now carries a complete cancellation-and-refund policy with real timelines, and both footers link to it directly.
+
+### Until a gateway is live
+
+The manual rail is not a stopgap to be embarrassed about — at 0% it is cheaper than any gateway, and the app already closes the loop properly: the student taps *"I've paid"*, which writes `status:'reported'`; you confirm against your banking app and mark it paid in the admin panel; `firestore.rules` lets nobody but the admin flip that field, which is what makes an entitlement real rather than a client-side claim. Set `PF_CONFIG.payhere.merchantId` whenever you are ready and the mentor-session flow switches to hosted checkout with no other change.
+
 ## Deploying
 
 - **GitHub Pages**: Settings → Pages → deploy from branch root. No build required. (Add the Pages domain to Firebase authorized domains if sync is enabled.)
@@ -531,7 +616,9 @@ A request raised against a credit is prepaid, and the mentor's queue card says s
 - [ ] (Optional, Blaze) deploy `functions/payhere-notify.js` for automatic payment confirmation
 - [ ] Set `PF_CONFIG.contactEmail` in `data.js`
 - [ ] Fill `PF_CONFIG.manualPay` (bank account + eZ Cash / FriMi numbers) — these are the "you can pay to" lines in the WhatsApp invoice message a mentor sends an off-platform client; the block is silently omitted while they're blank
-- [ ] Fill `PF_CONFIG.org.legalName` once registered, so invoices stop printing as informal payment confirmations
+- [ ] **Register the business name** at your Divisional Secretariat, then fill `PF_CONFIG.org.legalName` and `org.regNo` — invoices print as informal payment confirmations until `legalName` is set, and carry the registration number once `regNo` is
+- [ ] **Get a LankaQR code from your bank** and set `PF_CONFIG.manualPay.lankaQR.image` + `.merchantName` — zero merchant fee under Rs 5,000, which covers both session tiers (see *Taking money as a Sri Lankan sole trader*)
+- [ ] Get a TIN from the IRD within 30 days of registering
 - [ ] Publish the number people should ring, and tell mentors and the admin to use **Someone called** for every enquiry that arrives by phone or WhatsApp — that is what puts a caller with no account into the queue, the client book and the invoice trail
 - [ ] Replace `PF_PARTNERS` placeholder `url:'#'` entries with real affiliate links (or remove the rows)
 - [ ] Paste Firebase config into `assets/js/firebase-config.js`, deploy `firestore.rules`

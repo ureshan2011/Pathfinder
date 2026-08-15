@@ -113,6 +113,23 @@ img, svg { display: block; max-width: 100%; }
   background: transparent; color: var(--ink);
   transition: background .22s, color .22s, border-color .22s, transform .22s;
 }
+/* Icon-font fallback for the LANDING AND LEGAL pages. app.html gets the
+   same guard from brand.css, which those pages never load — and now that
+   Google Fonts is fetched asynchronously everywhere, they need it too:
+   between first paint and the font arriving (or forever, if it is blocked)
+   Material Symbols renders its ligature text literally, printing the word
+   "space_dashboard" where an icon belongs. A fixed box makes that an empty
+   space instead, and stops the layout jumping when the font lands.
+
+   Ligatures are deliberately NOT disabled here — the icons ARE ligatures,
+   so turning them off would break every glyph in the product. */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em; height: 1em;
+  overflow: hidden;
+  vertical-align: -0.15em;
+}
+
 .btn .material-symbols-outlined, .btn svg { transition: transform .25s cubic-bezier(.22,1,.36,1); }
 .btn:hover .material-symbols-outlined, .btn:hover svg { transform: translateX(3px); }
 .btn-primary { background: var(--ink); color: var(--paper); }
@@ -1059,3 +1076,13 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .govt-figure strong { font-size: 34px; }
   .shell .govt-td-bar { display: none; }
 }
+
+/* Result-list pager (#courses). The catalogue can match 1,716 rows; the
+   list renders a page at a time so the DOM stays under ~700 nodes instead
+   of 18,000, which is the difference between a smooth scroll and a stalled
+   one on the mid-range Android this audience actually browses on. */
+.shell .crs-more {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.shell .crs-more .faint { font-size: 12.5px; }
