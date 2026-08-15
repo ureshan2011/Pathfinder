@@ -1153,35 +1153,95 @@ function buildPhdRoadmap(r) {
   return phases;
 }
 
+/* A .nudge variant that keeps the same underlying "Ask a mentor" toggle +
+   inline form as consultCTA() (same classes, same global delegated
+   handlers below) so migrated views get the new panel shape with zero
+   behaviour change. */
+function consultNudge(topic) {
+  const t = topic || '';
+  return `<div class="nudge">
+    <span class="material-symbols-outlined nudge-icon" aria-hidden="true">support_agent</span>
+    <button type="button" class="consult-hook-toggle nudge-toggle">Stuck at this step? Ask a mentor →</button>
+    <form class="consult-hook-form hidden" data-topic="${t}">
+      <input class="field ch-name" placeholder="Your name" autocomplete="name">
+      <input class="field ch-contact" placeholder="Email or WhatsApp — how a mentor reaches you">
+      <textarea class="field ch-note" rows="2" placeholder="One line about where you're stuck (optional)"></textarea>
+      <button type="submit" class="btn btn-quiet btn-sm">Send request</button>
+    </form>
+  </div>`;
+}
+
 function renderRoadmap(main) {
   const T = trackCfg();
-  const a = PFStore.getAssessment();
   // Recompute against the active track so switching tracks re-plans rather
   // than leaving a PhD pathway attached to a master's roadmap.
   const r = currentResult();
   const phases = buildRoadmap(r);
   const when = { '6m':'aiming at the next intake', '1y':'starting in about a year',
                  '2y':'starting in 1–2 years', 'explore':'exploration' };
-  main.innerHTML = viewHead('route', 'Interactive Roadmap',
-    r ? `Your roadmap to ${T.article} in ${esc(r.field)}` : `Your ${T.label} roadmap`,
-    r ? `Personalized for the <strong>${esc(r.pathway)}</strong> pathway, ${when[r.timeline] || ''}.`
-      : `This is the standard NZ ${T.label} timeline. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.`) +
-    `<div class="timeline">${phases.map((p, i) => `
-      <div class="tl-phase" data-reveal style="transition-delay:${i * 90}ms">
-        <div class="tl-node tl-${p.color}"><span>${i + 1}</span></div>
-        <div class="card tl-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-            <h3 style="font-size:1.1rem">${p.title}</h3>
-            <span class="chip chip-${p.color}">${p.when}</span>
+  // Step completion is new persisted state — buildRoadmap() has no checkable
+  // items today. Reuses the same generic checklist store as the Visa Hub
+  // (PFStore.isChecked/setChecklistItem), track-scoped so switching tracks
+  // doesn't cross-contaminate a master's checklist with a PhD one.
+  const key = 'roadmap-' + PFStore.getTrack();
+
+  const phaseRows = (p, ids) => `<ul class="ck-list">${p.items.map((it, ii) => {
+    const done = PFStore.isChecked(key, ids[ii]);
+    return `<li class="ck-item ${done ? 'done' : ''}">
+      <label>
+        <input type="checkbox" data-roadmap-id="${ids[ii]}" ${done ? 'checked' : ''}>
+        <span class="ck-box"><span class="material-symbols-outlined" aria-hidden="true">check</span></span>
+        <span class="ck-t">${it}</span>
+      </label>
+    </li>`;
+  }).join('')}</ul>`;
+
+  main.innerHTML = renderHero({
+    kicker: 'Interactive Roadmap',
+    title: r ? `Your roadmap to ${T.article} in ${r.field}` : `Your ${T.label} roadmap`,
+    body: r ? `Personalized for the ${r.pathway} pathway, ${when[r.timeline] || ''}.`
+             : `This is the standard NZ ${T.label} timeline.`,
+    primaryLabel: r ? '' : 'Take the assessment', primaryHref: r ? '' : '#assessment',
+    secondaryLabel: 'Ask a mentor', secondaryHref: '#mentors',
+  }) +
+    phases.map((p, pi) => {
+      const ids = p.items.map((_, ii) => `p${pi}-i${ii}`);
+      const allDone = ids.every(id => PFStore.isChecked(key, id));
+      const body = phaseRows(p, ids) +
+        (p.link ? `<div class="phase-link"><a class="btn btn-quiet btn-sm" href="${p.link.href}">${p.link.label}</a></div>` : '') +
+        (p.consult ? consultNudge(p.consult) : '');
+      return `<div class="listcard roadmap-phase" data-phase="${pi}">
+        <div class="listcard-head">
+          <div class="phase-head-left">
+            <span class="phase-num ${allDone ? 'is-done' : ''}">${allDone ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : pi + 1}</span>
+            <h2 class="listcard-title">${p.title}</h2>
           </div>
-          <ul class="tl-list">${p.items.map(it => `<li>${it}</li>`).join('')}</ul>
-          ${p.link ? `<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="${p.link.href}">${p.link.label}</a></div>` : ''}
-          ${p.consult ? consultCTA(p.consult) : ''}
+          <span class="chip chip-neutral">${p.when}</span>
         </div>
-      </div>`).join('')}
-    </div>`;
-  requestAnimationFrame(() => $$('[data-reveal]', main).forEach(el => el.classList.add('visible')));
+        ${allDone ? `<button type="button" class="phase-collapse-toggle" data-toggle="${pi}">
+            <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            All ${p.items.length} steps done — show them
+          </button>
+          <div class="phase-body hidden" data-body="${pi}">${body}</div>`
+        : `<div class="phase-body" data-body="${pi}">${body}</div>`}
+      </div>`;
+    }).join('');
 }
+
+/* Delegated on document (not on #view) so the handler is registered once,
+   not re-added on every renderRoadmap() re-render — #view's own node
+   persists across route() calls even though its innerHTML is replaced. */
+document.addEventListener('change', e => {
+  const cb = e.target.closest('[data-roadmap-id]');
+  if (!cb) return;
+  PFStore.setChecklistItem('roadmap-' + PFStore.getTrack(), cb.dataset.roadmapId, cb.checked);
+  route();
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('.phase-collapse-toggle');
+  if (!t) return;
+  document.querySelector(`[data-body="${t.dataset.toggle}"]`)?.classList.toggle('hidden');
+});
 
 /* ── 2b · Research Studio (topic & proposal generator) ───────
    "AI" = a free, no-key scholarly-API search (OpenAlex) + a
