@@ -808,8 +808,40 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .hero-actions { flex-direction: column; }
   .shell .hero-actions .btn, .shell .hero-actions .btn-ghost { width: 100%; justify-content: center; }
   .shell .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .shell .row { flex-wrap: wrap; }
-  .shell .row .chip { margin-left: 48px; }
+  /* ── Rows on a phone ──────────────────────────────────────────────
+     `.row` is a desktop three-part strip: [optional icon][.row-main][
+     .row-actions]. `.row-actions` had no rule of its own, so it sized to
+     its max-content — two side-by-side buttons — while `.row-main` (flex:1,
+     min-width:0) obligingly shrank to whatever was left. On a 390px screen
+     that left the text column at SIXTY-NINE PIXELS: a scholarship
+     description wrapping at two words a line down the left third of the
+     card, with the buttons floating in the empty right half, vertically
+     centred against a column of text ten times their height.
+
+     `flex-wrap: wrap` alone never fixed it, because a flex item with
+     min-width:0 shrinks rather than wraps. Giving the ACTIONS a full-width
+     basis is what forces them onto their own line and hands `.row-main`
+     the rest of line one. `.row-main` deliberately keeps a flexible basis
+     rather than 100% — at 100% it pushes a leading icon onto a line of its
+     own, which is how the Visa Hub's "where to go" rows look wrong. */
+  .shell .row { flex-wrap: wrap; align-items: flex-start; gap: 10px 12px; }
+  .shell .row-main { flex: 1 1 auto; min-width: 0; }
+  .shell .row-actions {
+    flex: 0 0 100%; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .shell .row-actions .btn { flex: 1 1 auto; justify-content: center; }
+  /* Leading icons keep their own column and never stretch. */
+  .shell .row > .material-symbols-outlined,
+  .shell .row > .stat-icon { flex: 0 0 auto; margin-top: 2px; }
+
+  /* Body copy in a row was 12px with a 1.4 line-height — the size you use
+     for a caption, carrying the actual content of this screen. */
+  .shell .row-title { font-size: 15px; line-height: 1.35; }
+  .shell .row-sub { font-size: 13.5px; line-height: 1.55; margin-top: 4px; }
+  /* 9.5px uppercase mono is unreadable at arm's length on a phone. */
+  .shell .chip { font-size: 10.5px; padding: 4px 10px; letter-spacing: .07em; }
+  /* Chip groups need room to breathe once they wrap. */
+  .shell .row-main .mt-3 { display: flex; flex-wrap: wrap; gap: 6px; }
   .shell .segs { overflow-x: auto; scroll-snap-type: x proximity; margin: 30px -4px 0; padding: 0 4px 4px; scrollbar-width: none; }
   .shell .segs::-webkit-scrollbar { display: none; }
   .shell .seg { flex: 0 0 30%; scroll-snap-align: start; }

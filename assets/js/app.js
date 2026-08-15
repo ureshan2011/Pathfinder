@@ -3102,13 +3102,33 @@ function scholarshipBrowser(list) {
     if ((s.levels || []).some(l => l !== 'General')) score -= 1;
     return score;
   };
+  /* "Soonest first" sounds right and was wrong: a closing date in the PAST
+     is the soonest date of all, so every expired award sorted above every
+     live one and the screen opened on a wall of red CLOSED chips — 185
+     scholarships whose single most useful property is that you can still
+     apply for them, led by the ones you cannot.
+
+     Three bands instead, in the order a student can act on them:
+       0  still open      — soonest deadline first, the genuine urgency
+       1  no usable date  — "refer to website", still worth a look
+       2  already closed  — last, most recently closed first, because an
+                            annual award that shut in March is the one most
+                            likely to reopen next March. */
+  const now = Date.now();
+  const band = s => {
+    const t = Date.parse(s.closing);
+    if (isNaN(t)) return 1;
+    return t >= now ? 0 : 2;
+  };
   rows.sort((a, b) => {
+    const ba = band(a), bb = band(b);
+    if (ba !== bb) return ba - bb;
     const da = Date.parse(a.closing), db = Date.parse(b.closing);
-    if (!isNaN(da) && !isNaN(db)) return da - db;
-    if (!isNaN(da)) return -1;
-    if (!isNaN(db)) return 1;
+    if (ba === 0) return da - db;   // open: soonest deadline first
+    if (ba === 2) return db - da;   // closed: most recent first
     return actionable(a) - actionable(b) || a.n.localeCompare(b.n);
   });
+  const openCount = rows.filter(s => band(s) === 0).length;
 
   const orgs = [...new Set(list.map(s => s.o))]
     .map(id => [id, cat && cat.providers[id]]).filter(([, p]) => p)
@@ -3128,7 +3148,9 @@ function scholarshipBrowser(list) {
     </div>
     <div class="listcard mt-3">
       <div class="listcard-head"><h2 class="listcard-title">Scholarships</h2>
-        <span class="listcard-summary">${rows.length} sorted by deadline</span></div>
+        <span class="listcard-summary">${openCount
+          ? `${openCount} still open · ${rows.length} total`
+          : `${rows.length} awards`}</span></div>
       ${rows.length ? rows.map(s => scholarshipRow(s, cat)).join('')
         : '<p>Nothing matches those filters yet — try clearing the provider or level.</p>'}
     </div>
