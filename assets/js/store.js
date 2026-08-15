@@ -125,7 +125,12 @@ const PFStore = (() => {
     'awaiting_payment', 'paid', 'completed', 'cancelled'];
 
   const getMentorRequests = () => get('mentorRequests', []);
-  function addMentorRequest({ topic, note, name, contact }) {
+  /* `redeem` ('session' | 'audit' | null) marks a request raised against a
+     credit included in a paid plan, and is what creditsUsed() in app.js
+     counts to derive the remaining balance — so it is the only record of
+     the spend, and must survive the round trip to Firestore. `priority`
+     rides along for plans that include it, and sorts the mentor queue. */
+  function addMentorRequest({ topic, note, name, contact, redeem, priority }) {
     const list = getMentorRequests();
     const r = {
       id: 'mr_' + Date.now(),
@@ -135,6 +140,8 @@ const PFStore = (() => {
       status: 'open',
       mentorId: null,
       introDoneAt: null,
+      redeem: redeem || null,       // 'session' | 'audit' — a plan credit spent
+      priority: !!priority,         // included with Premium; sorts the queue
       payment: null,                // { amountLKR, payhereLink, paymentStatus, paidAt }
       at: new Date().toISOString(), // kept for sorting parity with old inbox
       createdAt: Date.now(),

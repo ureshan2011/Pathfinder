@@ -408,10 +408,15 @@ if (cfg && cfg.apiKey) {
     },
 
     // The open queue any approved+active mentor can claim from.
+    // Priority requests (a Premium plan grants it) sort above everything
+    // else; within each band it stays newest-first as before. Sorting here
+    // rather than in a Firestore `orderBy` keeps the query on one equality
+    // filter, so it needs no composite index.
     async fetchOpenRequests() {
       const snap = await getDocs(query(collection(db, 'mentor_requests'), where('status', '==', 'open')));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+        .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)
+                     || (b.at || '').localeCompare(a.at || ''));
     },
     // The requests this mentor has already claimed (any status).
     async fetchMyClaimedRequests() {

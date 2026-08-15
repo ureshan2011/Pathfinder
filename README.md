@@ -6,15 +6,17 @@ PathFinder helps Sri Lankan students get into a **master's or a PhD** in New Zea
 
 The product serves **two journeys on one platform**, chosen by the student on the landing page (`app.html?track=masters|phd`) and switchable any time from the sidebar. The track is stored as the `track` key in `PFStore` (so it syncs like any other user data) and read everywhere through `trackCfg()` / `isMasters()` in `app.js`.
 
+**Nobody is put on a track without being asked.** `PFStore.getTrack()` degrades an unset value to PhD — the right thing to do with a stored value that can't be parsed, and the wrong thing to apply to a student who was never asked. So `route()` puts the track question in front of the **first view of any kind** (`needsTrackChoice()` in `app.js`), not just in front of `#assessment`: `index.html` links directly into `#dashboard`, `#courses`, `#funding`, `#visa`, `#kit` and eleven subject tiles, and every one of those entry points would otherwise pick PhD silently — showing a master's applicant domestic fees, a doctoral stipend, unlimited work rights, and a visa-funds figure understated by tens of thousands of dollars a year. The hash is left untouched, so answering the question drops the student on the view they actually asked for. Exempt: the role/system views (`account`, `admin`, `mentor`, `billing`, `pricing`), where a study track is meaningless, and any session that is already a mentor or an admin.
+
 Nearly everything that differs between the two lives in one object, **`PF_TRACK` in `assets/js/data.js`** — the fee model, the entry bar, the timeline shape, the work rights, and the words. Add a difference there rather than branching in a view. Where a single fact in a longer data record differs (a visa step, a Settle In card), the record carries a `masters_<field>` alternate and the renderer reads it through `tv(obj, field)`.
 
 The differences that matter most are financial and legal, not cosmetic:
 
 | | PhD | Master's |
 |---|---|---|
-| Tuition | **Domestic** rate, ~NZ$8,500/yr | **Full international** rate, ~NZ$32–48k/yr |
+| Tuition | **Domestic** rate, ~NZ$8,500/yr | **Full international** rate, ~NZ$33–58k/yr |
 | Stipend | NZ$28–33k/yr, usually automatic with admission | None — awards discount fees, and have hard deadlines |
-| Work rights | Unlimited hours | 20 hrs/week in semester, full-time in breaks |
+| Work rights | Unlimited hours | 25 hrs/week in semester, full-time in breaks |
 | Admission | Supervisor-led, enrol any month | Programme-led, February and July intakes |
 | NZQF levels | 10 | 8 (PGDip/PGCert/GradDip/Hons) and 9 |
 
@@ -36,14 +38,15 @@ Getting the first row wrong understates a master's applicant's visa-funds requir
 - `#research` — **Research Studio**: a free, no-backend topic & proposal generator with a **New Zealand lean**. The student answers a few questions (field, topic in their own words, motivating problem, methodology, keywords), then PathFinder searches **real, recent academic literature** via free, no-key, browser-callable scholarly APIs (**OpenAlex**, with **Crossref** as a resilient fallback, then a degraded offline scaffold). It retrieves **by relevance, not just citations** (the old citation-only sort hid relevant niche work), running **two OpenAlex passes — a global one and one filtered to NZ-based authors** (`authorships.institutions.country_code:NZ`) — and reads each author's institutional affiliation straight from the API. For the *best-published NZ authors on the topic* it uses OpenAlex's native **`group_by=authorships.author.id` analytics** (an accurate ranked author facet, not a guess from a small page of papers), then blends that with the retrieved papers' authors and a **precomputed per-field NZ-author index** (top authors by total citations, shipped in the corpus index) — so leading NZ researchers surface with their campus and citation impact even from a thin result set or fully offline. It produces (1) a **literature map** — top recent papers (NZ-authored ones chipped), most-active authors (their NZ campus shown), trending sub-themes, a year histogram — plus a warm **"Research happening in New Zealand"** panel that surfaces those NZ researchers *indirectly, as the authors of the work the student is reading* (never labelled "your supervisor"), alongside the honest case for a NZ PhD (domestic fees, work rights, post-study visa) and links into Explore / the Starter Kit; **3–5 candidate research directions**; and **matched NZ research groups** from the dataset. Then (2) it expands any chosen direction into a **full structured proposal draft** (working title, abstract, background with inline citations **prioritising NZ-authored work**, research gap, research questions, methodology, indicative 3-year timeline, a "the people behind your citations — in New Zealand" section, NZ research groups, formatted references). The NZ side is anchored to a **large pre-scraped corpus of 10,000+ recent NZ-authored papers** (`scripts/scrape-nz-corpus.js` → a tiny index `assets/js/research-corpus.js` + per-field shards in `assets/js/corpus/`). The corpus is **sharded by field and lazy-loaded one shard at a time** — when a student searches, only that field's ~1 MB shard is fetched, never all 10k — so it stays fast on mobile and works fully offline. On top of that it's a **hybrid**: the live NZ-filtered OpenAlex queries still run for freshness/global context, and if both the corpus and the live calls are unavailable, a **curated seed** derived from `PF_LABS` (with `PF_UNI_MATCH` / `PF_NZ_INSTITUTES` in `data.js` mapping institution names to campuses) keeps the NZ panel populated. Rebuild the corpus any time with `node scripts/scrape-nz-corpus.js` (resumable, polite-pool). Copy / download `.md`/`.txt`, auto-saved to the account (one debounced `kv` write), and a one-click "send to a mentor for review" hook. No API key, no Cloud Function, no paid services — the literature calls hit external servers, not Firestore, so it stays well inside the free Spark plan.
 - `#courses` — **Course Catalogue**: the NZQA postgraduate register, browsable. **1,716 current qualifications** (951 at level 8, 700 at level 9, 64 doctorates) across the **51 providers** that teach them — 8 universities, 14 polytechnics and 29 private colleges — indexed by the **NZQA subject-area taxonomy** (461 nodes / 11 subject roots with postgraduate study). Drill down subject → sub-area, filter by level, qualification type and provider, search by title or provider, and open any qualification for its entry requirements, purpose, graduate profile, further-study pathway, offering providers with real contact details, published fees where they exist, and a link to its NZQA record. Defaults to the active track's levels and to the subject area the student's assessment pointed at. Generated by `scripts/sync-astra-catalogue.js` — see *Course catalogue* below.
 - `#explore` — the 8 NZ universities with their 12 flagship research labs and named supervisors (PhD track), plus the other **43 providers** from the catalogue — polytechnics and private colleges — with live per-provider qualification counts and contact details, ranked by how much postgraduate study each teaches
+- `#cost` — **Cost & payback**: the master's track's own high-stakes screen — what a New Zealand master's *actually* costs a Sri Lankan family, end to end, and how long it takes to earn back. See *Cost & payback* below.
 - `#funding` — **281 real scholarships** from the provider register, filtered to the active track's study levels, with an international-students-only filter and domestic-only awards excluded; falls back to the 8 curated doctoral awards in `PF_SCHOLARSHIPS` if the shard fails to load. Plus track-appropriate immigration/visa updates
 - `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
 - `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
-- `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
+- `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. A student holding a paid plan sees their **remaining credits** on the form and can spend one on the request they're about to send (see *Plans, credits and what they actually unlock*); with no plan, or no balance left, the form is exactly as it was. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
 - `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, a **Session log**, a **People** client book, an at-a-glance insights strip (open / active / delivered / earned / invoiced-unpaid), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). The **Session log** records every session you actually deliver — including the many that arrive over **WhatsApp or a phone call** and never touch the request queue — with who, when, how long, over which channel, what you covered, private notes, agreed next steps, the fee and its payment state; each record generates a **PDF invoice or receipt** in one click ("Save & invoice" issues it as you write the record up). Claimed requests get a **Log session** button that pre-fills the form from the request. Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
-- `#billing` — **Billing**: the student's own one-time unlocks and every mentoring session logged against their account, each with a downloadable **PDF invoice/receipt**. Private mentor notes are never shown here.
-- `#account` — **Account**: the unified front door for the three login roles. Clients/students can create a free account (no code) or sign in to sync across devices — **login is optional for explorer basics** (assessment, roadmap, explorer, funding, Research Studio, templates), and anonymous browsing always works for those. It becomes **required only to connect with a mentor or to make any purchase**. Vetted mentors are routed to the invite-only mentor sign-up, and admins to the admin sign-in.
-- `#dashboard` — the **client/student dashboard**: a metrics grid, a derived **insights** card (readiness, application funnel, active mentor requests, visa progress, next-step nudge, sync status), application tracker, visa progress, and your mentor requests
+- `#billing` — **Billing**: an **Included in your plan** card (mentor sessions and document audits still unspent, plus the toolkit/priority/interview-prep flags), then the student's own one-time unlocks and every mentoring session logged against their account, each with a downloadable **PDF invoice/receipt**. A one-time unlock is easy to buy and then forget — an order row reading "Premium · LKR 24,990 · Paid" doesn't tell anyone they still hold two sessions and an audit — so the balance card leads, and links to where the credits are spent. Private mentor notes are never shown here.
+- `#account` — **Account**: the unified front door for the three login roles. Clients/students can create a free account (no code) or sign in to sync across devices — **login is optional for explorer basics** (assessment, roadmap, explorer, funding, Research Studio, templates), and anonymous browsing always works for those. It becomes **required only to connect with a mentor or to make any purchase**. Vetted mentors are routed to the invite-only mentor sign-up, and admins to the admin sign-in. See *The account model* below for where the app asks, and why it never asks at the door.
+- `#dashboard` — the **client/student dashboard**: a metrics grid, a derived **insights** card (readiness, application funnel, active mentor requests, visa progress, next-step nudge, sync status), application tracker, visa progress, and your mentor requests. On a **cold start** — nothing assessed, saved, tracked or checked — it renders `renderFirstRun()` instead: one action and an honest account of what the assessment produces. `#dashboard` is both the app's default route and the landing page's "Open the dashboard" CTA, so it is the first screen a large share of visitors ever see, and rendered in full on an empty account it is four zeroes, a "—%" readiness figure and an empty application form competing with the invitation. The full dashboard returns the moment there is anything real to put on it (the test is "is there anything to show?", not "did they take the assessment?", so a student who shortlisted a course but skipped the assessment still gets the real thing).
 - `#kit` — Starter Kit: 21 templates across emails, application documents, research & career, and logistics. Templates tagged `track:'masters'` (statement of purpose, programme comparison sheet) or `track:'phd'` (supervisor emails, 3-year research plan) show only on that track; the rest serve both
 - `#admin` — **Admin panel** (access-code + password-gated): overview analytics with a **pending-approvals** callout, **Accounting** (a unified ledger across every revenue source, with one-click PDF invoices/receipts), email leads, **Mentors** (approve / reject / deactivate), **Requests** (all mentor requests with status, claimed-by, payment status/amount + CSV export), **People** (every person on record across all mentors — searchable, with each one's full consultation history and how much they still owe; CSV export), **Sessions** (every mentoring session logged by any mentor — filter by mentor and payment state, log one on a mentor's behalf, CSV export, PDF invoices), **Orders**, and synced user records. A **Someone called** button sits above the tabs for the phone and walk-in enquiries that arrive with no account behind them. The sign-in asks for the admin access code (`PF_ROLE_CODES.admin`) then the Firebase admin password. Visible only to the admin account; ordinary visitors are blocked by Firestore rules. Reachable from the "Admin" link in the sidebar footer.
 
@@ -71,7 +74,11 @@ scripts/
   build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
-  js/invoice.js            PFInvoice — zero-dependency PDF invoice/receipt writer + print preview
+  js/invoice.js            PFInvoice — zero-dependency PDF writer: invoices, receipts,
+                           and the family decision sheet (#cost)
+  js/roi-data.js           hand-verified, DATED cost & earnings dataset — tuition by
+                           provider tier and subject, wages, tax, graduate salaries
+  js/roi.js                PFRoi — pure cost-to-payback model + cheaper-route comparison
   js/firebase-config.js    paste your Firebase web config here (null = pure local mode)
   js/firebase.js           optional sync layer (Auth + roles + Firestore mirror + queue + inboxes)
   js/app.js                router + view renderers
@@ -294,9 +301,16 @@ mentors/{uid}               { displayName, fields[], city, bio, langs, availabil
                             create (self, approved:false) · read (any signed-in) ·
                             update (self: descriptive fields / admin: approved+active)
 mentor_requests/{id}        { topic, note, name, contact, studentUid, status, mentorId,
-                              introDoneAt, payment{amountLKR, payhereLink, paymentStatus,
+                              introDoneAt, redeem, priority,
+                              payment{amountLKR, payhereLink, paymentStatus,
                               paidAt}, at, createdAt, updatedAt, ts,
                               source, callback, takenBy, takenByName }
+                            `redeem` ('session'|'audit'|null) marks a plan credit
+                            spent and is the ONLY record of that spend —
+                            creditsUsed() counts it to derive the balance, so it
+                            must survive the round trip. `priority` sorts the
+                            open queue. Both are plain extra fields; the create
+                            rule constrains name/contact/note and status only.
                             create (any signed-in, status:'open'; OR admin/approved mentor
                             with status:'claimed' for phone & walk-in intake — a mentor may
                             only assign to themselves) · read (admin / approved mentor /
@@ -318,13 +332,93 @@ inbox_consultations/{id}    LEGACY (pre-marketplace) — read-only for admin, no
 
 Static reference data (`PF_UNIVERSITIES`, `PF_LABS`, `PF_SCHOLARSHIPS`, `PF_VISA_STAGES`, `PF_SETTLEMENT`, `PF_CITY_COSTS`, `PF_PARTNERS`, `PF_TEMPLATES`) ships in `data.js`. `PF_MENTORS` is now **local-only fallback/demo seed data** (powers the aggregate "X mentors across Y fields" stat when Firebase is off) — mentor identities live in the `mentors/` collection in the live flow.
 
+## Cost & payback (`#cost`)
+
+A PhD student is walking toward money — domestic fees and a stipend. A master's student is walking toward a bill: full international tuition, no stipend, one to two years. On the University of Auckland's own published 2026 rates an IT master's in Auckland comes to **NZ$180,394 all in**, or **NZ$127,926** after part-time earnings — about **LKR 25 million**. For a family in Colombo that is not a tuition figure. It is a house.
+
+Nobody in that market does this arithmetic honestly, for a structural reason: every education agent is paid a percentage of tuition, so recommending the cheaper qualification costs them money, and the cheaper qualification therefore never gets mentioned. **PathFinder takes no provider commission**, which is the only reason this screen can exist — and it says so, on the screen and on the printed sheet.
+
+### What it computes
+
+`PFRoi.compute()` (`assets/js/roi.js`) is pure — no DOM, no storage, no network — because these numbers get printed on a document a student hands to their father, so they have to be testable.
+
+1. **Total cost, not the sticker fee.** Tuition is the number providers publish; airfares, the visa, medicals, police certificates, insurance, a rental bond and a first set of furniture are the ones families discover afterwards. Living costs come from the same `PF_CITY_COSTS` the Funds Planner uses, so the two tools can never quote a family two different rents for one city.
+2. **The income side.** Master's students may work **25 hours a week in semester** (raised from 20 on 3 November 2025) and full-time in breaks, at the adult minimum wage — deliberately the floor, not an average. Note the asymmetry the UI keeps repeating: this money reduces what the family spends, but INZ will not count it toward the visa funds requirement.
+3. **Payback against the visa.** Take-home pay after PAYE and the ACC earner levy, less the cost of living in the same city, gives the annual surplus that actually repays the investment — and it is scored against the **3-year post-study work visa**, not an open-ended career. A payback longer than three years is a plan that depends on residence, which is a separate decision and never guaranteed.
+4. **Cheaper routes to the same NZQF level.** The register holds **700 level-9 master's qualifications, and 111 of those offerings are at polytechnics (70) and private colleges (41)** rather than universities — the same level on the same framework, typically at close to half the fee. `cheaperRoutes()` compares the student's plan against a cheaper provider tier, a level 8 diploma first, and a lower-cost city, with the saving on each **and the trade-off stated**. A PGDip deliberately carries **no payback figure at all**: scoring it with the master's earnings premium and the master's visa length would flatter it on exactly the two counts where it is weaker.
+
+### The family decision sheet
+
+The student doesn't hold the money. A parent or an uncle does — someone who has never been to New Zealand, will never open the app, and is being asked to liquidate savings or borrow against property. So the deliverable is a **printable sheet addressed to them**: total cost, the offsets, what is still to arrange, what happens after graduation, and the cheaper routes that were considered and rejected — led in **LKR**, with NZ$ alongside for anyone checking against a provider's website.
+
+`PFInvoice.downloadSheet()` writes it with the same zero-dependency PDF writer that issues invoices — no library, no CDN, no backend, no Blaze plan.
+
+### Where the numbers come from
+
+`assets/js/roi-data.js` is hand-maintained on purpose: the sources are published schedules that move once a year on a known cadence, and a wrong figure here is worse than a missing one. Every entry carries its own `src` and `asOf`, the module carries a `verified` date, and the UI prints it — so a stale dataset says so out loud instead of quietly misleading someone.
+
+| What | Source | As of |
+|---|---|---|
+| University tuition, per subject | University of Auckland published international postgraduate schedule (the most expensive of the eight, so comparisons never flatter the cheap route) | 2026 |
+| Polytechnic / private-college tuition | Published 2026 international schedules (Wintec, Ara, Otago Polytechnic) | 2026 |
+| Graduate earnings | Education Counts, *What young graduates earn when they leave study* | 2024 |
+| Master's premium | Ministry of Education, *Moving on up* — master's +86% vs bachelor's +53% over the national median wage | — |
+| Minimum wage | employment.govt.nz — NZ$23.95/hr | 1 Apr 2026 |
+| PAYE + ACC earner levy | ird.govt.nz — brackets unchanged, levy 1.75% | 2026–27 |
+| Work rights, post-study work visa | immigration.govt.nz | 2026 |
+| NZ$ → LKR | mid-market, 196.7 — a reading anchor, never used to decide anything | 2 Aug 2026 |
+
+**Re-verify every January, and again each April** when the minimum wage and the ACC levy reset. Bump `PF_ROI.verified` when you finish a pass.
+
+> **The honesty constraint.** The published earnings figures are for **domestic** New Zealand graduates. An international graduate holds a 3-year work visa and no guarantee of residence, so they are not the same population and the numbers are an upper reference, not a forecast. This is stated on the screen that shows them and printed on the sheet. Where a field has no published figure (`PF_ROI_NO_FIELD_EARNINGS`), the model says so and falls back to the all-graduate median rather than inventing one; creative arts is published as the lowest-earning group with no quotable figure, so it is flagged rather than guessed.
+
+### What's free and what isn't
+
+The **total-cost verdict on the student's own plan is free** — telling someone the truth about what they are about to spend should never sit behind a paywall. **Premium** (`costCompare` in `PF_CONFIG.planGrants`) unlocks what to *do* about it: the cheaper-route comparison and the family decision sheet.
+
+## The account model
+
+Every visitor is signed in **anonymously** on load and is already syncing to Firestore, and signing up later **links** that anonymous account in place rather than orphaning it. So an account wall at the front door would protect nothing a student can feel, while costing the assessment funnel the whole product runs on — the landing page's primary CTA is "Start assessment", aimed at mobile-first students on metered data arriving from search and shared links. What an account actually buys them is *the second device*, and that is only worth explaining once they own something that would be stranded on the first one.
+
+The app therefore asks in three tiers:
+
+| Tier | Where | What happens |
+|---|---|---|
+| **Never gated** | Assessment, course catalogue, funding, visa hub, Research Studio, templates | The SEO surface and the credibility. Anonymous browsing always works, and the work is saved either way. |
+| **Soft prompt** | `softAccountPrompt()` — the roadmap, the third saved item, the first tracked application, a downloaded proposal | Never blocks. An inline modal offering one-tap Google (or email), with a working *"Not now — keep working without an account"*. Fires **at most once per moment, ever**; the record lives in `__softGate`, a `__`-prefixed key the sync layer skips, so remembering a dismissal costs no write quota. |
+| **Hard gate** | `requireAccount()` — connecting with a mentor, any purchase | Stops the action and routes to `#account` carrying `?next=`, so signing up resumes exactly where they were instead of stranding them on the dashboard. |
+
+The soft prompt is deliberately **not** on the assessment result screen — a modal there would cover the result the student just earned before they had a chance to read it. It fires on `#roadmap` instead, which is the thing the result produced. The result screen keeps its passive inline nudge.
+
+## Plans, credits and what they actually unlock
+
+`PF_CONFIG.planGrants` (`data.js`) is the single machine-readable statement of what each paid plan gives:
+
+```js
+planGrants: {
+  explorer: { toolkit: true, sessions: 1, audits: 1 },
+  premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true, priority: true },
+}
+```
+
+Both the **sales copy** (`#pricing` generates its paid feature rows from this table) and the **redemption flow** read it, so what a student is sold and what lands in their account cannot drift apart. `#kit`'s locked-template card reads it too.
+
+- **Granted** — `grantsFrom(orders)` sums every order with `status:'paid'`. An order only reaches `paid` when the admin marks it so (`firestore.rules` lets nobody else write that field), which is what makes this a real entitlement rather than a client-side claim. Buying both plans stacks.
+- **Spent** — `creditsUsed(requests)` counts the student's own `mentor_requests` carrying `redeem:'session'|'audit'`. A cancelled request gives the credit back.
+- **Remaining** — granted minus spent, derived on read. **There is no `credits` document**: no second query, nothing new to secure, and no way for a balance to drift out of step with the requests it counts — the same principle as the Accounting ledger and the client book.
+
+A request raised against a credit is prepaid, and the mentor's queue card says so in as many words, so nobody quotes a fee for work the student has already been promised. `priority` (Premium) sorts a request above the rest of the open queue — done in `fetchOpenRequests()`'s client-side sort rather than a Firestore `orderBy`, so the query keeps its single equality filter and needs no composite index.
+
+> Credit *consumption* is derived client-side, like the Starter Kit's template gate. The root of trust is the admin-only `paid` flag on the order; the spend accounting is a soft gate on top of it. Worst case is a queue-position or an extra session, never data access — the rules never widen.
+
 ## Monetization
 
 **Live in the product:**
 
 1. **Mentor marketplace** (anchor) — every "Ask a mentor" request opens with a free 15-minute intro, then an optional **paid follow-on session** billed through PayHere (Cards/HelaPay/eZ Cash/Genie). Inline "Stuck at this step? Ask a mentor" hooks on every visa stage, settlement card, roadmap phase, lab card and scholarship pre-fill the request topic and create the request in place. Requests land in the shared `mentor_requests` queue; the platform takes its cut on the paid sessions.
-2. **Partner placements (affiliate)** — `PF_PARTNERS` rows rendered contextually and clearly labelled: IELTS prep (assessment results when English score is low), forex (cost calculator), insurance + flights (visa pre-departure stage). Replace the placeholder `url` fields with your affiliate links.
-3. **Sponsored listings** — add `sponsored: true` to any university/lab/scholarship entry to flag it (chip rendering hook reserved in the explorer).
+2. **One-time plans** — Explorer and Premium, sold by the platform, delivering the credits above. See *Plans, credits and what they actually unlock*.
+3. **Partner placements (affiliate)** — `PF_PARTNERS` rows rendered contextually and clearly labelled: IELTS prep (assessment results when English score is low), forex (cost calculator), insurance + flights (visa pre-departure stage). Replace the placeholder `url` fields with your affiliate links.
+4. **Sponsored listings** — add `sponsored: true` to any university/lab/scholarship entry to flag it (chip rendering hook reserved in the explorer).
 
 **Roadmap (needs Blaze plan or external services):**
 
