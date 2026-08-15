@@ -502,17 +502,39 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 .shell .hero-figure-mobile { display: none; }
 
-/* ── Journey segments ── */
-.shell .segs { display: flex; gap: 6px; margin-top: 30px; }
-.shell .seg { flex: 1; min-width: 0; }
-.shell .seg-track { height: 4px; border-radius: 3px; background: var(--chrome-track); overflow: hidden; }
+/* ── Journey segments — each one a real link to that phase's own next
+   step, with a numbered/checked badge and a done/total count, so the
+   strip reads as a compact five-phase map rather than one bare bar per
+   phase. The fuller "what's next" sentence rides in the title attribute
+   (hover/long-press) instead of being printed, to stay five short labels
+   wide. */
+.shell .segs { display: flex; gap: 10px; margin-top: 28px; }
+.shell .seg {
+  flex: 1; min-width: 0; display: block; color: inherit; text-decoration: none;
+  padding: 6px; border-radius: 10px;
+  transition: background-color var(--t-fast);
+}
+.shell .seg:hover { background: var(--chrome-track); }
+.shell .seg-top { display: flex; align-items: center; gap: 7px; }
+.shell .seg-num {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  background: var(--chrome-track); color: var(--on-chrome-dim);
+}
+.shell .seg-num .material-symbols-outlined { font-size: 12px; }
+.shell .seg.is-current .seg-num { background: var(--accent); color: var(--on-accent); }
+.shell .seg.is-complete .seg-num { background: var(--ok); color: #fff; }
+.shell .seg-track { flex: 1; min-width: 0; height: 4px; border-radius: 3px; background: var(--chrome-track); overflow: hidden; }
 .shell .seg-track > span { display: block; height: 100%; background: var(--accent); width: 0; transition: width var(--t-bar); }
 .shell .seg.is-empty .seg-track > span { background: var(--chrome-line); }
+.shell .seg-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: 8px; }
 .shell .seg-label {
-  margin-top: 8px; font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase;
   color: var(--on-chrome-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .shell .seg.is-current .seg-label { color: var(--on-chrome); }
+.shell .seg-frac { font-family: var(--font-mono); font-size: 9px; font-weight: 500; color: var(--on-chrome-dim); flex-shrink: 0; }
 
 /* ── Stat tile ── */
 .shell .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }

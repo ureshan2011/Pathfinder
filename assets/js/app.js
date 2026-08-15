@@ -397,24 +397,48 @@ const HERO_SEG_LABELS = {
 };
 function heroSegLabels() { return HERO_SEG_LABELS[PFStore.getTrack()] || HERO_SEG_LABELS.phd; }
 
-/* J.phases (journeyModel) already carries real pct/done/complete per
-   phase — heroSegments() just re-labels those five phases with the
-   shorter copy above, in the same order, so the strip and the "Phase
-   N of 5" kicker always agree with the Journey Map / nav context. */
+/* J.phases (journeyModel) already carries real pct/done/complete/nextStep
+   per phase — heroSegments() re-labels those five phases with the shorter
+   copy above (in the same order, so the strip and the "Phase N of 5"
+   kicker always agree with the nav context label) and carries each
+   phase's own real next-incomplete-step through, so the strip can show
+   what's next in every phase, not just the current one. */
 function heroSegments(J) {
   const labels = heroSegLabels();
   return J.phases.map((p, i) => ({
     label: labels[i] || p.label,
-    pct: p.pct,
+    pct: p.pct, done: p.done, total: p.total,
     current: p.id === J.current.id && !p.complete,
+    complete: p.complete,
+    href: p.nextStep ? p.nextStep[2] : '#' + p.view,
+    next: p.nextStep ? p.nextStep[0] : null,
   }));
 }
+/* Each segment is a real link (to that phase's own next incomplete step,
+   or its home view once the phase is done) carrying a done/total count
+   and a numbered/checked badge — so "what's next in every step" and
+   "completion so far" are both visible without turning the hero into a
+   wall of text. The fuller sentence (the phase's actual next action)
+   rides in the title attribute — a hover/long-press away, never printed
+   outright — so the strip stays five short labels wide. */
 function heroSegsHtml(segs) {
-  return `<div class="segs">${segs.map(s => `
-    <div class="seg${s.pct <= 0 ? ' is-empty' : ''}${s.current ? ' is-current' : ''}">
-      <div class="seg-track"><span data-pct="${s.pct > 0 ? s.pct : 100}"></span></div>
-      <div class="seg-label">${esc(s.label)}</div>
-    </div>`).join('')}</div>`;
+  return `<div class="segs">${segs.map((s, i) => {
+    const hint = s.complete ? `${s.label} — done` : s.next ? `${s.label}: ${s.next}` : s.label;
+    const badge = s.complete
+      ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>'
+      : String(i + 1);
+    return `<a class="seg${s.pct <= 0 ? ' is-empty' : ''}${s.current ? ' is-current' : ''}${s.complete ? ' is-complete' : ''}"
+        href="${s.href}" title="${esc(hint)}" ${s.current ? 'aria-current="step"' : ''}>
+      <span class="seg-top">
+        <span class="seg-num">${badge}</span>
+        <span class="seg-track"><span data-pct="${s.pct > 0 ? s.pct : 100}"></span></span>
+      </span>
+      <span class="seg-meta">
+        <span class="seg-label">${esc(s.label)}</span>
+        <span class="seg-frac">${s.done}/${s.total}</span>
+      </span>
+    </a>`;
+  }).join('')}</div>`;
 }
 
 /* a .bar on canvas — pct is clamped and set via data-pct so the fill can
@@ -478,23 +502,30 @@ function highestPriorityIncompleteStep() {
       primaryLabel: 'Open Settle In', primaryHref: '#settlement', consultTopic: 'settle-arrival' };
   }
 
-  const visaIdx = J.phases.findIndex(p => p.id === 'visa');
+  // The kicker always names journeyModel()'s own current phase — the same
+  // one the segment strip highlights — even when the action below jumps
+  // ahead to an urgent visa step; otherwise a student who's front-loaded
+  // their visa paperwork would see "Phase 4 of 5" in the hero while the
+  // strip highlights phase 1, an internal contradiction rather than a
+  // deliberate "next best action" call.
+  const cur = J.current;
+  const idx = J.phases.findIndex(p => p.id === cur.id);
+  const kicker = `Phase ${idx + 1} of ${J.phases.length} · ${heroSegLabels()[idx]}`;
+
   const visaOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
   if (visaOpen && (J.current.id === 'visa' || visaProgress().done > 0)) {
     const step = visaOpen.steps.find(st => !PFStore.isChecked('visa', st.id));
     return {
-      kicker: `Phase ${visaIdx + 1} of ${J.phases.length} · ${heroSegLabels()[visaIdx]}`,
+      kicker,
       title: truncate(step.t, 42),
       body: truncate(step.note || visaOpen.summary, 120),
       primaryLabel: 'Open the Visa Hub', primaryHref: '#visa', consultTopic: visaOpen.consult,
     };
   }
 
-  const cur = J.current;
-  const idx = J.phases.findIndex(p => p.id === cur.id);
   if (J.nextStep) {
     return {
-      kicker: `Phase ${idx + 1} of ${J.phases.length} · ${heroSegLabels()[idx]}`,
+      kicker,
       title: truncate(J.nextStep[0], 42),
       body: truncate(cur.blurb, 120),
       primaryLabel: `Open ${HERO_HREF_LABEL[J.nextStep[2]] || 'this step'}`, primaryHref: J.nextStep[2], consultTopic: '',
