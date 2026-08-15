@@ -4264,12 +4264,11 @@ function roiDefaults() {
   const saved = PFStore.get('roiPlan', null);
   // computeMastersResult() carries the NZQA subject-area ROOT as
   // `subjectArea` (`field` is its display name), which is exactly the key
-  // PF_ROI.uniBySubject and the earnings table are cut by — so a student
-  // who has taken the assessment lands here already pointed at their own
-  // subject, with the right fee and the right salary band.
-  const subj = (saved && saved.subjectRoot) || (R && R.subjectArea) || '76450';
+  // the fee and earnings tables are cut by — so a student who has taken
+  // the assessment lands here already pointed at their own subject.
   return Object.assign({
-    subjectRoot: subj, tier: 'universities', city: 'akl', years: 2,
+    subjectRoot: (R && R.subjectArea) || '76450',
+    providerId: '700122001', tier: 'universities', city: 'akl', years: 2,
     who: 'single', scholarshipPct: 0, workHours: 25, feeOverride: 0,
     ownFundsNZD: 0, partnerWorks: false,
   }, saved || {});
@@ -4290,202 +4289,243 @@ function renderCost(main) {
   const cat = window.PF_CATALOGUE;
   if (!cat) ensureCatalogue().then(() => { if (location.hash.slice(1).split('?')[0] === 'cost') route(); });
 
-  // The PhD economics are the opposite shape, so say so rather than
-  // running a master's model over a doctoral plan and quoting nonsense.
+  // The PhD economics run the opposite way, so say so rather than running
+  // a master's model over a doctoral plan and quoting nonsense.
   if (!isMasters()) return roiPhdNote(main);
 
   const r = PFRoi.compute(roiState);
-  const ent = entitlements();
-  const unlocked = !cloudOn() || ent.costCompare === true;
+  const unlocked = !cloudOn() || entitlements().costCompare === true;
 
+  /* Reading order is the argument, in the order a family actually asks it:
+       1. what am I costing out          (the plan, editable, at the top)
+       2. what does it cost              (one number, in rupees)
+       3. where does that go             (the breakdown)
+       4. what does it earn back         (payback vs the visa)
+       5. what else could we do          (cheaper providers)
+       6. how do you know                (sources, last)
+     On mobile this is the literal top-to-bottom order. The old version put
+     the inputs in an aside, which on a phone dropped them to the BOTTOM —
+     below every number they controlled. */
   main.innerHTML = renderHero({
     kicker: 'Cost & payback',
     title: r.band,
     body: r.verdict,
-    figure: PFRoi.fmtYears(r.paybackYears) === 'never' ? '—' : Math.round(r.paybackYears * 10) / 10,
+    figure: isFinite(r.paybackYears) ? Math.round(r.paybackYears * 10) / 10 : '—',
     figureSuffix: isFinite(r.paybackYears) ? ' yr' : '',
     figureCaption: 'to earn it back',
-    primaryLabel: unlocked ? 'Download the family sheet' : 'See the cheaper routes',
-    primaryId: unlocked ? 'roi-sheet' : null,
-    primaryHref: unlocked ? null : '#pricing',
-    secondaryLabel: 'Ask a mentor', secondaryHref: '#mentors?topic=funding-costs',
   }) +
+    roiPlanCard(cat) +
     roiHeadline(r) +
-    `<div class="viewgrid mt-6">
-      <div>${roiCostCard(r)}${roiAfterCard(r)}${roiRoutesCard(r, unlocked)}</div>
-      <div class="aside">${roiFormCard(cat)}${roiSourcesCard(r)}</div>
-    </div>` +
+    roiCostCard(r) +
+    roiAfterCard(r) +
+    roiRoutesCard(r, unlocked) +
+    roiSourcesCard(r) +
     consultCTA('funding-costs');
 
   roiBindForm();
-  const sheetBtn = $('#roi-sheet');
-  if (sheetBtn) sheetBtn.onclick = () => roiDownloadSheet(r);
 
-  // Resolve the plan before deciding what to show behind the lock — one
-  // Firestore read per session, then repaint. Same pattern as #kit.
   if (cloudOn() && !entState.loaded) loadEntitlements(() => {
     if (location.hash.slice(1).split('?')[0] === 'cost') route();
   });
 }
 
-/* The single number the whole screen exists to deliver, in the currency
-   the person paying actually thinks in. */
+/* ── 1 · The plan, editable, first ──────────────────────────────────
+   A <details> so it is one tap on a phone and open by default on a wide
+   screen. The summary line always states the plan in words, so even
+   closed it says exactly what is being costed. */
+function roiPlanCard(cat) {
+  const s = roiState;
+  const choices = PFRoi.providerChoices(s.subjectRoot);
+  const cities = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
+  const subject = cat && cat.taxonomy[s.subjectRoot] ? cat.taxonomy[s.subjectRoot].n : 'your subject';
+  const prov = choices.find(c => c.id === s.providerId);
+  const city = cities.find(c => c.id === s.city);
+  const opt = (v, l, sel) => `<option value="${esc(v)}" ${String(sel) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+
+  const groups = [['universities', 'Universities'], ['polytechnics', 'Polytechnics & institutes of technology'], ['ptes', 'Private colleges']];
+  const provOpts = groups.map(([t, label]) => {
+    const inGroup = choices.filter(c => c.tier === t);
+    if (!inGroup.length) return '';
+    return `<optgroup label="${esc(label)}">${inGroup.map(c =>
+      opt(c.id, c.name + (c.confidence === 'published' ? ' — published fees' : ''), s.providerId)).join('')}</optgroup>`;
+  }).join('');
+
+  return `<details class="listcard roi-plan" ${window.innerWidth > 860 ? 'open' : ''} style="margin-top:20px">
+    <summary class="roi-plan-summary">
+      <span class="sidecard-kicker">Costing this plan</span>
+      <strong>${esc(subject)} · ${esc(prov ? prov.name : 'a provider')}</strong>
+      <span class="faint">${esc(city ? city.city : '')} · ${s.years} year${s.years === 1 ? '' : 's'} · ${s.who === 'single' ? 'on your own' : s.who === 'couple' ? 'with a partner' : 'with family'} — tap to change</span>
+    </summary>
+    <div class="roi-fields">
+      <label><span class="field-label">Subject area</span>
+        <select class="field" id="roi-subject">${(cat ? cat.roots.map(id => [id, cat.taxonomy[id].n]) : [[s.subjectRoot, 'Loading…']])
+          .map(([id, n]) => opt(id, n, s.subjectRoot)).join('')}</select></label>
+      <label><span class="field-label">Provider</span>
+        <select class="field" id="roi-provider">${provOpts}</select></label>
+      <label><span class="field-label">City</span>
+        <select class="field" id="roi-city">${cities.map(c => opt(c.id, c.city, s.city)).join('')}</select></label>
+      <label><span class="field-label">Length</span>
+        <select class="field" id="roi-years">${[[1, '1 year'], [1.5, '18 months'], [2, '2 years']].map(([v, l]) => opt(v, l, s.years)).join('')}</select></label>
+      <label><span class="field-label">Going as</span>
+        <select class="field" id="roi-who">${[['single', 'On my own'], ['couple', 'With a partner'], ['family', 'With family']].map(([v, l]) => opt(v, l, s.who)).join('')}</select></label>
+      <label><span class="field-label">Work hours a week</span>
+        <select class="field" id="roi-hours">${[[25, '25 — current rules'], [20, '20 — older visa condition'], [0, 'Not working']].map(([v, l]) => opt(v, l, s.workHours)).join('')}</select></label>
+      <label><span class="field-label">Fee you were quoted (NZ$/yr)</span>
+        <input class="field" id="roi-fee" type="number" inputmode="numeric" min="0" placeholder="most accurate — ask your provider" value="${s.feeOverride || ''}"></label>
+      <label><span class="field-label">Scholarship on tuition (%)</span>
+        <input class="field" id="roi-schol" type="number" inputmode="numeric" min="0" max="100" value="${s.scholarshipPct || 0}"></label>
+      <label><span class="field-label">Funds already arranged (NZ$)</span>
+        <input class="field" id="roi-funds" type="number" inputmode="numeric" min="0" value="${s.ownFundsNZD || 0}"></label>
+    </div>
+  </details>`;
+}
+
+/* ── 2 · The one number ─────────────────────────────────────────── */
 function roiHeadline(r) {
-  return `<div class="listcard mt-5" style="border-color:var(--ochre)">
+  return `<div class="listcard roi-headline">
     <span class="sidecard-kicker">What this costs, all in</span>
-    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;margin-top:8px">
-      <div>
-        <div class="hero-figure" style="font-size:2.1rem">${esc(PFRoi.lkr(r.netCost))}</div>
-        <div class="faint" style="font-size:12.5px;margin-top:2px">${esc(PFRoi.money(r.netCost))} over ${r.years} year${r.years === 1 ? '' : 's'}, after part-time earnings</div>
-      </div>
-      <div style="flex:1;min-width:210px">
-        <div class="row-sub">Gross cost before any work income — ${esc(PFRoi.money(r.totalCost))}</div>
-        <div class="row-sub mt-3">Earned while studying — ${esc(PFRoi.money(r.studyIncomeTotal))} at ${r.income.hours} hrs/week</div>
-        ${r.ownFunds ? `<div class="row-sub mt-3">Still to arrange — <strong>${esc(PFRoi.lkr(r.gap))}</strong></div>` : ''}
-      </div>
+    <div class="roi-big">${esc(PFRoi.lkr(r.netCost))}</div>
+    <div class="roi-big-sub">${esc(PFRoi.money(r.netCost))} over ${r.years} year${r.years === 1 ? '' : 's'}, after part-time earnings</div>
+    <div class="roi-facts">
+      <div><span class="faint">Before work income</span><strong>${esc(PFRoi.money(r.totalCost))}</strong></div>
+      <div><span class="faint">Earned while studying</span><strong>${esc(PFRoi.money(r.studyIncomeTotal))}</strong></div>
+      ${r.ownFunds ? `<div><span class="faint">Still to arrange</span><strong>${esc(PFRoi.money(r.gap))}</strong></div>` : ''}
     </div>
   </div>`;
 }
 
+/* ── 3 · The breakdown ──────────────────────────────────────────── */
 function roiCostCard(r) {
-  const rows = r.costLines.map(l => `<div class="row">
-      <div class="row-main">
-        <div class="row-title">${esc(l.label)}</div>
-        <div class="row-sub">${esc(l.detail || '')}${l.perYear ? ` · ${esc(PFRoi.money(l.perYear))}/yr` : ''}</div>
-      </div>
-      <div class="row-actions" style="text-align:right">
-        <div><strong>${esc(PFRoi.money(l.amount))}</strong></div>
-        <div class="faint" style="font-size:11.5px">${esc(PFRoi.lkr(l.amount))}</div>
-      </div>
-    </div>`).join('');
-  return `<div class="listcard" style="margin-bottom:16px">
+  const conf = {
+    quoted: ['chip-ok', 'Your quoted fee'],
+    'provider-subject': ['chip-ok', 'Published fee'],
+    'provider-band': ['chip-warn', 'Provider range'],
+    'tier-band': ['chip-info', 'Estimate'],
+  }[r.tuition.basis] || ['chip-neutral', ''];
+
+  return `<div class="listcard">
     <div class="listcard-head"><h2 class="listcard-title">Where the money goes</h2>
-      <span class="listcard-summary">${esc(PFRoi.money(r.totalCost))} gross</span></div>
-    ${rows}
-    <p class="row-sub mt-4">Tuition is from ${esc(r.tuition.label)}.${r.tuition.basis === 'tier-band'
-      ? ' Enter the fee you were actually quoted on the right for an exact figure.' : ''}</p>
+      <span class="listcard-summary">${esc(PFRoi.money(r.totalCost))} total</span></div>
+    ${r.costLines.map(l => `<div class="roi-line">
+      <div class="roi-line-main">
+        <div class="roi-line-label">${esc(l.label)}</div>
+        <div class="roi-line-detail">${esc(l.detail || '')}${l.perYear ? ` · ${esc(PFRoi.money(l.perYear))}/yr` : ''}</div>
+      </div>
+      <div class="roi-line-money">
+        <strong>${esc(PFRoi.money(l.amount))}</strong>
+        <span class="faint">${esc(PFRoi.lkr(l.amount))}</span>
+      </div>
+    </div>`).join('')}
+    <div class="roi-basis">
+      <span class="chip ${conf[0]}">${esc(conf[1])}</span>
+      <p>Tuition is from ${esc(r.tuition.label)}.${r.tuition.basis !== 'quoted'
+        ? ' The exact number is the one your provider quotes you in writing — enter it above and everything here recalculates.' : ''}</p>
+    </div>
   </div>`;
 }
 
+/* ── 4 · What it earns back ─────────────────────────────────────── */
 function roiAfterCard(r) {
   const e = r.earnings;
-  return `<div class="listcard" style="margin-bottom:16px">
-    <div class="listcard-head"><h2 class="listcard-title">After you graduate</h2>
+  const row = (label, detail, value) => `<div class="roi-line">
+      <div class="roi-line-main">
+        <div class="roi-line-label">${esc(label)}</div>
+        <div class="roi-line-detail">${esc(detail)}</div>
+      </div>
+      <div class="roi-line-money"><strong>${esc(value)}</strong></div>
+    </div>`;
+  return `<div class="listcard">
+    <div class="listcard-head"><h2 class="listcard-title">What it earns back</h2>
       <span class="chip ${r.bandCls}">${esc(r.band)}</span></div>
-    <div class="row"><div class="row-main">
-        <div class="row-title">Likely salary in this field</div>
-        <div class="row-sub">${e.basis === 'field' ? esc(e.eg) : esc(e.note || '')}</div>
-      </div>
-      <div class="row-actions"><strong>${esc(PFRoi.money(r.grossAfter))}</strong></div></div>
-    <div class="row"><div class="row-main">
-        <div class="row-title">After tax and ACC</div>
-        <div class="row-sub">NZ PAYE ${esc(PF_ROI.tax.asOf)} plus the ${(PF_ROI.tax.accRate * 100).toFixed(2)}% earner levy</div>
-      </div>
-      <div class="row-actions"><strong>${esc(PFRoi.money(r.netAfter))}</strong></div></div>
-    <div class="row"><div class="row-main">
-        <div class="row-title">Left over each year, after living costs</div>
-        <div class="row-sub">What can actually go toward repaying this</div>
-      </div>
-      <div class="row-actions"><strong>${esc(PFRoi.money(r.annualSurplus))}</strong></div></div>
-    <p class="row-sub mt-4"><strong>The window matters.</strong> A level 9 master's earns a ${r.pswYears}-year
-      post-study work visa with open work rights and no job offer needed. Staying past that needs residence,
-      which is a separate decision and is never guaranteed — so a payback longer than ${r.pswYears} years is
-      a plan that depends on something outside your control.</p>
+    ${row('Likely salary in this field', e.basis === 'field' ? e.eg : (e.note || ''), PFRoi.money(r.grossAfter) + '/yr')}
+    ${row('After tax and ACC', `NZ PAYE ${PF_ROI.tax.asOf} plus the ${(PF_ROI.tax.accRate * 100).toFixed(2)}% earner levy`, PFRoi.money(r.netAfter) + '/yr')}
+    ${row('Left over after living costs', 'What can actually go toward repaying this', PFRoi.money(r.annualSurplus) + '/yr')}
+    ${row('Time to earn the cost back', `Against a ${r.pswYears}-year post-study work visa`, PFRoi.fmtYears(r.paybackYears))}
+    <div class="roi-basis"><p><strong>The window matters.</strong> A level 9 master's earns a ${r.pswYears}-year
+      post-study work visa with open work rights and no job offer needed. Staying past that needs residence, which is a
+      separate decision and never guaranteed — so a payback longer than ${r.pswYears} years is a plan that depends on
+      something outside your control.</p></div>
   </div>`;
 }
 
+/* ── 5 · Cheaper routes ─────────────────────────────────────────── */
 function roiRoutesCard(r, unlocked) {
   const counts = PFRoi.levelNineTierCounts();
   const evidence = counts
-    ? `The register holds ${counts.quals} level 9 master's qualifications. ${counts.polytechnics + counts.ptes} of those offerings are at polytechnics and private colleges, not universities — the same level on the same framework.`
+    ? `The register holds ${counts.quals} level 9 master's qualifications. ${counts.polytechnics + counts.ptes} of those offerings are at polytechnics and private colleges rather than universities — the same level on the same framework.`
     : `Polytechnics and private colleges award level 9 master's degrees on the same framework as universities.`;
 
   if (!unlocked) {
-    return `<div class="listcard locked-card" style="border-color:var(--ochre)">
+    return `<div class="listcard locked-card">
       <span class="chip chip-gold"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">lock</span> Premium</span>
       <h2 class="listcard-title mt-3">Cheaper routes to the same qualification</h2>
       <p class="mt-3">${esc(evidence)}</p>
-      <p class="mt-3">Premium compares your plan against every cheaper route to the same NZQF level — a different provider tier, a level 8 diploma first, a lower-cost city — with the saving on each, and generates the one-page sheet you put in front of whoever is paying.</p>
+      <p class="mt-3">Premium compares your plan against named providers teaching the same subject at the same level — with each one's published fee and the saving — and generates the one-page sheet you put in front of whoever is paying.</p>
       <p class="muted mt-3" style="font-size:12.5px">Every education agent in Colombo is paid a percentage of your tuition, so none of them will show you this. We take no provider commission.</p>
       <a class="btn mt-4" href="#pricing">See what Premium includes</a>
     </div>`;
   }
 
   const routes = PFRoi.cheaperRoutes(r, roiState);
+  const head = `<div class="listcard-head"><h2 class="listcard-title">Cheaper routes to the same level</h2>
+      <span class="listcard-summary">${routes.length} option${routes.length === 1 ? '' : 's'}</span></div>`;
+
   if (!routes.length) {
-    return `<div class="listcard"><div class="listcard-head"><h2 class="listcard-title">Cheaper routes</h2></div>
-      <p>Nothing in the register comes out cheaper than the plan you've entered — this is already the low-cost route.</p></div>`;
+    return `<div class="listcard">${head}
+      <p>Nothing we hold fees for comes out cheaper than the plan you've entered — this is already the low-cost route.</p></div>`;
   }
-  return `<div class="listcard">
-    <div class="listcard-head"><h2 class="listcard-title">Cheaper routes to the same level</h2>
-      <span class="listcard-summary">${routes.length} option${routes.length === 1 ? '' : 's'}</span></div>
-    <p class="row-sub">${esc(evidence)}</p>
-    ${routes.map(a => `<div class="row" style="flex-wrap:wrap">
-      <div class="row-main">
-        <div class="row-title">${esc(a.title)}</div>
-        <div class="row-sub">${esc(a.why)}</div>
-        <p class="muted mt-3" style="font-size:12.5px"><strong>Trade-off:</strong> ${esc(a.tradeoff)}</p>
+
+  return `<div class="listcard">${head}
+    <p class="roi-line-detail" style="margin:0 0 4px">${esc(evidence)}</p>
+    ${routes.map(a => `<div class="roi-route">
+      <div class="roi-route-head">
+        <div>
+          ${a.kicker ? `<div class="roi-route-kicker">${esc(a.kicker)}</div>` : ''}
+          <div class="roi-route-title">${esc(a.title)}</div>
+        </div>
+        <div class="roi-route-save">
+          <strong>saves ${esc(PFRoi.money(a.saving))}</strong>
+          <span class="faint">${esc(PFRoi.lkr(a.saving))}</span>
+        </div>
       </div>
-      <div class="row-actions" style="text-align:right">
-        <div class="chip chip-ok">saves ${esc(PFRoi.money(a.saving))}</div>
-        <div class="faint" style="font-size:11.5px;margin-top:4px">${esc(PFRoi.lkr(a.saving))}</div>
-        <div class="faint" style="font-size:11.5px;margin-top:4px">${a.payback == null
-          ? esc(a.paybackNote || '') : 'pays back in ' + esc(PFRoi.fmtYears(a.payback))}</div>
+      <p class="roi-line-detail">${esc(a.why)}</p>
+      <p class="roi-route-tradeoff"><strong>Trade-off:</strong> ${esc(a.tradeoff)}</p>
+      <div class="roi-route-foot">
+        ${a.confidence === 'published' ? '<span class="chip chip-ok">Published fee</span>' : '<span class="chip chip-warn">Provider range</span>'}
+        <span class="faint">${a.payback == null ? esc(a.paybackNote || '') : 'pays back in ' + esc(PFRoi.fmtYears(a.payback))}</span>
+        ${a.providerId ? `<button type="button" class="btn btn-quiet btn-sm roi-try" data-prov="${esc(a.providerId)}">Cost this one</button>` : ''}
       </div>
     </div>`).join('')}
-    <p class="row-sub mt-4">These are real qualifications on the NZQA register, not recommendations. Check each provider's
-      standing and talk to a graduate before you commit — <a href="#courses">browse them in the catalogue</a>.</p>
+    <div class="roi-basis">
+      <p>These are real providers on the NZQA register, not recommendations. Check each one's standing and talk to a
+      graduate before you commit — <a href="#courses">browse them in the catalogue</a>.</p>
+      <button type="button" class="btn mt-4" id="roi-sheet">
+        <span class="material-symbols-outlined" aria-hidden="true">description</span> Download the family sheet</button>
+    </div>
   </div>`;
 }
 
-function roiFormCard(cat) {
-  const s = roiState;
-  const roots = cat ? cat.roots.map(id => [id, cat.taxonomy[id].n]) : [[s.subjectRoot, 'Loading subjects…']];
-  const cities = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
-  const opt = (v, l, sel) => `<option value="${esc(v)}" ${String(sel) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
-  return `<div class="sidecard">
-    <span class="sidecard-kicker">Your plan</span>
-    <div class="mt-4"><span class="field-label">Subject area</span>
-      <select class="field" id="roi-subject">${roots.map(([id, n]) => opt(id, n, s.subjectRoot)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">Provider</span>
-      <select class="field" id="roi-tier">
-        ${Object.entries(PF_ROI.tiers).map(([k, t]) => opt(k, t.label, s.tier)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">City</span>
-      <select class="field" id="roi-city">${cities.map(c => opt(c.id, c.city, s.city)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">Length</span>
-      <select class="field" id="roi-years">${[[1, '1 year'], [1.5, '18 months'], [2, '2 years']].map(([v, l]) => opt(v, l, s.years)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">Going as</span>
-      <select class="field" id="roi-who">${[['single', 'On my own'], ['couple', 'With a partner'], ['family', 'With family']].map(([v, l]) => opt(v, l, s.who)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">Work hours a week (in semester)</span>
-      <select class="field" id="roi-hours">${[[25, '25 — current rules'], [20, '20 — older visa conditions'], [0, 'Not planning to work']].map(([v, l]) => opt(v, l, s.workHours)).join('')}</select></div>
-    <div class="mt-3"><span class="field-label">Fee you were quoted (NZ$/yr, optional)</span>
-      <input class="field" id="roi-fee" type="number" min="0" placeholder="e.g. 42000" value="${s.feeOverride || ''}"></div>
-    <div class="mt-3"><span class="field-label">Scholarship covering tuition (%)</span>
-      <input class="field" id="roi-schol" type="number" min="0" max="100" value="${s.scholarshipPct || 0}"></div>
-    <div class="mt-3"><span class="field-label">Funds already arranged (NZ$)</span>
-      <input class="field" id="roi-funds" type="number" min="0" value="${s.ownFundsNZD || 0}"></div>
-  </div>`;
-}
-
+/* ── 6 · Sources, last ──────────────────────────────────────────── */
 function roiSourcesCard(r) {
   const d = PF_ROI;
-  return `<div class="sidecard">
-    <span class="sidecard-kicker">Where these numbers come from</span>
-    <p class="mt-3" style="font-size:12.5px">Every figure here is from a published source, dated. Data last checked <strong>${esc(d.verified)}</strong>.</p>
-    <ul class="rs-sup mt-3" style="font-size:12px">
-      <li><strong>Tuition</strong> — ${esc(r.tuition.basis === 'published-subject' ? d.uniBySubjectMeta.src : (d.tiers[roiState.tier] || {}).src || '')}</li>
+  const p = PFRoi.providerOf(roiState.providerId);
+  return `<details class="listcard">
+    <summary class="roi-plan-summary"><strong>Where these numbers come from</strong>
+      <span class="faint">Every figure is published and dated. Last checked ${esc(d.verified)}.</span></summary>
+    <ul class="roi-src">
+      <li><strong>Tuition</strong> — ${esc(p ? p.src : (d.tiers[roiState.tier] || {}).src || 'provider fee schedules')}</li>
       <li><strong>Living costs</strong> — PathFinder city data, verified ${esc((r.city && r.city.lastVerified) || d.verified)}</li>
       <li><strong>Wages</strong> — adult minimum wage NZ$${PF_CONFIG.minWageHourly}/hr from 1 April 2026 (employment.govt.nz)</li>
-      <li><strong>Tax</strong> — IRD ${esc(d.tax.asOf)} brackets and earner levy</li>
+      <li><strong>Tax</strong> — IRD ${esc(d.tax.asOf)} brackets and the ${(d.tax.accRate * 100).toFixed(2)}% earner levy</li>
       <li><strong>Salaries</strong> — ${esc(d.earnings.src)}</li>
       <li><strong>Work &amp; visa rules</strong> — immigration.govt.nz</li>
       <li><strong>NZ$ → LKR</strong> — ${d.fx.nzdToLkr} as at ${esc(d.fx.asOf)}; an anchor for reading, not a transfer rate</li>
     </ul>
-    <p class="muted mt-3" style="font-size:11.5px"><strong>Read this honestly.</strong> The salary figures are published for
+    <p class="roi-warn"><strong>Read this honestly.</strong> The salary figures are published for
       <em>domestic</em> New Zealand graduates. An international graduate holds a ${r.pswYears}-year work visa and no
-      guarantee of residence, so treat them as an upper reference, not a forecast. Confirm tuition with the provider
-      before you decide anything.</p>
-  </div>`;
+      guarantee of residence, so treat them as an upper reference, not a forecast. Confirm tuition with the provider in
+      writing before you decide anything. PathFinder takes no commission from any provider named here.</p>
+  </details>`;
 }
 
 function roiBindForm() {
@@ -4494,12 +4534,18 @@ function roiBindForm() {
     if (!el) return;
     el.addEventListener('change', () => {
       roiState[key] = cast ? cast(el.value) : el.value;
+      // Picking a provider carries its tier along, so the tier bands and
+      // the trade-off wording stay in step with the named provider.
+      if (key === 'providerId') {
+        const c = PFRoi.providerChoices(roiState.subjectRoot).find(x => x.id === el.value);
+        if (c) roiState.tier = c.tier;
+      }
       roiSave();
       route();
     });
   };
   bind('roi-subject', 'subjectRoot');
-  bind('roi-tier', 'tier');
+  bind('roi-provider', 'providerId');
   bind('roi-city', 'city');
   bind('roi-years', 'years', Number);
   bind('roi-who', 'who');
@@ -4507,12 +4553,23 @@ function roiBindForm() {
   bind('roi-fee', 'feeOverride', Number);
   bind('roi-schol', 'scholarshipPct', Number);
   bind('roi-funds', 'ownFundsNZD', Number);
+
+  const sheet = $('#roi-sheet');
+  if (sheet) sheet.onclick = () => roiDownloadSheet(PFRoi.compute(roiState));
+
+  $$('.roi-try').forEach(b => b.onclick = () => {
+    const c = PFRoi.providerChoices(roiState.subjectRoot).find(x => x.id === b.dataset.prov);
+    roiState.providerId = b.dataset.prov;
+    if (c) roiState.tier = c.tier;
+    roiState.feeOverride = 0;   // a quoted fee belongs to the old provider
+    roiSave();
+    route();
+  });
 }
 
-/* The PhD track's economics run the other way, so this screen tells the
-   truth about that instead of pretending the model applies. */
+/* The PhD track's economics run the other way, so this tells the truth
+   about that instead of pretending the model applies. */
 function roiPhdNote(main) {
-  const T = trackCfg();
   main.innerHTML = renderHero({
     kicker: 'Cost & payback', title: 'On the PhD track, the maths runs the other way',
     body: 'This tool models the master\'s bill. A doctorate in New Zealand is one of the few in the world that charges international students the domestic rate — and usually pays a stipend on top.',
@@ -4537,7 +4594,8 @@ function roiPhdNote(main) {
 function roiDownloadSheet(r) {
   const cat = window.PF_CATALOGUE;
   const subject = cat && cat.taxonomy[roiState.subjectRoot] ? cat.taxonomy[roiState.subjectRoot].n : 'Postgraduate study';
-  const tier = (PF_ROI.tiers[roiState.tier] || {}).label || '';
+  const p = PFRoi.providerOf(roiState.providerId);
+  const provName = (r.tuition.provider) || (p && p.name) || 'your provider';
   const routes = PFRoi.cheaperRoutes(r, roiState).slice(0, 4);
   const email = (window.PFCloud && PFCloud.currentEmail && PFCloud.currentEmail()) || '';
 
@@ -4545,7 +4603,7 @@ function roiDownloadSheet(r) {
     ref: 'PathFinder-decision-sheet',
     date: Date.now(),
     student: email || 'A PathFinder student',
-    plan: `Master's (NZQF level 9) in ${subject} — ${tier}, ${r.city ? r.city.city : ''}, ${r.years} year${r.years === 1 ? '' : 's'}, starting as ${r.who === 'single' ? 'one person' : r.who === 'couple' ? 'a couple' : 'a family'}.`,
+    plan: `Master's (NZQF level 9) in ${subject} at ${provName} — ${r.city ? r.city.city : ''}, ${r.years} year${r.years === 1 ? '' : 's'}, going as ${r.who === 'single' ? 'one person' : r.who === 'couple' ? 'a couple' : 'a family'}.`,
     years: r.years,
     lines: r.costLines.map(l => ({ label: l.label, detail: l.detail, nzd: l.amount })),
     totalNZD: r.totalCost,

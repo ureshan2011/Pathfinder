@@ -87,27 +87,76 @@ const PFRoi = (() => {
      reports `basis` so the UI can say where the number came from — a
      student showing this to their family must be able to answer "where
      did you get that?". */
-  function tuitionPerYear({ tier, subjectRoot, feeOverride }) {
+  function providerOf(id) { return (D().providers || {})[id] || null; }
+
+  /* Which providers can this student actually pick? Everything in the fee
+     table, plus — once the catalogue has loaded — every other provider on
+     the NZQA register that teaches at this level, so the picker is the
+     real world rather than the subset we happen to have fees for. */
+  function providerChoices(subjectRoot) {
+    const d = D();
+    const out = [];
+    Object.entries(d.providers || {}).forEach(([id, p]) => {
+      const s = p.bySubject && subjectRoot && p.bySubject[subjectRoot];
+      out.push({ id, name: p.name, tier: p.tier, confidence: s ? 'published' : (p.confidence === 'published' ? 'band' : p.confidence) });
+    });
+    const C = typeof window !== 'undefined' && window.PF_CATALOGUE;
+    if (C && C.providers) {
+      Object.entries(C.providers).forEach(([id, p]) => {
+        if (d.providers && d.providers[id]) return;
+        out.push({ id, name: p.name, tier: p.type, confidence: 'tier' });
+      });
+    }
+    const rank = { universities: 0, polytechnics: 1, ptes: 2 };
+    return out.sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3) || a.name.localeCompare(b.name));
+  }
+
+  /* Resolve one year's tuition, most-specific source first. Every branch
+     reports `basis` and `label` so the screen can always answer the only
+     question that matters when a family is looking at it: where did you
+     get that number? */
+  function tuitionPerYear({ tier, providerId, subjectRoot, feeOverride }) {
     const d = D();
     if (Number(feeOverride) > 0) {
-      return { amount: round(feeOverride), basis: 'quoted', label: 'the fee you were quoted', confidence: 'high' };
+      return { amount: round(feeOverride), basis: 'quoted', confidence: 'exact',
+               label: 'the fee you were quoted' };
     }
-    if (tier === 'universities' && subjectRoot && d.uniBySubject && d.uniBySubject[subjectRoot]) {
-      const s = d.uniBySubject[subjectRoot];
-      const mid = (s.lo + s.hi) / 2;
-      const meta = d.uniBySubjectMeta || {};
+
+    const p = providerOf(providerId);
+
+    // 1. That provider's own published figure for that subject.
+    const s = p && p.bySubject && subjectRoot && p.bySubject[subjectRoot];
+    if (s) {
+      const [lo, hi, eg] = s;
       return {
-        amount: round(mid + (meta.servicesFee || 0)),
-        lo: s.lo, hi: s.hi, basis: 'published-subject', eg: s.eg,
-        label: `${meta.provider || 'a university'}'s published ${meta.asOf || ''} rate for ${s.eg}`.trim(),
-        confidence: 'high',
+        amount: round((lo + hi) / 2 + (p.servicesFee || 0)),
+        lo, hi, basis: 'provider-subject', confidence: 'published',
+        provider: p.name, eg,
+        label: `${p.name}'s published ${p.asOf} rate for ${eg}`,
       };
     }
-    const t = (d.tiers && d.tiers[tier]) || (d.tiers && d.tiers.universities) || {};
+
+    // 2. That provider's own overall range.
+    if (p && p.band) {
+      return {
+        amount: round((p.band[0] + p.band[1]) / 2 + (p.servicesFee || 0)),
+        lo: p.band[0], hi: p.band[1], basis: 'provider-band', confidence: 'band',
+        provider: p.name,
+        label: `${p.name}'s published range — they set fees per programme, so confirm yours`,
+      };
+    }
+
+    // 3. A provider we hold no fees for: the tier it belongs to.
+    const catP = (typeof window !== 'undefined' && window.PF_CATALOGUE
+                  && window.PF_CATALOGUE.providers || {})[providerId];
+    const useTier = (catP && catP.type) || tier || 'universities';
+    const t = (d.tiers && d.tiers[useTier]) || (d.tiers && d.tiers.universities) || {};
     return {
       amount: round(t.mid || 0), lo: t.lo, hi: t.hi, basis: 'tier-band',
-      label: `the typical ${(t.short || 'provider').toLowerCase()} band`,
-      confidence: t.confidence || 'medium',
+      confidence: 'estimate', provider: catP && catP.name,
+      label: catP
+        ? `the typical ${(t.short || '').toLowerCase()} band — we don't hold ${catP.name}'s published fees, so ask them`
+        : `the typical ${(t.short || 'provider').toLowerCase()} band`,
     };
   }
 
@@ -272,22 +321,40 @@ const PFRoi = (() => {
 
     const re = (over) => compute(Object.assign({}, o, over));
 
-    // Same level, cheaper tier.
-    ['polytechnics', 'ptes'].forEach(tier => {
-      if (tier === currentTier) return;
-      const t = d.tiers && d.tiers[tier];
-      if (!t) return;
-      const alt = re({ tier, feeOverride: 0 });
+    /* Named providers first — a real institution the student can look up
+       beats an abstract "a polytechnic" every time, and it is the only
+       form of this claim a family can check. Only providers whose fees we
+       actually hold are offered, and each row says how solid its number
+       is, so nothing here is a guess dressed as a comparison. */
+    Object.entries(d.providers || {}).forEach(([id, p]) => {
+      if (id === o.providerId) return;
+      // Skip a provider that has no figure for this subject AND no band.
+      const hasSubject = p.bySubject && subjectRoot && p.bySubject[subjectRoot];
+      if (!hasSubject && !p.band) return;
+      const alt = re({ providerId: id, tier: p.tier, feeOverride: 0 });
       if (alt.totalCost >= base.totalCost) return;
+      const t = (d.tiers && d.tiers[p.tier]) || {};
+      const sameTier = p.tier === currentTier;
       rows.push({
-        id: 'tier-' + tier,
-        title: `The same NZQF level at a ${t.short.toLowerCase()}`,
-        why: `${t.label}s award level 9 master's degrees on the same framework. Typical international fee is ${money(t.lo)}–${money(t.hi)} a year against a university's.`,
-        tradeoff: tier === 'ptes'
-          ? 'Private colleges vary widely in size, support and reputation with employers. Check the provider\'s NZQA category and talk to a graduate before committing.'
-          : 'Polytechnics are strongly applied and industry-linked. Fewer research pathways if a doctorate is the eventual goal.',
+        id: 'prov-' + id,
+        title: `${p.name}`,
+        kicker: sameTier ? 'Same kind of provider, lower fee' : `The same NZQF level at a ${(t.short || p.tier).toLowerCase()}`,
+        why: hasSubject
+          ? `Their published ${p.asOf} rate for this subject is ${money(alt.tuition.lo)}–${money(alt.tuition.hi)} a year.`
+          : `They publish a range of ${money(p.band[0])}–${money(p.band[1])} a year and set fees per programme.`,
+        tradeoff: p.tier === 'ptes'
+          ? 'Private colleges vary widely in size, support and standing with employers. Check the provider\'s NZQA category and talk to a graduate first.'
+          : p.tier === 'polytechnics'
+            ? 'Polytechnics are strongly applied and industry-linked. Fewer research pathways if a doctorate is the eventual goal.'
+            // Deliberately does not assert a change of city: several of
+            // these sit in the same one as each other (AUT and Auckland
+            // both being in Auckland), and a trade-off that is wrong on a
+            // checkable fact costs the whole comparison its credibility.
+            : 'A different university means different entry requirements and a different graduate network, and may mean a different city. Check the programme actually matches what you want.',
         saving: base.totalCost - alt.totalCost,
-        total: alt.totalCost, payback: alt.paybackYears, confidence: t.confidence,
+        total: alt.totalCost, payback: alt.paybackYears,
+        confidence: hasSubject ? 'published' : 'band',
+        providerId: id,
       });
     });
 
@@ -331,7 +398,9 @@ const PFRoi = (() => {
       });
     }
 
-    return rows.sort((a, b) => b.saving - a.saving);
+    // Named, published-fee providers lead; then anything else by saving.
+    const weight = r => (r.confidence === 'published' ? 0 : r.confidence === 'band' ? 1 : 2);
+    return rows.sort((a, b) => weight(a) - weight(b) || b.saving - a.saving).slice(0, 6);
   }
 
   /* Count the register's own evidence for the cheaper-tier claim, so the
@@ -359,7 +428,8 @@ const PFRoi = (() => {
   };
 
   return { compute, cheaperRoutes, tuitionPerYear, graduateEarnings, studyIncomePerYear,
-           livingPerYear, setupCost, afterTax, levelNineTierCounts, fmtYears, money, lkr };
+           livingPerYear, setupCost, afterTax, levelNineTierCounts, fmtYears, money, lkr,
+           providerChoices, providerOf };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = PFRoi;

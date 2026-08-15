@@ -583,15 +583,34 @@ const PFInvoice = (() => {
       s.ownFundsNZD ? ['Still to arrange', s.gapNZD, true] : null,
     ].filter(Boolean);
 
-    p.need(24 * totals.length + 10);
+    /* Three fixed columns, same geometry as the table above: label, then
+       NZ$ ending at R-110, then LKR ending at R. The label is RIGHT-
+       aligned to the start of the NZ$ column minus a gutter, and wrapped
+       to the space actually left over.
+
+       The previous version right-aligned the label at R-122 while the
+       NZ$ value also extended left from R-110 — so a long label like
+       "Less: earned from part-time work while studying" ran back
+       underneath the number and printed on top of it. */
+    const COL_NZ = R - 110;             // right edge of the NZ$ column
+    const GUTTER = 16;
+    const labelRight = COL_NZ - 95 - GUTTER;   // 95pt reserved for the widest NZ$ figure
+    const labelMaxW = labelRight - M;
+
     p.y += 4;
     totals.forEach(([label, val, strong]) => {
-      p.text(label, R - 110 - 12, p.y + (strong ? 2 : 0), strong ? 11 : 10, { bold: strong, align: 'right', color: strong ? INK : SOFT });
-      p.text(nz(val), R - 110, p.y, strong ? 11 : 10, { align: 'right', bold: strong, color: strong ? INK : SOFT });
-      p.text(lk(val, rate), R, p.y, strong ? 12 : 10, { align: 'right', bold: strong });
-      p.y += strong ? 22 : 18;
+      const size = strong ? 11 : 10;
+      const lines = wrap(String(label), size, !!strong, labelMaxW);
+      const h = Math.max(lines.length * (size * 1.35), 16);
+      p.need(h + 8);
+      const top = p.y;
+      lines.forEach((ln, i) => p.text(ln, labelRight, top + i * (size * 1.35), size,
+        { bold: strong, align: 'right', color: strong ? INK : SOFT }));
+      p.text(nz(val), COL_NZ, top, size, { align: 'right', bold: strong, color: strong ? INK : SOFT });
+      p.text(lk(val, rate), R, top, strong ? 12 : 10, { align: 'right', bold: strong });
+      p.y = top + h + (strong ? 6 : 3);
     });
-    p.y += 8;
+    p.y += 10;
 
     /* Afterwards */
     p.need(96);

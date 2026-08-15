@@ -63,33 +63,88 @@ const PF_ROI = {
     },
   },
 
-  /* ── Real per-subject university tuition ────────────────────────────
-     The University of Auckland publishes a full per-subject international
-     schedule, which makes it the only provider whose 2026 numbers can be
-     stated exactly rather than as a band. It is also the most expensive
-     of the eight, so treating it as "the university option" is the
-     conservative choice — a comparison built on it never flatters the
-     cheaper route by understating the expensive one.
+  /* ── Per-provider tuition ───────────────────────────────────────────
+     Keyed by NZQA provider id, so a student picks the provider they are
+     actually applying to and sees THAT provider's fee — not a stand-in.
 
-     Keyed by NZQA subject-area root id (see PF_CATALOGUE.taxonomy).
-     `eg` names the UoA fee line the figure comes from. */
-  uniBySubject: {
-    '76449': { lo: 55484, hi: 55484, eg: 'Science' },
-    '76450': { lo: 55484, hi: 55484, eg: 'Science / Engineering' },
-    '76451': { lo: 55484, hi: 55485, eg: 'Engineering' },
-    '76452': { lo: 55484, hi: 55484, eg: 'Architecture' },
-    '76453': { lo: 55484, hi: 55484, eg: 'Science' },
-    '76454': { lo: 55214, hi: 86561, eg: 'Medical and Health Sciences' },
-    '76455': { lo: 42219, hi: 43674, eg: 'Education' },
-    '76456': { lo: 47675, hi: 50105, eg: 'Business and Economics' },
-    '76457': { lo: 44970, hi: 52838, eg: 'Arts' },
-    '76458': { lo: 48857, hi: 55484, eg: 'Fine Arts / Design' },
-    '76460': { lo: 44970, hi: 55484, eg: 'Arts – Science span' },
-  },
-  uniBySubjectMeta: {
-    asOf: '2026-08', provider: 'University of Auckland',
-    src: 'auckland.ac.nz — 2026 international postgraduate fees, based on 120 points full-time',
-    servicesFee: 1133,   // student services fee, ~NZ$1,132.80/yr on top of tuition
+     `bySubject` is keyed by NZQA subject-area root (PF_CATALOGUE.taxonomy)
+     and holds [lo, hi] for one year of full-time study (120 points),
+     INCLUDING the provider's compulsory student services fee where it is
+     charged separately, because that is what lands on the invoice.
+
+     `confidence`:
+       'published'  every figure below is transcribed from that provider's
+                    own current international fee schedule
+       'band'       the provider publishes per-programme rather than in one
+                    schedule, so only a whole-provider range is given and
+                    the UI asks the student for their quoted fee
+
+     Three providers are transcribed in full. That is deliberate rather
+     than lazy: an invented per-subject figure for a provider that does
+     not publish one would look identical to a real one on screen, and a
+     family would act on it. Where the number is not known it is a band,
+     and the UI says so and pushes for the real quote. */
+  providers: {
+    '700122001': {
+      name: 'University of Auckland', tier: 'universities', confidence: 'published',
+      asOf: '2026', servicesFee: 1133, band: [42219, 86561],
+      src: 'auckland.ac.nz — 2026 international postgraduate fees, 120 points full-time',
+      bySubject: {
+        '76449': [55484, 55484, 'Science'],
+        '76450': [55484, 55484, 'Science / Engineering'],
+        '76451': [55484, 55485, 'Engineering'],
+        '76452': [55484, 55484, 'Architecture'],
+        '76453': [55484, 55484, 'Science'],
+        '76454': [55214, 86561, 'Medical and Health Sciences'],
+        '76455': [42219, 43674, 'Education'],
+        '76456': [47675, 50105, 'Business and Economics'],
+        '76457': [44970, 52838, 'Arts'],
+        '76458': [48857, 55484, 'Fine Arts / Design'],
+      },
+    },
+    '700800001': {
+      name: 'Auckland University of Technology', tier: 'universities', confidence: 'published',
+      asOf: '2026', servicesFee: 0, band: [35421, 53121],
+      src: 'aut.ac.nz — International Student Fees 2026 (figures include the $1,221.60 services fee)',
+      note: 'AUT publishes fees inclusive of its student services fee, so these are the invoice totals.',
+      bySubject: {
+        '76449': [45000, 48021, 'Science (postgraduate)'],
+        '76450': [46000, 52321, 'Engineering, Computer & Mathematical Sciences'],
+        '76451': [46000, 52321, 'Engineering, Computer & Mathematical Sciences'],
+        '76452': [42300, 52321, 'Architecture & Built Environment'],
+        '76453': [45000, 48021, 'Science (postgraduate)'],
+        '76454': [45000, 53121, 'Health Sciences (postgraduate)'],
+        '76456': [39921, 42721, 'Business (postgraduate)'],
+        '76457': [38721, 38721, 'Social Sciences & Public Policy (postgraduate)'],
+        '76458': [45800, 47021, 'Art & Design (postgraduate)'],
+      },
+    },
+    '700277001': {
+      name: 'University of Waikato', tier: 'universities', confidence: 'published',
+      asOf: '2026', servicesFee: 0, band: [39580, 68370],
+      src: 'waikato.ac.nz — 2026 estimated international tuition, 120-point master\'s',
+      note: 'Waikato states its fees are approximate and subject to change.',
+      bySubject: {
+        '76449': [45920, 48195, 'Science / Science (Research)'],
+        '76450': [46008, 46200, 'Information Technology / Cyber Security — the AI master\'s is far higher at 68,370'],
+        '76451': [50445, 53640, 'Engineering Practice / Engineering'],
+        '76453': [45920, 45920, 'Science'],
+        '76454': [50030, 50030, 'Health Science'],
+        '76456': [39840, 41180, 'Digital Business / Business'],
+        '76457': [39580, 45920, 'Arts'],
+        '76458': [50605, 50610, 'Music / Design'],
+      },
+    },
+    /* Publish per programme rather than in one schedule — band only. */
+    '700311001': { name: 'Massey University', tier: 'universities', confidence: 'band', asOf: '2026', band: [30000, 45000], src: 'massey.ac.nz — confirm per programme' },
+    '700493001': { name: 'Victoria University of Wellington', tier: 'universities', confidence: 'band', asOf: '2026', band: [33000, 46000], src: 'wgtn.ac.nz fee calculator — confirm per programme' },
+    '700571001': { name: 'University of Canterbury', tier: 'universities', confidence: 'band', asOf: '2026', band: [28000, 52000], src: 'canterbury.ac.nz — confirm per programme' },
+    '700642001': { name: 'Lincoln University', tier: 'universities', confidence: 'band', asOf: '2026', band: [32500, 39000], src: 'lincoln.ac.nz — confirm per programme' },
+    '700726001': { name: 'University of Otago', tier: 'universities', confidence: 'band', asOf: '2026', band: [24000, 63000], src: 'otago.ac.nz — confirm per programme' },
+
+    '601915001': { name: 'Waikato Institute of Technology (Wintec)', tier: 'polytechnics', confidence: 'band', asOf: '2026', band: [19105, 23445], src: 'wintec.ac.nz — International Student Fees 2026' },
+    '600627001': { name: 'Ara Institute of Canterbury', tier: 'polytechnics', confidence: 'band', asOf: '2026', band: [18400, 32500], src: 'ara.ac.nz — International fees 2026' },
+    '601339001': { name: 'Otago Polytechnic', tier: 'polytechnics', confidence: 'band', asOf: '2026', band: [26000, 33500], src: 'op.ac.nz — International fees table' },
   },
 
   /* ── Post-study earnings ────────────────────────────────────────────
@@ -174,13 +229,19 @@ const PF_ROI = {
      The numbers that never appear in a prospectus and always appear on a
      bank statement. */
   oneOff: {
-    visaNZD: 750,             // student visa application, indicative
+    // "From NZD $850" on the INZ Fee Paying Student Visa page — the floor,
+    // so the model never understates it.
+    visaNZD: 850,
     medicalsNZD: 250,         // INZ panel physician chest x-ray + exam
     policeCertNZD: 40,
     airfareOneWayNZD: 1400,   // Colombo → Auckland, one way, economy
     insurancePerYearNZD: 750, // compulsory for the duration of study
     asOf: '2026-08',
-    src: 'Indicative — confirm visa fee on immigration.govt.nz and insurance with the provider',
+    src: 'Student visa fee from immigration.govt.nz (Fee Paying Student Visa, "from NZD $850"); the rest indicative — confirm insurance with the provider',
+    /* Anyone already holding a 20-hour student visa who wants the 25-hour
+       condition must apply to vary it. Not in the totals, because it only
+       applies to students already onshore. */
+    variationOfConditionsNZD: 325,
   },
 };
 
