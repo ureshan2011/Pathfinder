@@ -84,6 +84,35 @@ as "finished." The mentor stat row also drops "Invoiced, not yet paid"
 (a 5th metric) to stay at the spec's 4-max — it's still visible inside the
 Session log tab itself.
 
+## Course Catalogue, Explore — partial port
+
+Course Catalogue is fully restructured (hero, `.tab` subject/sub-area
+rails, a 3-up `.card-grid` of `.listcard`-shaped results with the open one
+spanning full width). Explore got its hero, `.tab` field filter, and the
+same-class-name bug fixes below, but `uniCard()`/`polytechCards()` still
+use their pre-existing `.card` shapes rather than a full listcard/row
+rebuild — real remaining work, same partial-port pattern as Mentor
+Dashboard/Admin. Research Studio (`renderResearch` and its four
+sub-stages) hasn't been touched yet. The handoff's IA also asks for
+Explore and Research Studio to become `.tab`s *inside* Courses rather than
+their own routes — that routing/IA consolidation is deferred; both still
+render at `#explore`/`#research` today. Flagging this explicitly rather
+than claiming the merge is done.
+
+## Global fix found while porting Courses/Explore
+
+`.btn-ghost` is built for dark chrome/hero panels (`--chrome-line`/
+`--on-chrome` text and border). It was also the class the pre-existing app
+used for secondary buttons on ordinary light `.card` surfaces everywhere
+— Research Studio, Funding, Funds Check, Templates, Pricing, Account,
+Mentors, Admin's session/order tables, etc. On a light card that pairing
+is close to unreadable (near-white text/border on near-white). Since this
+is a correctness bug rather than a per-view IA decision, all ~60 of those
+call sites were switched to `.btn-quiet` in one pass, rather than only
+fixing it inside whichever view happened to be mid-port. The two
+legitimate `.btn-ghost` uses (the hero's own secondary-button variant,
+inside `renderHero()`) are untouched.
+
 ## Still open
 
 - The sidebar's persistent "your mentor" identity/quote (see above) needs

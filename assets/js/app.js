@@ -707,14 +707,14 @@ function renderNews(main) {
 
     let listHtml;
     if (newsState.loading && !items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Fetching the latest immigration & PhD news…</p></div>`;
-    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-ghost btn-sm news-refresh">Try again</button></p></div>`;
+    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-quiet btn-sm news-refresh">Try again</button></p></div>`;
     else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
       : `<div class="card"><p class="muted" style="margin:0">Nothing in this category right now — try “All”.</p></div>`;
 
     body.innerHTML = `<div class="news-bar">
         <div class="news-fils">${chips}</div>
         <div class="news-upd">${updated}${newsState.loading ? ' · refreshing…' : ''}
-          <button class="btn btn-ghost btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
+          <button class="btn btn-quiet btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
       </div>
       <div class="news-list">${listHtml}</div>
       <p class="faint" style="font-size:11.5px;margin-top:20px;max-width:640px">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a>.</p>`;
@@ -806,7 +806,7 @@ function partnerRow(placement) {
   return `<div class="partner-row">
     <span class="chip chip-gold">Partner</span>
     <p><strong>${p.name}</strong> — ${p.blurb}</p>
-    <a class="btn btn-ghost btn-sm" href="${p.url}" target="_blank" rel="noopener sponsored">${p.cta}</a>
+    <a class="btn btn-quiet btn-sm" href="${p.url}" target="_blank" rel="noopener sponsored">${p.cta}</a>
   </div>`;
 }
 window.addEventListener('hashchange', route);
@@ -844,8 +844,8 @@ function viewHead(icon, kicker, title, sub) {
    (uni, lab) omit them and are resolved from the static dataset as before. */
 function saveBtn(kind, id, label, sub) {
   const saved = PFStore.isSaved(kind, id);
-  // .btn-quiet, not .btn-ghost: this renders on light .card/.listcard
-  // surfaces everywhere it's used, and .btn-ghost is built for dark
+  // .btn-quiet, not .btn-quiet: this renders on light .card/.listcard
+  // surfaces everywhere it's used, and .btn-quiet is built for dark
   // chrome/hero panels — on a light card its border/text tokens
   // (--chrome-line/--on-chrome) are nearly invisible.
   return `<button class="btn btn-quiet btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
@@ -1792,7 +1792,7 @@ function nzOpportunityPanel(authors) {
     </ul>
     <div class="rs-nz-cta">
       <a class="btn btn-primary btn-sm" href="#explore">Explore their universities</a>
-      <a class="btn btn-ghost btn-sm" href="#kit">First-contact email template</a>
+      <a class="btn btn-quiet btn-sm" href="#kit">First-contact email template</a>
     </div>
     <p class="faint" style="font-size:11.5px;margin-top:12px">Authors and affiliations are drawn from the public research literature. PathFinder doesn’t arrange supervision — any approach is yours to make.</p>
   </section>`;
@@ -2045,8 +2045,8 @@ function renderResearch(main) {
         the giveaway.</p>
         <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
           <a class="btn btn-primary" href="#kit">Write my statement of purpose</a>
-          <a class="btn btn-ghost" href="#courses">Check my qualification</a>
-          <button class="btn btn-ghost" id="rs-anyway">I’m applying for a research master’s</button>
+          <a class="btn btn-quiet" href="#courses">Check my qualification</a>
+          <button class="btn btn-quiet" id="rs-anyway">I’m applying for a research master’s</button>
         </div>
       </div>`;
     $('#rs-anyway').onclick = () => { researchState.started = true; route(); };
@@ -2070,7 +2070,7 @@ function renderResearchLanding(main, saved) {
       <p class="muted" style="font-size:13.5px">Field: ${esc(saved.intake.field)} · saved ${new Date(saved.proposal.generatedAt).toLocaleDateString()}</p>
       <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
         <button class="btn btn-primary" id="rs-resume">Open saved proposal</button>
-        <button class="btn btn-ghost" id="rs-new">Start a new topic</button>
+        <button class="btn btn-quiet" id="rs-new">Start a new topic</button>
       </div>
     </div>`;
   $('#rs-resume', main).onclick = () => {
@@ -2174,7 +2174,7 @@ function renderResearchDiscover(main) {
   main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Candidate directions & literature map',
     `For “${esc(rs.intake.topic)}” in ${esc(rs.intake.field)}.`) +
     notice +
-    `<div style="margin-bottom:24px"><button class="btn btn-ghost btn-sm" id="rs-back">← Edit answers</button></div>
+    `<div style="margin-bottom:24px"><button class="btn btn-quiet btn-sm" id="rs-back">← Edit answers</button></div>
      <h2 class="rs-h2">Pick a direction to expand</h2>
      <div class="grid-2" style="margin-bottom:36px">
        ${rs.candidates.map(c => `
@@ -2243,10 +2243,10 @@ function renderResearchProposal(main) {
   main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Your draft proposal',
     'A structured scaffold from your answers and real literature. Refine it with a supervisor before submitting.') +
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
-      <button class="btn btn-ghost btn-sm" id="rs-back2">← Back to directions</button>
+      <button class="btn btn-quiet btn-sm" id="rs-back2">← Back to directions</button>
       <button class="btn btn-primary btn-sm rs-copy"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
-      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="md"><span class="material-symbols-outlined" style="font-size:15px">download</span> .md</button>
-      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="txt"><span class="material-symbols-outlined" style="font-size:15px">download</span> .txt</button>
+      <button class="btn btn-quiet btn-sm rs-dl" data-fmt="md"><span class="material-symbols-outlined" style="font-size:15px">download</span> .md</button>
+      <button class="btn btn-quiet btn-sm rs-dl" data-fmt="txt"><span class="material-symbols-outlined" style="font-size:15px">download</span> .txt</button>
     </div>
     <div class="card rs-proposal" style="max-width:800px">
       <div class="rs-stamps">
@@ -2306,13 +2306,13 @@ let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '',
 
 function renderCourses(main) {
   const T = trackCfg();
-  main.innerHTML = viewHead('school', 'Course Catalogue', `Find ${T.article} that fits`,
-    'Loading the NZQA register…') + '<p class="muted">Loading…</p>';
+  main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: `Find ${T.article} that fits`,
+    body: 'Loading the NZQA register…' });
 
   ensureCatalogue().then(cat => {
     if (!cat) {
-      main.innerHTML = viewHead('school', 'Course Catalogue', 'Course catalogue unavailable',
-        'The catalogue could not be loaded. Check your connection and refresh — everything else in PathFinder still works.');
+      main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: 'Course catalogue unavailable',
+        body: 'Could not load the register — check your connection and refresh.' });
       return;
     }
     // First visit lands on the subject area matching the student's
@@ -2369,12 +2369,10 @@ function paintCourses(main, cat) {
   const rows = coursesMatching(cat);
   const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : 'every subject';
 
-  main.innerHTML = viewHead('school', 'Course Catalogue',
-    `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
-    `Every current NZQF level ${T.levels.join(' and ')} qualification on the NZQA register, and the ` +
-    `${cat.meta.providerCount} providers that teach them. ` +
-    `Showing <strong>${T.label}</strong>-level study in ${esc(rootName)}.`) +
-
+  main.innerHTML = renderHero({
+    kicker: 'Course Catalogue', title: `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
+    body: `Every current NZQF level ${T.levels.join(' and ')} qualification on the register, in ${esc(rootName)}.`,
+  }) +
     `<div class="crs-bar">
       <input class="crs-search" id="crs-q" type="search" placeholder="Search by qualification or provider…"
         value="${esc(coursesState.q)}" aria-label="Search courses" />
@@ -2393,32 +2391,31 @@ function paintCourses(main, cat) {
       </select>
     </div>
 
-    <div class="crs-rail" id="crs-rail">
-      <button class="chip-filter ${!coursesState.root ? 'active' : ''}" data-root="">All subjects</button>
-      ${cat.roots.map(r => `<button class="chip-filter ${coursesState.root === r ? 'active' : ''}"
-        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="crs-n">${cat.shards[r].count}</span></button>`).join('')}
+    <div class="crs-rail" id="crs-rail" role="tablist" aria-label="Subject area">
+      <button type="button" class="tab" role="tab" aria-selected="${!coursesState.root}" data-root="">All subjects</button>
+      ${cat.roots.map(r => `<button type="button" class="tab" role="tab" aria-selected="${coursesState.root === r}"
+        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="tab-n">${cat.shards[r].count}</span></button>`).join('')}
     </div>
     ${coursesState.root ? subAreaRail(cat) : ''}
 
-    <p class="faint crs-count">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
-    <div id="crs-list">${rows.length
+    <p class="listcard-summary mt-4">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
+    <div class="card-grid mt-3" id="crs-list">${rows.length
       ? rows.map(courseRow).join('')
-      : '<p class="muted">Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
+      : '<p>Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
 
-    <p class="faint" style="margin-top:28px;font-size:12px">
-      Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
+    <p class="row-sub mt-7">Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
       requirements and fees with the provider before you apply.</p>`;
 
   // Loading the shard fills in the prose behind each row's detail panel.
   if (coursesState.root) ensureSubjectArea(coursesState.root);
 
   const rerender = () => paintCourses(main, cat);
-  $$('#crs-rail .chip-filter').forEach(b => b.onclick = () => {
+  $$('#crs-rail .tab').forEach(b => b.onclick = () => {
     coursesState.root = b.dataset.root; coursesState.sub = null; coursesState.open = null;
     rerender();
     if (coursesState.root) ensureSubjectArea(coursesState.root).then(rerender);
   });
-  $$('#crs-sub .chip-filter').forEach(b => b.onclick = () => {
+  $$('#crs-sub .tab').forEach(b => b.onclick = () => {
     coursesState.sub = b.dataset.sub || null; coursesState.open = null; rerender();
   });
   ['level', 'type', 'org'].forEach(k => {
@@ -2466,29 +2463,29 @@ function subAreaRail(cat) {
   });
   const subs = Object.keys(counts).sort((a, b) => catTaxon(a).n.localeCompare(catTaxon(b).n));
   if (!subs.length) return '';
-  return `<div class="crs-rail crs-rail-sub" id="crs-sub">
-    <button class="chip-filter ${!coursesState.sub ? 'active' : ''}" data-sub="">All of ${esc(cat.taxonomy[coursesState.root].n)}</button>
-    ${subs.map(s => `<button class="chip-filter ${coursesState.sub === s ? 'active' : ''}"
-      data-sub="${s}">${esc(catTaxon(s).n)} <span class="crs-n">${counts[s]}</span></button>`).join('')}
+  return `<div class="crs-rail crs-rail-sub" id="crs-sub" role="tablist" aria-label="Sub-area">
+    <button type="button" class="tab" role="tab" aria-selected="${!coursesState.sub}" data-sub="">All of ${esc(cat.taxonomy[coursesState.root].n)}</button>
+    ${subs.map(s => `<button type="button" class="tab" role="tab" aria-selected="${coursesState.sub === s}"
+      data-sub="${s}">${esc(catTaxon(s).n)} <span class="tab-n">${counts[s]}</span></button>`).join('')}
   </div>`;
 }
 
 function courseRow(row) {
   const open = coursesState.open === row.i;
   const providers = row.o.map(catProvider).filter(Boolean);
-  return `<div class="card crs-card" data-id="${esc(row.i)}">
+  return `<div class="listcard crs-card ${open ? 'is-open' : ''}" data-id="${esc(row.i)}">
     <div class="crs-head">
       <div style="flex:1;min-width:240px">
-        <h3 style="font-size:1.02rem;line-height:1.35">${esc(row.t)}</h3>
-        <div class="faint" style="font-size:12.5px;margin-top:4px">
+        <h3 class="listcard-title">${esc(row.t)}</h3>
+        <div class="row-sub mt-3">
           ${esc(providers.map(p => p.name).join(' · ') || 'Provider not listed')}
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="chip chip-dim">Level ${esc(row.l)}</span>
-        ${row.c ? `<span class="chip chip-dim">${esc(row.c)} credits</span>` : ''}
+        <span class="chip chip-neutral">Level ${esc(row.l)}</span>
+        ${row.c ? `<span class="chip chip-neutral">${esc(row.c)} credits</span>` : ''}
         ${saveBtn('course', row.i, row.t, providers.map(p => p.name).join(' · '))}
-        <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
+        <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}" aria-hidden="true">expand_more</span>
       </div>
     </div>
     ${open ? courseDetail(row, providers) : ''}
@@ -2503,8 +2500,8 @@ function courseDetail(row, providers) {
 
   return `<div class="crs-body">
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">
-      <span class="chip chip-teal">${esc(row.y)}</span>
-      ${catRoots(row).map(r => `<span class="chip chip-dim">${esc(catTaxon(r).n)}</span>`).join('')}
+      <span class="chip chip-ok">${esc(row.y)}</span>
+      ${catRoots(row).map(r => `<span class="chip chip-neutral">${esc(catTaxon(r).n)}</span>`).join('')}
     </div>
     ${sect('Entry requirements', d.entryRequirements)}
     ${sect('What it is for', d.strategicPurposeStatement)}
@@ -2536,9 +2533,9 @@ function courseDetail(row, providers) {
       </div>`).join('')}
     </div>
 
-    ${d.nzqaLink ? `<a class="btn btn-ghost btn-sm" href="${esc(d.nzqaLink)}" target="_blank" rel="noopener">
-      View on NZQA <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
-    ${consultCTA(isMasters() ? 'masters-intake' : 'roadmap-supervisor')}
+    ${d.nzqaLink ? `<a class="btn btn-quiet btn-sm" href="${esc(d.nzqaLink)}" target="_blank" rel="noopener">
+      View on NZQA <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">open_in_new</span></a>` : ''}
+    ${consultNudge(isMasters() ? 'masters-intake' : 'roadmap-supervisor')}
   </div>`;
 }
 
@@ -2559,15 +2556,17 @@ function renderExplore(main) {
   const a = PFStore.getAssessment();
   const myField = (!isMasters() && currentResult()) ? currentResult().field : '';
 
-  main.innerHTML = viewHead('science', isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
-    isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
-    isMasters()
-      ? 'Every New Zealand provider that teaches postgraduate qualifications — universities, polytechnics and private colleges — with what each one offers and how to reach them.'
-      : 'The eight NZ universities and their main research groups. Filter by field, save what fits, then write using the Starter Kit template.') +
+  main.innerHTML = renderHero({
+    kicker: isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
+    title: isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
+    body: isMasters()
+      ? 'Every New Zealand provider that teaches postgraduate qualifications.'
+      : 'The eight NZ universities and their main research groups.',
+  }) +
     (isMasters() ? '' :
-      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px" id="field-filters">
-        <button class="chip-filter ${!myField ? 'active' : ''}" data-f="">All fields</button>
-        ${PF_FIELDS.map(f => `<button class="chip-filter ${f === myField ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}
+      `<div class="tab-row" id="field-filters" role="tablist" aria-label="Field">
+        <button type="button" class="tab" role="tab" aria-selected="${!myField}" data-f="">All fields</button>
+        ${PF_FIELDS.map(f => `<button type="button" class="tab" role="tab" aria-selected="${f === myField}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}
       </div>`) +
     '<div id="explore-list"></div>';
 
@@ -2587,9 +2586,9 @@ function renderExplore(main) {
   ensureCatalogue().then(() => paint(myField));
   paint(myField);
 
-  $$('#field-filters .chip-filter').forEach(b => b.onclick = () => {
-    $$('#field-filters .chip-filter').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
+  $$('#field-filters .tab').forEach(b => b.onclick = () => {
+    $$('#field-filters .tab').forEach(x => x.setAttribute('aria-selected', 'false'));
+    b.setAttribute('aria-selected', 'true');
     paint(b.dataset.f);
   });
 }
@@ -2630,11 +2629,11 @@ function uniCard(u, field) {
     </div>
     <p class="muted" style="font-size:13.5px;margin:10px 0 14px">${u.note}</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${labs.length ? '16px' : '10px'}">
-      ${u.strengths.map(s => `<span class="chip chip-dim">${esc(s)}</span>`).join('')}
+      ${u.strengths.map(s => `<span class="chip chip-neutral">${esc(s)}</span>`).join('')}
     </div>
-    ${n ? `<a class="btn btn-ghost btn-sm" href="#courses">${n} ${trackCfg().label}-level qualification${n === 1 ? '' : 's'}
-      <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>` : ''}
-    ${p && p.website ? `<a class="btn btn-ghost btn-sm" href="https://${esc(p.website.replace(/^https?:\/\//, ''))}"
+    ${n ? `<a class="btn btn-quiet btn-sm" href="#courses">${n} ${trackCfg().label}-level qualification${n === 1 ? '' : 's'}
+      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">arrow_forward</span></a>` : ''}
+    ${p && p.website ? `<a class="btn btn-quiet btn-sm" href="https://${esc(p.website.replace(/^https?:\/\//, ''))}"
       target="_blank" rel="noopener" style="margin-left:8px">Website</a>` : ''}
     ${labs.map(l => `
       <div class="lab-row">
@@ -2680,7 +2679,7 @@ function polytechCards() {
             <div class="faint" style="font-size:12.5px;margin-top:2px">${esc(p.location || p.address || '')}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span class="chip chip-dim">${n} qualification${n === 1 ? '' : 's'}</span>
+            <span class="chip chip-neutral">${n} qualification${n === 1 ? '' : 's'}</span>
             ${saveBtn('provider', id, p.name, p.location)}
             <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
           </div>
@@ -2696,8 +2695,8 @@ function polytechCards() {
               ${p.providerLink ? `<a href="${esc(p.providerLink)}" target="_blank" rel="noopener">NZQA profile</a>` : ''}
             </div>
           </div>
-          <a class="btn btn-ghost btn-sm" href="#courses">See its qualifications
-            <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>
+          <a class="btn btn-quiet btn-sm" href="#courses">See its qualifications
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">arrow_forward</span></a>
         </div>` : ''}
       </div>`;
     }).join('');
@@ -2836,7 +2835,7 @@ function scholarshipCard(s, cat) {
     ${provider ? `<p class="faint" style="font-size:12.5px;margin-bottom:8px">${esc(provider.name)}</p>` : ''}
     <p class="muted" style="font-size:13.5px">${esc((s.about || '').slice(0, 320))}${(s.about || '').length > 320 ? '…' : ''}</p>
     ${el.other ? `<p class="muted" style="font-size:13px;margin-top:8px"><strong>Eligibility:</strong> ${esc(el.other)}</p>` : ''}
-    ${s.url ? `<a class="btn btn-ghost btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-top:12px">
+    ${s.url ? `<a class="btn btn-quiet btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-top:12px">
       Provider page <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
     ${consultCTA(isMasters() ? 'masters-intake' : 'visa-offer')}
   </div>`;
@@ -3050,7 +3049,7 @@ function renderFunds(main) {
       fundsResultCard(saved.result) +
       `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
         <button class="btn btn-primary" id="fc-redo">Re-check my funds</button>
-        <a class="btn btn-ghost" href="#settlement">Detailed funds planner</a>
+        <a class="btn btn-quiet" href="#settlement">Detailed funds planner</a>
       </div>`;
     $('#fc-redo').onclick = () => { fundsState = { step: 0, answers: {}, retake: true }; route(); };
     return;
@@ -3074,7 +3073,7 @@ function renderFunds(main) {
        <div class="asm-opts">${q.opts.map((o, k) =>
          `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
        </div>
-       ${i > 0 ? `<button class="btn btn-ghost btn-sm" id="fc-back" style="margin-top:22px">← Back</button>` : ''}
+       ${i > 0 ? `<button class="btn btn-quiet btn-sm" id="fc-back" style="margin-top:22px">← Back</button>` : ''}
      </div>`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
@@ -3109,7 +3108,7 @@ function renderFundsAmount(main) {
        </div>
        <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
          <button class="btn btn-primary" id="fc-finish">See my readiness <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></button>
-         <button class="btn btn-ghost btn-sm" id="fc-back">← Back</button>
+         <button class="btn btn-quiet btn-sm" id="fc-back">← Back</button>
        </div>
      </div>`;
 
@@ -3411,7 +3410,7 @@ function renderKit(main) {
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
           <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
-        <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
+        <button class="btn btn-quiet btn-sm tpl-copy" data-id="${t.id}">
           <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
       </div>
     </div>`;
@@ -3433,7 +3432,7 @@ function renderKit(main) {
   const banner = (gate && !unlocked) ? `<div class="card" style="margin-bottom:24px;border-color:var(--ochre);display:flex;gap:14px;flex-wrap:wrap;align-items:center">
       <span class="material-symbols-outlined" style="color:var(--ochre)">workspace_premium</span>
       <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${PF_TEMPLATES.length - premiumIds.length} templates are free. Unlock the ${premiumIds.length} advanced ones (research proposal, interview prep, 3-year plan, budgets &amp; more) with the <strong>Explorer</strong> plan.</p>
-      <a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>
+      <a class="btn btn-quiet btn-sm" href="#pricing">See plans</a>
     </div>` : '';
 
   // Track-specific templates (the master's statement of purpose, the
@@ -3839,7 +3838,7 @@ function renderPricing(main) {
   const plans = [
     { accent: 'teal', icon: 'lightbulb', name: 'Free', included: 3,
       price: 'LKR 0', unit: '', sub: 'No account needed — your work saves on this device.',
-      cta: `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
+      cta: `<a class="btn btn-quiet btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
     { accent: 'gold', icon: 'travel_explore', name: 'Explorer', included: 4,
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
       cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
@@ -3969,7 +3968,7 @@ function accountStatus(main, role) {
       <p class="muted" style="font-size:13.5px;margin:8px 0 18px">${cfg[3]}</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <a class="btn btn-primary btn-sm" href="${cfg[5]}">${cfg[4]}</a>
-        <button class="btn btn-ghost btn-sm" id="acc-out">Sign out</button>
+        <button class="btn btn-quiet btn-sm" id="acc-out">Sign out</button>
       </div>
     </div>`;
   $('#acc-out').onclick = () => (role === 'admin' ? PFCloud.signOutAdmin() : PFCloud.signOutUser());
@@ -3990,8 +3989,8 @@ function accountAuth(main) {
         <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="ac-signup">Create account</button>
-          <button class="btn btn-ghost btn-sm" id="ac-signin">I already have one</button>
-          <button class="btn btn-ghost btn-sm" id="ac-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+          <button class="btn btn-quiet btn-sm" id="ac-signin">I already have one</button>
+          <button class="btn btn-quiet btn-sm" id="ac-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:18px">
@@ -3999,13 +3998,13 @@ function accountAuth(main) {
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-teal">Mentor</span><span class="chip chip-dim">Invite-only</span></div>
           <h2 style="font-size:1.05rem;margin-bottom:4px">Mentor access</h2>
           <p class="muted" style="font-size:13px;margin-bottom:14px">Mentoring is invite-only. If you’ve been given an invite code, continue to set up your mentor account — an admin approves it before you take requests.</p>
-          <a class="btn btn-ghost btn-sm" href="#mentor"><span class="material-symbols-outlined" style="font-size:15px">badge</span> Enter mentor sign-up</a>
+          <a class="btn btn-quiet btn-sm" href="#mentor"><span class="material-symbols-outlined" style="font-size:15px">badge</span> Enter mentor sign-up</a>
         </div>
         <div class="card">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-rose">Admin</span></div>
           <h2 style="font-size:1.05rem;margin-bottom:4px">Admin access</h2>
           <p class="muted" style="font-size:13px;margin-bottom:14px">Platform owners only.</p>
-          <a class="btn btn-ghost btn-sm" href="#admin"><span class="material-symbols-outlined" style="font-size:15px">lock</span> Go to admin sign-in</a>
+          <a class="btn btn-quiet btn-sm" href="#admin"><span class="material-symbols-outlined" style="font-size:15px">lock</span> Go to admin sign-in</a>
         </div>
       </div>
     </div>`;
@@ -4202,10 +4201,10 @@ function personCard(p, opts = {}) {
       </div>
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-      ${phone ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(phone)}">Call</a>` : ''}
-      ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
-      <button class="btn btn-ghost btn-sm px-history" data-person="${esc(p.key)}">History</button>
+      ${wa ? `<a class="btn btn-quiet btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+      ${phone ? `<a class="btn btn-quiet btn-sm" href="tel:${esc(phone)}">Call</a>` : ''}
+      ${mail ? `<a class="btn btn-quiet btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+      <button class="btn btn-quiet btn-sm px-history" data-person="${esc(p.key)}">History</button>
       ${opts.canLog ? `<button class="btn btn-primary btn-sm px-log" data-person="${esc(p.key)}" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log a session</button>` : ''}
     </div>
@@ -4392,10 +4391,10 @@ function sessionCard(s, opts = {}) {
       <span class="faint mono" style="font-size:11px">${esc(s.invoiceNo || '—')}</span>
       <button class="btn btn-primary btn-sm sx-send" data-sess="${esc(s.id)}" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">send</span> Send it</button>
-      <button class="btn btn-ghost btn-sm sx-invoice" data-sess="${esc(s.id)}">PDF</button>
-      <button class="btn btn-ghost btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
-      ${!opts.readOnly && !paid && amt ? `<button class="btn btn-ghost btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
-      ${!opts.readOnly ? `<button class="btn btn-ghost btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
+      <button class="btn btn-quiet btn-sm sx-invoice" data-sess="${esc(s.id)}">PDF</button>
+      <button class="btn btn-quiet btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
+      ${!opts.readOnly && !paid && amt ? `<button class="btn btn-quiet btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
+      ${!opts.readOnly ? `<button class="btn btn-quiet btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
     </div>
   </div>`;
 }
@@ -4455,7 +4454,7 @@ function sessionFormHTML(s, mentors) {
     <p class="faint" id="sx-msg" style="font-size:12.5px;min-height:16px;margin:0"></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center">Save</button>
-      <button class="btn btn-ghost" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save and make the invoice</button>
+      <button class="btn btn-quiet" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save and make the invoice</button>
     </div>
   </form>`;
 }
@@ -4534,7 +4533,7 @@ function openSessionForm(o = {}) {
           ${past.sessions.length} session${past.sessions.length === 1 ? '' : 's'}${past.due ? `, <strong>LKR ${past.due.toLocaleString()}</strong> still due` : ''}.
           ${last ? `Last time: ${esc(sessionTitle(last))}${last.date ? ' on ' + esc(dayLabel(last.date)) : ''}.` : ''}
         </p>
-        <button class="btn btn-ghost btn-sm" type="button" id="sx-known-more">Show</button>
+        <button class="btn btn-quiet btn-sm" type="button" id="sx-known-more">Show</button>
       </div>
       <div id="sx-known-body" class="hidden" style="margin-top:4px"></div>`;
     const more = known.querySelector('#sx-known-more');
@@ -4629,8 +4628,8 @@ function openSendInvoice(s) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         ${wa ? `<a class="btn btn-primary btn-sm" id="ix-wa" href="${esc(waHref)}" target="_blank" rel="noopener">Open WhatsApp</a>`
              : `<span class="faint" style="font-size:12.5px">No phone number on this record — copy the message instead.</span>`}
-        ${mail ? `<a class="btn btn-ghost btn-sm" id="ix-mail" href="${esc(mailHref)}">Open email</a>` : ''}
-        <button class="btn btn-ghost btn-sm" id="ix-copy">Copy message</button>
+        ${mail ? `<a class="btn btn-quiet btn-sm" id="ix-mail" href="${esc(mailHref)}">Open email</a>` : ''}
+        <button class="btn btn-quiet btn-sm" id="ix-copy">Copy message</button>
       </div>
     </div>`);
   m.el.querySelector('.modal-card').style.maxWidth = '560px';
@@ -4734,8 +4733,8 @@ function mentorApply(main) {
         <p class="faint" id="mt-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="mt-signup">Create account</button>
-          <button class="btn btn-ghost btn-sm" id="mt-signin">I already have one</button>
-          <button class="btn btn-ghost btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+          <button class="btn btn-quiet btn-sm" id="mt-signin">I already have one</button>
+          <button class="btn btn-quiet btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
         </div>
         <p class="faint" style="font-size:12px;margin-top:14px">Not a mentor? <a href="#account" style="color:var(--route)">Back to account</a> · <a href="#mentors" style="color:var(--route)">Ask a mentor instead</a></p>
       </div>`;
@@ -4832,7 +4831,7 @@ function mentorPending(main) {
       </div>
       <p style="font-size:14px;margin:0 0 4px"><strong>${esc(p.displayName || '')}</strong>${p.city ? ' · ' + esc(p.city) : ''}</p>
       ${p.bio ? `<p class="muted" style="font-size:13.5px;margin-top:8px">${esc(p.bio)}</p>` : ''}
-      <button class="btn btn-ghost btn-sm" id="mt-out" style="margin-top:16px">Sign out</button>
+      <button class="btn btn-quiet btn-sm" id="mt-out" style="margin-top:16px">Sign out</button>
     </div>`;
   $('#mt-out').onclick = () => PFCloud.signOutUser();
 }
@@ -5066,7 +5065,7 @@ function claimedReqCard(r) {
   const price = (r.payment && r.payment.amountLKR) || PF_CONFIG.defaultSessionPriceLKR;
   let actions = '';
   if (r.status === 'claimed') {
-    actions = `<button class="btn btn-ghost btn-sm mt-intro" data-req="${r.id}">Mark ${PF_CONFIG.freeIntroMinutes}-min intro complete</button>`;
+    actions = `<button class="btn btn-quiet btn-sm mt-intro" data-req="${r.id}">Mark ${PF_CONFIG.freeIntroMinutes}-min intro complete</button>`;
   } else if (r.status === 'intro_done') {
     actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%">
         <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Follow-on price (LKR)</label>
@@ -5074,7 +5073,7 @@ function claimedReqCard(r) {
         <button class="btn btn-primary btn-sm mt-genlink" data-req="${r.id}">Generate payment link</button>
       </div>`;
   } else if (r.status === 'awaiting_payment') {
-    actions = `${PFPay.isPayHereLive() ? `<button class="btn btn-ghost btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>` : ''}
+    actions = `${PFPay.isPayHereLive() ? `<button class="btn btn-quiet btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>` : ''}
       <button class="btn btn-primary btn-sm mt-paid" data-req="${r.id}">Mark payment received</button>`;
   } else if (r.status === 'paid') {
     actions = `<button class="btn btn-primary btn-sm mt-complete" data-req="${r.id}">Mark session completed</button>`;
@@ -5095,9 +5094,9 @@ function claimedReqCard(r) {
           const wa = waNumber(r.contact), mail = contactEmailOf(r.contact), tel = contactPhoneOf(r.contact);
           if (r.studentUid || !(wa || mail)) return '';
           return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-            ${tel ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(tel)}">Call</a>` : ''}
-            ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+            ${wa ? `<a class="btn btn-quiet btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+            ${tel ? `<a class="btn btn-quiet btn-sm" href="tel:${esc(tel)}">Call</a>` : ''}
+            ${mail ? `<a class="btn btn-quiet btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
           </div>`;
         })()}
         ${reported ? `<div class="muted" style="font-size:12.5px;margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:3px">Student reported payment via <strong>${esc(r.payment.method || 'transfer')}</strong>${r.payment.payerRef ? ` · ref <strong class="mono">${esc(r.payment.payerRef)}</strong>` : ''}${r.payment.payerTxn ? ` · txn <span class="mono">${esc(r.payment.payerTxn)}</span>` : ''}. Verify in your banking app, then “Mark payment received”.</div>` : ''}
@@ -5111,9 +5110,9 @@ function claimedReqCard(r) {
       // Writing up the session is available at every live stage — the
       // conversation often happens (and is worth recording) well before
       // any money changes hands.
-      const log = r.status === 'cancelled' ? '' : `<button class="btn btn-ghost btn-sm mt-log" data-req="${r.id}">
+      const log = r.status === 'cancelled' ? '' : `<button class="btn btn-quiet btn-sm mt-log" data-req="${r.id}">
         <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log session</button>`;
-      const cancel = canCancel ? `<button class="btn btn-ghost btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : '';
+      const cancel = canCancel ? `<button class="btn btn-quiet btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : '';
       return (actions || log || cancel)
         ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
              ${actions}${log}${cancel}
@@ -5484,7 +5483,7 @@ function admAction(body) {
   const jumpCard = (tab, icon, text) => `<a class="card" href="#" data-jump="${tab}" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;border-color:var(--ochre)">
       <span class="material-symbols-outlined" style="color:var(--ochre)">${icon}</span>
       <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${text}</p>
-      <span class="btn btn-ghost btn-sm">Open</span>
+      <span class="btn btn-quiet btn-sm">Open</span>
     </a>`;
 
   body.innerHTML = `
@@ -5561,7 +5560,7 @@ function admLeads(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${leads.length} lead${leads.length === 1 ? '' : 's'}</p>
-      ${leads.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-leads"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${leads.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-leads"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     <div class="card">${leads.length ? `<table class="ledger"><tbody>
       ${leads.map(l => `<tr>
@@ -5594,9 +5593,9 @@ function mentorCard(m) {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
         ${m.approved
-          ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
+          ? `<button class="btn btn-quiet btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
           : `<button class="btn btn-primary btn-sm" data-muid="${m.uid}" data-act="approve">Approve</button>`}
-        ${m.approved ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
+        ${m.approved ? `<button class="btn btn-quiet btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -5639,7 +5638,7 @@ function requestCard(r) {
     </div>
     ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
       ${canPaid ? `<button class="btn btn-primary btn-sm" data-radoc="${r.id}" data-act="paid">Mark payment received</button>` : ''}
-      ${canCancel ? `<button class="btn btn-ghost btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+      ${canCancel ? `<button class="btn btn-quiet btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -5650,7 +5649,7 @@ function admRequests(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${reqs.length} request${reqs.length === 1 ? '' : 's'}</p>
-      ${reqs.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-reqs"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${reqs.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-reqs"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${reqs.length ? reqs.map(requestCard).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor requests yet.</p></div>`}`;
 
@@ -5673,7 +5672,7 @@ function admOrders(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${orders.length} order${orders.length === 1 ? '' : 's'} · LKR ${revenue.toLocaleString()} confirmed</p>
-      ${orders.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-orders"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${orders.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-orders"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${orders.length ? orders.map(o => {
       const canPaid = o.status === 'reported' || o.status === 'pending';
@@ -5692,7 +5691,7 @@ function admOrders(body) {
         </div>
         ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
           ${canPaid ? `<button class="btn btn-primary btn-sm" data-oid="${o.id}" data-act="paid">Mark paid &amp; unlock</button>` : ''}
-          ${canCancel ? `<button class="btn btn-ghost btn-sm" data-oid="${o.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+          ${canCancel ? `<button class="btn btn-quiet btn-sm" data-oid="${o.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
         </div>` : ''}
       </div>`;
     }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No premium orders yet.</p></div>`}`;
@@ -5741,7 +5740,7 @@ function admSessions(body, repaint) {
         <option value="">Any payment state</option>
         ${Object.entries(PF_SESSION_PAYMENT_STATES).map(([k, v]) => `<option value="${k}" ${admSessionFilter.pay === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
       </select>
-      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-sx"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${list.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-sx"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
       <button class="btn btn-primary btn-sm" id="adm-sx-log" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
     </div>
@@ -5809,7 +5808,7 @@ function admPeople(body) {
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
       <input class="field" id="adm-px-q" placeholder="Search by name or number" value="${esc(admPeopleQuery)}" style="width:auto;min-width:220px;flex:1;max-width:340px">
-      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${list.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${list.length ? list.map(p => personCard(p, { canLog: true })).join('')
       : `<div class="card"><p class="muted" style="font-size:14px">${people.length ? 'Nobody matches that search.' : 'No one on record yet. Requests from the site and calls you write down both land here.'}</p></div>`}`;
@@ -5944,7 +5943,7 @@ function admAccounting(body) {
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${rows.length} transaction${rows.length === 1 ? '' : 's'} · ledger newest first</p>
-      ${rows.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-acct"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export ledger CSV</button>` : ''}
+      ${rows.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-acct"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export ledger CSV</button>` : ''}
     </div>
     ${rows.length ? `<div class="card" style="overflow-x:auto"><table class="ledger" style="min-width:660px"><thead>
       <tr><th style="text-align:left">Date</th><th style="text-align:left">Invoice</th><th style="text-align:left">Item</th><th style="text-align:left">Method</th><th style="text-align:right">Amount</th><th style="text-align:left">Status</th><th></th></tr>
@@ -5957,8 +5956,8 @@ function admAccounting(body) {
         <td class="mono" style="text-align:right;white-space:nowrap">${money(r.amountLKR)}</td>
         <td>${payStatusChip({ paymentStatus: r.status })}</td>
         <td style="text-align:right;white-space:nowrap">
-          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" data-act="download" title="Download PDF invoice"><span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span></button>
-          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Preview / print"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button>
+          <button class="btn btn-quiet btn-sm" data-invoice="${esc(r.invoiceNo)}" data-act="download" title="Download PDF invoice"><span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span></button>
+          <button class="btn btn-quiet btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Preview / print"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button>
         </td>
       </tr>`).join('')}
     </tbody></table></div>` : `<div class="card"><p class="muted" style="font-size:14px">No payments recorded yet. Logged mentoring sessions, reported and confirmed request payments, and premium unlocks all appear here.</p></div>`}
