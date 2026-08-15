@@ -679,45 +679,48 @@ function relTime(ts) {
   return d < 30 ? d + 'd ago' : new Date(ts).toLocaleDateString();
 }
 
-function newsItemRow(x, compact) {
-  const sum = x.summary && x.summary.length > 160 ? x.summary.slice(0, 160) + '…' : (x.summary || '');
-  return `<a class="news-row" href="${esc(x.link)}" target="_blank" rel="noopener">
-    <div class="news-main">
-      <div class="news-meta"><span class="chip chip-${x.accent || 'dim'}">${esc(x.tag)}</span>
-        <span class="news-src">${esc(x.source)}</span>${x.ts ? `<span class="news-time">· ${relTime(x.ts)}</span>` : ''}</div>
-      <strong class="news-title">${esc(x.title)}</strong>
-      ${!compact && sum ? `<p class="news-sum">${esc(sum)}</p>` : ''}
+/* one headline + a mono date — no excerpt, per the Briefing spec */
+function newsItemRow(x) {
+  return `<a class="row" href="${esc(x.link)}" target="_blank" rel="noopener">
+    <div class="row-main">
+      <div class="row-title">${esc(x.title)}</div>
+      <div class="row-sub">${esc(x.source)}${x.ts ? ' · ' + relTime(x.ts) : ''}</div>
     </div>
-    <span class="material-symbols-outlined news-go">north_east</span>
+    <span class="chip chip-neutral">${esc(x.tag)}</span>
   </a>`;
 }
 
 function renderNews(main) {
-  main.innerHTML = viewHead('newspaper', 'Briefing', 'Immigration & PhD news, live',
-    'Only what matters for a Sri Lankan student heading to New Zealand — visa & immigration changes and PhD / postgraduate news, pulled fresh from across the web and refreshed continuously.') +
-    `<div id="news-body"></div>`;
+  main.innerHTML = renderHero({
+    kicker: 'Briefing', title: 'Immigration & PhD news, live',
+    body: 'Visa/immigration changes and postgraduate news, pulled fresh and refreshed continuously.',
+  }) + `<div id="news-body"></div>`;
   const body = $('#news-body', main);
 
   const paint = () => {
     const items = newsState.items || [];
     const tags = ['all', ...new Set((PF_NEWS.feeds || []).map(f => f.tag))];
-    const chips = tags.map(t => `<button class="chip-filter news-fil ${newsFilter === t ? 'active' : ''}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
+    const chips = tags.map(t => `<button type="button" class="tab news-fil" role="tab" aria-selected="${newsFilter === t}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
     const shown = items.filter(x => newsFilter === 'all' || x.tag === newsFilter);
     const updated = newsState.fetchedAt ? `Updated ${relTime(newsState.fetchedAt)}` : '';
 
     let listHtml;
-    if (newsState.loading && !items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Fetching the latest immigration & PhD news…</p></div>`;
-    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-quiet btn-sm news-refresh">Try again</button></p></div>`;
+    if (newsState.loading && !items.length) listHtml = '<p>Fetching the latest immigration & PhD news…</p>';
+    else if (!items.length) listHtml = '<p>Couldn’t reach the news sources right now — <button type="button" class="btn-quiet news-refresh">Try again</button></p>';
     else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
-      : `<div class="card"><p class="muted" style="margin:0">Nothing in this category right now — try “All”.</p></div>`;
+      : '<p>Nothing in this category right now — try "All".</p>';
 
-    body.innerHTML = `<div class="news-bar">
-        <div class="news-fils">${chips}</div>
-        <div class="news-upd">${updated}${newsState.loading ? ' · refreshing…' : ''}
-          <button class="btn btn-quiet btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
+    body.innerHTML = `<div class="tab-row" role="tablist" aria-label="News category">${chips}
+        <div class="tab-row-end">
+          <span class="row-sub">${updated}${newsState.loading ? ' · refreshing…' : ''}</span>
+          <button type="button" class="icon-btn news-refresh" title="Refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+        </div>
       </div>
-      <div class="news-list">${listHtml}</div>
-      <p class="faint" style="font-size:11.5px;margin-top:20px;max-width:640px">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a>.</p>`;
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Latest</h2></div>
+        ${listHtml}
+      </div>
+      <p class="row-sub mt-5">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with Immigration New Zealand.</p>`;
   };
 
   paint();
