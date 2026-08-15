@@ -3440,8 +3440,8 @@ function renderKit(main) {
   // both and always show.
   const templates = PF_TEMPLATES.filter(t => !t.track || t.track === PFStore.getTrack());
 
-  main.innerHTML = viewHead('package_2', `${trackCfg().label} Starter Kit`, 'Templates & resources',
-    'Drafts to start from, for each stage — preview, copy, or download. Rewrite them in your own words; the structure is the useful part, not the wording.') +
+  main.innerHTML = renderHero({ kicker: `${trackCfg().label} Starter Kit`, title: 'Templates & resources',
+    body: 'Drafts to start from — preview, copy, or download, then rewrite them in your own words.' }) +
     banner +
     `<div class="grid-2">${templates.map(t => {
       const isPremium = gate && premiumIds.includes(t.id);
@@ -3589,8 +3589,8 @@ function renderSettlement(main) {
     { id: 'buying-power',  label: 'What NZ$20 buys' },
   ];
 
-  main.innerHTML = viewHead('luggage', 'Settle In', 'Your first months in New Zealand',
-    'Arrival, banking, transport, housing, family — plus a funds planner, a 90-day cost simulator, and what NZ$20 actually buys you there.') +
+  main.innerHTML = renderHero({ kicker: 'Settle In', title: 'Your first months in New Zealand',
+    body: 'Arrival, banking, transport and housing — plus a funds planner and a 90-day cost simulator.' }) +
     `<div id="set-tabs" class="set-tabs">
       ${PF_SETTLEMENT_CATS.map((c, i) => `<button class="chip-filter ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}
       <span class="set-tab-sep" aria-hidden="true"></span>
@@ -4692,12 +4692,12 @@ let mentorState = { tab: 'open', open: null, claimed: null, sessions: null, load
 
 function renderMentor(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', 'Mentoring needs Firebase',
-      'The mentor marketplace (accounts, the request queue, payments) runs on Firebase. Configure <code>assets/js/firebase-config.js</code> and deploy <code>firestore.rules</code> to enable it.');
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Mentoring needs Firebase',
+      body: 'The mentor marketplace runs on Firebase — configure firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', 'Connecting…', 'Loading the Firebase layer.');
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Connecting…', body: 'Loading the Firebase layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 400);
     return;
   }
@@ -4716,8 +4716,8 @@ function mentorApply(main) {
   const signedIn = PFCloud.isSignedIn();
 
   if (!signedIn) {
-    main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Mentor sign-up',
-      'PathFinder mentors are vetted Sri Lankan postgrads already in New Zealand. Enter your invite code and create your account — an admin reviews and approves your profile before you take any requests.') +
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Mentor sign-up',
+      body: 'Enter your invite code and create your account — an admin reviews your profile before you take requests.' }) +
       `<div class="card" style="max-width:440px">
         <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Mentor invite code</label>
         <input class="field" id="mt-code" autocomplete="off" placeholder="Enter your invite code" style="margin:6px 0 14px;text-transform:uppercase">
@@ -4762,8 +4762,8 @@ function mentorApply(main) {
     return;
   }
 
-  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Your mentor profile',
-    'Tell us what you can help with — an admin will review and approve your profile before it goes live.') +
+  main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Your mentor profile',
+    body: 'Tell us what you can help with — an admin reviews it before it goes live.' }) +
     `<div class="card" style="max-width:520px" id="mt-profile-card">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Display name (students see this after they’re matched with you)</label>
       <input class="field" id="mp-name" placeholder="e.g. Kasun J." style="margin:5px 0 14px">
@@ -4816,8 +4816,8 @@ function humanAuthError(err) {
 
 function mentorPending(main) {
   const p = PFCloud.getMentorProfile() || {};
-  main.innerHTML = viewHead('hourglass_top', 'Mentor Dashboard', 'Application pending review',
-    'Thanks for applying. An admin will review your profile shortly — once approved, the open request queue appears here.') +
+  main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Application pending review',
+    body: 'An admin will review your profile shortly — the open request queue appears here once approved.' }) +
     `<div class="card" style="max-width:560px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <span class="chip chip-gold">Pending approval</span>
@@ -5210,13 +5210,13 @@ const ADMIN_BLANK = () => ({ tab: 'action', leads: null, mentors: null, requests
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Admin panel unavailable',
-      'Firebase is not configured. Paste your project config into <code>assets/js/firebase-config.js</code> and deploy <code>firestore.rules</code> to enable leads, mentors, requests and user records here.');
+    main.innerHTML = renderHero({ kicker: 'Admin', title: 'Admin panel unavailable',
+      body: 'Firebase is not configured — set up firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
   // Sync layer still loading (deferred module) → wait, then re-render.
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Connecting…', 'Loading the Firebase admin layer.');
+    main.innerHTML = renderHero({ kicker: 'Admin', title: 'Connecting…', body: 'Loading the Firebase admin layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 400);
     return;
   }
@@ -5226,8 +5226,8 @@ function renderAdmin(main) {
 }
 
 function adminLogin(main) {
-  main.innerHTML = viewHead('lock', 'Admin', 'Admin sign-in',
-    'Enter the admin access code and password to view leads, mentors, requests and user records.') +
+  main.innerHTML = renderHero({ kicker: 'Admin', title: 'Admin sign-in',
+    body: 'Enter the admin access code and password to view leads, mentors, requests and user records.' }) +
     `<div class="card" style="max-width:420px">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Access code</label>
       <input class="field" id="adm-code" autocomplete="off" placeholder="Admin code" style="margin:6px 0 14px;text-transform:uppercase">

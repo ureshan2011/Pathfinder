@@ -124,6 +124,16 @@ integration under time pressure. Same as Explore/Research Studio: the
 handoff's ask to fold Funds Check and Settle In into Visa Hub as tabs is a
 routing/IA change deferred to a follow-up, not done silently.
 
+## viewHead() — down to one caller left
+
+Every view now uses renderHero() except Research Studio (`renderResearch`
+and its four sub-stages: landing, intake, discover, proposal — six
+`viewHead()` calls). It's the most complex remaining view (OpenAlex
+literature search, a deterministic proposal generator, several distinct
+stages) and wasn't touched this pass — restructuring it is real remaining
+work, not a quick swap like the other auth/loading-state screens were.
+`viewHead()` itself stays defined until that last caller migrates.
+
 ## Still open
 
 - The sidebar's persistent "your mentor" identity/quote (see above) needs
