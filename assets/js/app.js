@@ -883,13 +883,15 @@ function renderAssessment(main) {
     // A result computed on the other track is stale the moment they switch,
     // so recompute from the stored answers rather than showing the old verdict.
     const result = currentResult();
-    main.innerHTML = viewHead('quiz', 'Pathway Assessment', 'You’ve completed your assessment',
-      `Your personalized result is below, for the <strong>${T.label}</strong> track. Retake anytime — your roadmap updates automatically.`) +
-      resultCard(result) +
-      `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-        <a class="btn btn-primary" href="#roadmap">View my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
-        <a class="btn btn-ghost" href="#courses">Browse matching courses</a>
-        <button class="btn btn-ghost" id="retake">Retake assessment</button>
+    main.innerHTML = renderHero({
+      kicker: 'Pathway Assessment', title: result.pathway,
+      body: `Your ${T.label} result, based on your answers. Retake anytime.`,
+      figure: result.readiness, figureSuffix: '%', figureCaption: T.label + '-ready',
+      primaryLabel: 'View my roadmap', primaryHref: '#roadmap',
+    }) + resultCard(result) +
+      `<div class="hero-actions mt-5">
+        <a class="btn btn-quiet" href="${isMasters() ? '#courses' : '#explore'}">${isMasters() ? 'Browse matching courses' : 'Explore matched labs'}</a>
+        <button type="button" class="btn btn-quiet" id="retake">Retake assessment</button>
       </div>`;
     $('#retake').onclick = () => { asmState = { step: 0, answers: {}, retake: true }; route(); };
     return;
@@ -907,16 +909,15 @@ function renderAssessment(main) {
   const q = qs[i];
   const pct = Math.round((i / qs.length) * 100);
 
-  main.innerHTML = viewHead('quiz', `Question ${i + 1} of ${qs.length}`, 'Pathway Assessment',
-    `Seven questions about ${T.article} in New Zealand, and about five minutes. Your answers shape the plan and the course filters.`) +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:22px">${q.q}</h2>
-       <div class="asm-opts">${q.opts.map((o, k) =>
-         `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
-       </div>
-       ${i > 0 ? `<button class="btn btn-ghost btn-sm" id="asm-back" style="margin-top:22px">← Back</button>` : ''}
-     </div>`;
+  main.innerHTML = renderHero({
+    kicker: `Question ${i + 1} of ${qs.length}`, title: q.q,
+    body: `About five minutes in total — your answers shape the plan and the course filters.`,
+  }) +
+    barHtml(pct) +
+    `<div class="asm-opts mt-6">${q.opts.map((o, k) =>
+      `<button type="button" class="field asm-opt" data-k="${k}" role="radio" aria-checked="false">${o.t}</button>`).join('')}
+     </div>
+     ${i > 0 ? `<button type="button" class="btn btn-quiet mt-5" id="asm-back">← Back</button>` : ''}`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
     asmState.answers[q.id] = q.opts[+b.dataset.k].v;
@@ -1031,52 +1032,43 @@ function finishAssessment(main) {
   PFStore.setAssessment({ answers: asmState.answers, result, completedAt: Date.now() });
   asmState = { step: 0, answers: {} };
   const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
-  main.innerHTML = viewHead('celebration', 'Assessment complete', 'Your personalized result',
-    'Saved to your dashboard. Your roadmap is built from these answers.') +
+  main.innerHTML = renderHero({
+    kicker: 'Assessment complete', title: result.pathway,
+    body: 'Saved to your dashboard — your roadmap is built from these answers.',
+    figure: result.readiness, figureSuffix: '%', figureCaption: trackCfg().label + '-ready',
+    primaryLabel: 'Open my roadmap', primaryHref: '#roadmap',
+  }) +
     resultCard(result) +
     // Endowed-progress login moment: the student now HAS a result worth
     // keeping — the strongest point to offer a free account (never forced).
     (cloudOn() && !synced
-      ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
-          <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
-          <span>You’re <strong>${result.readiness}% ${esc(trackCfg().label)}-ready</strong>. Create a free account and your result and roadmap stay with you on every device.</span>
-          <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+      ? `<a class="nudge mt-5" href="#account">
+          <span class="material-symbols-outlined nudge-icon" aria-hidden="true">workspace_premium</span>
+          <p class="nudge-body">You're ${result.readiness}% ${esc(trackCfg().label)}-ready. Create a free account and this stays with you on every device.</p>
         </a>`
       : '') +
-    `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-      <a class="btn btn-primary" href="#roadmap">Open my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
+    `<div class="hero-actions mt-5">
       ${isMasters()
-        ? '<a class="btn btn-ghost" href="#courses">Browse matching qualifications</a>'
-        : '<a class="btn btn-ghost" href="#explore">Explore matched labs</a>'}
+        ? '<a class="btn btn-quiet" href="#courses">Browse matching qualifications</a>'
+        : '<a class="btn btn-quiet" href="#explore">Explore matched labs</a>'}
     </div>`;
 }
 
+/* The recommended-pathway panel — shown both right after finishing and
+   whenever the student revisits a completed assessment. The readiness
+   ring the old design used is gone: the hero's own figure slot already
+   carries that percentage, so this listcard only needs the pathway
+   explanation and the field-specific counts. */
 function resultCard(r) {
-  const ring = 2 * Math.PI * 42;
-  return `<div class="card" style="max-width:720px">
-    <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
-      <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
-          stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.readiness / 100)}" transform="rotate(-90 50 50)"/>
-        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.readiness}%</text>
-      </svg>
-      <div style="flex:1;min-width:240px">
-        <span class="chip chip-teal">Recommended pathway</span>
-        <h3 style="font-size:1.25rem;margin:8px 0 6px">${r.pathway}</h3>
-        <p class="muted" style="font-size:14px">${r.pathwayWhy}</p>
-      </div>
-    </div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Field</div><strong>${esc(r.field)}</strong></div>
-      ${r.track === 'masters' ? `
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Qualifications you could take</div><strong>${r.courses || '—'}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Providers offering them</div><strong>${r.providers || '—'}</strong></div>`
-      : `
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched universities</div><strong>${r.unis.length}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched labs</div><strong>${r.labs.length}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Eligible scholarships</div><strong>${r.schols.length}</strong></div>`}
-    </div>
+  const stats = r.track === 'masters'
+    ? [['school', r.courses || 0, 'Qualifications'], ['apartment', r.providers || 0, 'Providers']]
+    : [['school', r.unis.length, 'Matched universities'], ['science', r.labs.length, 'Matched labs'], ['payments', r.schols.length, 'Eligible scholarships']];
+  return `<div class="listcard">
+    <div class="listcard-head"><h2 class="listcard-title">Why this pathway</h2><span class="listcard-summary">${esc(r.field)}</span></div>
+    <p>${r.pathwayWhy}</p>
+    <div class="result-stats">${stats.map(([ic, n, l]) => `<div class="stat">
+      <span class="material-symbols-outlined stat-icon" aria-hidden="true">${ic}</span>
+      <div class="stat-figure">${n}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
     ${r.english < 3 ? partnerRow('ielts') : ''}
   </div>`;
 }
