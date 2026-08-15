@@ -2443,11 +2443,23 @@ function coursesMatching(cat) {
 function paintCourses(main, cat) {
   const T = trackCfg();
   const rows = coursesMatching(cat);
-  const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : 'every subject';
+  const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : null;
+  const savedCount = PFStore.getSaved().filter(s => s.kind === 'course').length;
+
+  // Never open with the catalogue's own size — that's a fact about the
+  // register, not about where this student is. Lead with what they've
+  // actually done (saved something) or are doing (browsing a field); the
+  // register size only earns a mention as the reason to keep searching.
+  const title = savedCount
+    ? `${savedCount} course${savedCount === 1 ? '' : 's'} saved so far`
+    : rootName ? `Browsing ${rootName}` : `Find ${T.article} programme worth applying to`;
+  const body = savedCount
+    ? `Keep comparing before you commit — saved courses follow you to the dashboard and roadmap.`
+    : `${cat.meta.qualCount.toLocaleString()} current NZQF level ${T.levels.join(' and ')} qualifications, searchable by subject, provider and level${rootName ? `, in ${rootName}` : ''}.`;
 
   main.innerHTML = renderHero({
-    kicker: 'Course Catalogue', title: `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
-    body: `Every current NZQF level ${T.levels.join(' and ')} qualification on the register, in ${esc(rootName)}.`,
+    kicker: rootName ? `Course Catalogue · ${rootName}` : 'Course Catalogue', title, body,
+    figure: savedCount, figureCaption: 'Saved',
   }) +
     `<div class="crs-bar">
       <input class="crs-search" id="crs-q" type="search" placeholder="Search by qualification or provider…"
@@ -2631,13 +2643,21 @@ function renderExplore(main) {
   const T = trackCfg();
   const a = PFStore.getAssessment();
   const myField = (!isMasters() && currentResult()) ? currentResult().field : '';
+  const savedCount = PFStore.getSaved().filter(s => s.kind === 'uni' || s.kind === 'lab' || s.kind === 'provider').length;
+
+  const title = isMasters()
+    ? (savedCount ? `${savedCount} provider${savedCount === 1 ? '' : 's'} on your list` : 'Where you could study')
+    : myField ? `Labs working in ${myField}`
+    : savedCount ? `${savedCount} lab${savedCount === 1 ? '' : 's'} shortlisted` : 'Find a supervisor who fits your research';
+  const body = isMasters()
+    ? 'Every New Zealand provider that teaches postgraduate qualifications — save the ones worth a closer look.'
+    : myField ? `Matched to your assessment result — widen the field filter below to see the rest.`
+    : 'Browse research groups across the eight NZ universities, or take the assessment to filter by field.';
 
   main.innerHTML = renderHero({
     kicker: isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
-    title: isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
-    body: isMasters()
-      ? 'Every New Zealand provider that teaches postgraduate qualifications.'
-      : 'The eight NZ universities and their main research groups.',
+    title, body,
+    figure: savedCount, figureCaption: 'Saved',
   }) +
     (isMasters() ? '' :
       `<div class="tab-row" id="field-filters" role="tablist" aria-label="Field">
@@ -3512,9 +3532,15 @@ function renderKit(main) {
   // that track. Untagged templates — CVs, visa checklists, budgets — serve
   // both and always show.
   const templates = PF_TEMPLATES.filter(t => !t.track || t.track === PFStore.getTrack());
+  const locked = gate && !unlocked;
 
-  main.innerHTML = renderHero({ kicker: `${trackCfg().label} Starter Kit`, title: 'Templates & resources',
-    body: 'Drafts to start from — preview, copy, or download, then rewrite them in your own words.' }) +
+  main.innerHTML = renderHero({
+    kicker: `${trackCfg().label} Starter Kit`,
+    title: locked ? 'Free templates to start with' : 'Templates ready to adapt',
+    body: locked
+      ? `${templates.length - premiumIds.length} are free to use right now — the advanced set unlocks with Explorer.`
+      : 'Preview, copy, or download each one, then rewrite it in your own words before you send it anywhere.',
+  }) +
     banner +
     `<div class="grid-2">${templates.map(t => {
       const isPremium = gate && premiumIds.includes(t.id);
@@ -3546,9 +3572,17 @@ function renderVisa(main) {
   const firstOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
   const T = trackCfg();
 
+  const title = done === 0 ? 'Start your visa file'
+    : done >= total ? 'Visa checklist — all done'
+    : `Next — ${firstOpen.title}`;
+  const body = done === 0
+    ? `Eight stages, each one unlocking the next — here's where ${T.article} student in Sri Lanka starts.`
+    : done >= total
+      ? 'Every stage is checked off. Keep your confirmations somewhere safe for arrival.'
+      : firstOpen.summary;
+
   main.innerHTML = renderHero({
-    kicker: 'NZ Student Visa Hub', title: 'The visa, stage by stage',
-    body: 'Where to go in Sri Lanka, who to talk to, and a checklist that remembers where you got to.',
+    kicker: 'NZ Student Visa Hub', title, body,
     figure: total ? Math.round(done / total * 100) : 0, figureSuffix: '%', figureCaption: `${done}/${total} steps done`,
   }) +
     `<div class="viewgrid">
@@ -3738,15 +3772,33 @@ function mentorStats() {
 
 let mentorsTab = 'ask';   // 'ask' | 'mine'
 
+/* status → what to tell the student in their own hero, mentor-voice */
+const MENTOR_REQ_STATUS_LINE = {
+  open: 'is waiting for a mentor to claim it',
+  claimed: 'has been claimed — a mentor is on it',
+  intro_done: 'had its free intro — see what’s next',
+  awaiting_payment: 'is ready for a follow-on session, once you pay',
+  paid: 'is booked in for a paid session',
+};
+
 function renderMentors(main) {
   const topic = hashQuery().topic || '';
   if (hashQuery().tab === 'mine') mentorsTab = 'mine';
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
+  const active = PFStore.getMentorRequests()
+    .filter(r => r.status !== 'completed' && r.status !== 'cancelled')
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+  const title = active
+    ? `Your request ${MENTOR_REQ_STATUS_LINE[active.status] || 'is in progress'}`
+    : topicLabel ? `Ask about ${topicLabel}` : 'Ask someone who has been through it';
+  const heroBody = active
+    ? `${active.topic && PF_CONSULT_TOPICS[active.topic] ? `On ${PF_CONSULT_TOPICS[active.topic]}. ` : ''}Open My requests below for the full thread.`
+    : `Your first ${PF_CONFIG.freeIntroMinutes} minutes are free — paid follow-on sessions are optional.`;
 
   main.innerHTML = renderHero({
-    kicker: 'Mentors', title: 'Ask someone who has been through it',
-    body: `Your first ${PF_CONFIG.freeIntroMinutes} minutes are free — paid follow-on sessions are optional.`,
+    kicker: 'Mentors', title, body: heroBody,
   }) +
     `<div class="tab-row" id="mtr-tabs" role="tablist" aria-label="Mentors">
       <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'ask'}" data-mtab="ask">Ask a mentor</button>
