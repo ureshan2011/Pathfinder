@@ -844,9 +844,13 @@ function viewHead(icon, kicker, title, sub) {
    (uni, lab) omit them and are resolved from the static dataset as before. */
 function saveBtn(kind, id, label, sub) {
   const saved = PFStore.isSaved(kind, id);
-  return `<button class="btn btn-ghost btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
+  // .btn-quiet, not .btn-ghost: this renders on light .card/.listcard
+  // surfaces everywhere it's used, and .btn-ghost is built for dark
+  // chrome/hero panels — on a light card its border/text tokens
+  // (--chrome-line/--on-chrome) are nearly invisible.
+  return `<button class="btn btn-quiet btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
     ${label ? `data-label="${esc(label)}"` : ''} ${sub ? `data-sub="${esc(sub)}"` : ''}>
-    <span class="material-symbols-outlined" style="font-size:16px">${saved ? 'bookmark_added' : 'bookmark_add'}</span>
+    <span class="material-symbols-outlined" aria-hidden="true">${saved ? 'bookmark_added' : 'bookmark_add'}</span>
     ${saved ? 'Saved' : 'Save'}
   </button>`;
 }
@@ -856,7 +860,7 @@ document.addEventListener('click', e => {
   if (!b) return;
   const nowSaved = PFStore.toggleSaved(b.dataset.kind, b.dataset.id, b.dataset.label, b.dataset.sub);
   b.classList.toggle('saved', nowSaved);
-  b.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
+  b.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
   toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
 });
 
