@@ -26,7 +26,17 @@
   </script>
 
   <style>
-    .shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; background: var(--canvas); }
+    /* grid-template-columns is explicit (not left implicit/auto) and uses
+       minmax(0, 1fr): a bare implicit column, or even a plain 1fr, sizes to
+       fit its widest descendant's preferred width instead of clamping to
+       the viewport — the classic CSS grid "blowout" bug. Any element deep
+       inside .main that wants to be wider than the screen (a hero panel
+       capping a paragraph at max-width:520px, a long unbroken title) was
+       growing this column instead of wrapping, giving the whole page a
+       horizontal scrollbar on mobile. minmax(0, 1fr) is the standard fix:
+       it gives the column an explicit floor of 0 so it always shrinks to
+       the actual available width. */
+    .shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 100vh; background: var(--canvas); }
 
     /* study-track switch — masters vs PhD, now inside the overflow popover */
     .track-switch { display: flex; margin: 0 8px 14px; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
@@ -134,7 +144,7 @@
     .fc-flags li .material-symbols-outlined { font-size: 17px; color: var(--ochre); flex-shrink: 0; margin-top: 1px; }
 
     /* Main */
-    .main { padding: var(--pad-view); max-width: 1280px; width: 100%; margin: 0 auto; background: var(--canvas); }
+    .main { min-width: 0; padding: var(--pad-view); max-width: 1280px; width: 100%; margin: 0 auto; background: var(--canvas); }
     .vhead { margin-bottom: 40px; padding-top: 14px; border-top: 1px solid var(--ink); }
     .vhead .tag { margin-bottom: 4px; }
     .vhead h1 { margin: 12px 0 8px !important; }
