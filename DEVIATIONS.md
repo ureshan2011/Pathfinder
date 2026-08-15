@@ -113,6 +113,17 @@ fixing it inside whichever view happened to be mid-port. The two
 legitimate `.btn-ghost` uses (the hero's own secondary-button variant,
 inside `renderHero()`) are untouched.
 
+## Visa Hub, Funds Check — ported; Settle In and the tab merge deferred
+
+Visa Hub and Funds Check are fully restructured (hero with the real
+progress/score figure, listcard-per-stage or listcard result, sidecard for
+money/rights facts). Settle In (`renderSettlement`) has not been touched —
+it drives the 3D scene/funds-planner/buying-power/first-months tools in
+`assets/js/settlement/*.js`, and a rushed restyle risked breaking that
+integration under time pressure. Same as Explore/Research Studio: the
+handoff's ask to fold Funds Check and Settle In into Visa Hub as tabs is a
+routing/IA change deferred to a follow-up, not done silently.
+
 ## Still open
 
 - The sidebar's persistent "your mentor" identity/quote (see above) needs

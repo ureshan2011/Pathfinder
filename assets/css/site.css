@@ -683,6 +683,9 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .shell .mt-6 { margin-top: 24px; }
 .shell .mt-7 { margin-top: 32px; }
 .shell .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.shell .fc-currency { display: flex; border: 1px solid var(--line-strong); border-radius: var(--r-btn); overflow: hidden; }
+.shell .fc-amount-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; max-width: 560px; }
+.shell .fc-amount-row .field { flex: 1; min-width: 160px; font-size: 16px; }
 
 /* ── Course Catalogue / result grids: 3-up cards, expanded one spans full width ── */
 .shell .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }

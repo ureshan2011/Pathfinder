@@ -3022,10 +3022,10 @@ function computeFunds(a) {
   const score = Math.max(0, Math.min(100, Math.round(Math.min(1, ratio) * 100) - penalty));
 
   let band, bandCls, verdict;
-  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-teal'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
-  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-gold'; verdict = 'A small gap left to close, and a workable one.'; }
-  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-violet'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
-  else { band = 'Significant gap'; bandCls = 'chip-rose'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
+  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-ok'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
+  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-warn'; verdict = 'A small gap left to close, and a workable one.'; }
+  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-info'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
+  else { band = 'Significant gap'; bandCls = 'chip-alert'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
 
   return { fundsNZD, tuition, grossTuition, tuitionCovered, livingReq, airfare, requiredTotal,
            livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads,
@@ -3064,13 +3064,13 @@ function renderFunds(main) {
 
   // landing on a completed check → show the result (with re-check)
   if (saved && saved.result && fundsState.step === 0 && !fundsState.retake) {
-    main.innerHTML = viewHead('savings', 'Funds Readiness Check', 'Your visa-funds readiness',
-      'How your money stacks up against what Immigration New Zealand expects to see. Indicative — always confirm current figures with INZ.') +
-      fundsResultCard(saved.result) +
-      `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-        <button class="btn btn-primary" id="fc-redo">Re-check my funds</button>
-        <a class="btn btn-quiet" href="#settlement">Detailed funds planner</a>
-      </div>`;
+    main.innerHTML = renderHero({
+      kicker: 'Funds Readiness Check', title: saved.result.band,
+      body: 'How your money compares to what Immigration New Zealand expects to see.',
+      figure: saved.result.score, figureSuffix: '%', figureCaption: 'Funds readiness',
+      primaryLabel: 'Re-check my funds', primaryId: 'fc-redo',
+      secondaryLabel: 'Detailed funds planner', secondaryHref: '#settlement',
+    }) + fundsResultCard(saved.result);
     $('#fc-redo').onclick = () => { fundsState = { step: 0, answers: {}, retake: true }; route(); };
     return;
   }
@@ -3084,17 +3084,14 @@ function renderFunds(main) {
   const q = QS[i];
   const pct = Math.round((i / (QS.length + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${i + 1} of ${QS.length + 1}`, 'Funds Readiness Check',
-    'A quick self-check of your visa funds — answers stay on your device.') +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:8px">${q.q}</h2>
-       <p class="muted" style="font-size:13.5px;margin-bottom:20px">${q.help}</p>
-       <div class="asm-opts">${q.opts.map((o, k) =>
-         `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
-       </div>
-       ${i > 0 ? `<button class="btn btn-quiet btn-sm" id="fc-back" style="margin-top:22px">← Back</button>` : ''}
-     </div>`;
+  main.innerHTML = renderHero({
+    kicker: `Funds check · ${i + 1} of ${QS.length + 1}`, title: q.q, body: q.help,
+  }) +
+    barHtml(pct) +
+    `<div class="asm-opts mt-6">${q.opts.map((o, k) =>
+      `<button type="button" class="field asm-opt" data-k="${k}" role="radio" aria-checked="false">${o.t}</button>`).join('')}
+     </div>
+     ${i > 0 ? `<button type="button" class="btn btn-quiet mt-5" id="fc-back">← Back</button>` : ''}`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
     fundsState.answers[q.id] = q.opts[+b.dataset.k].v;
@@ -3111,25 +3108,22 @@ function renderFundsAmount(main) {
   const n = fundsQuestions().length;
   const pct = Math.round((n / (n + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${n + 1} of ${n + 1}`, 'Funds Readiness Check',
-    'A quick self-check of your visa funds — answers stay on your device.') +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:8px">Roughly how much in liquid funds can you show?</h2>
-       <p class="muted" style="font-size:13.5px;margin-bottom:20px">Money you (or your sponsor) can actually evidence in a bank account — savings, fixed deposits, scholarship funds. A rough figure is fine.</p>
-       <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
-         <div style="display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden">
-           <button class="fc-cur ${cur === 'LKR' ? 'active' : ''}" data-cur="LKR">LKR</button>
-           <button class="fc-cur ${cur === 'NZD' ? 'active' : ''}" data-cur="NZD">NZ$</button>
-         </div>
-         <input class="field" id="fc-amount" type="number" inputmode="numeric" min="0" step="10000"
-           placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}"
-           style="flex:1;min-width:160px;font-size:16px">
+  main.innerHTML = renderHero({
+    kicker: `Funds check · ${n + 1} of ${n + 1}`, title: 'Roughly how much in liquid funds can you show?',
+    body: 'Money you (or your sponsor) can evidence in a bank account — a rough figure is fine.',
+  }) +
+    barHtml(pct) +
+    `<div class="fc-amount-row mt-6">
+       <div class="fc-currency">
+         <button type="button" class="fc-cur ${cur === 'LKR' ? 'active' : ''}" data-cur="LKR">LKR</button>
+         <button type="button" class="fc-cur ${cur === 'NZD' ? 'active' : ''}" data-cur="NZD">NZ$</button>
        </div>
-       <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
-         <button class="btn btn-primary" id="fc-finish">See my readiness <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></button>
-         <button class="btn btn-quiet btn-sm" id="fc-back">← Back</button>
-       </div>
+       <input class="field" id="fc-amount" type="number" inputmode="numeric" min="0" step="10000"
+         placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}">
+     </div>
+     <div class="hero-actions mt-6">
+       <button type="button" class="btn" id="fc-finish">See my readiness <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+       <button type="button" class="btn btn-quiet" id="fc-back">← Back</button>
      </div>`;
 
   $$('.fc-cur', main).forEach(b => b.onclick = () => {
@@ -3151,26 +3145,13 @@ function renderFundsAmount(main) {
 }
 
 function fundsResultCard(r) {
-  const ring = 2 * Math.PI * 42;
   const row = (label, nzd, strong) => `<div class="fc-row ${strong ? 'fc-row-strong' : ''}">
-    <span>${label}</span><strong>${fundsMoney(nzd)} <em style="font-style:normal;color:var(--ink-faint);font-weight:400">· ${fundsLkr(nzd)}</em></strong></div>`;
+    <span>${label}</span><strong>${fundsMoney(nzd)} <em style="font-style:normal;color:var(--ink-dim);font-weight:400">· ${fundsLkr(nzd)}</em></strong></div>`;
 
-  return `<div class="card" style="max-width:760px">
-    <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
-      <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
-          stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.score / 100)}" transform="rotate(-90 50 50)"/>
-        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.score}%</text>
-      </svg>
-      <div style="flex:1;min-width:240px">
-        <span class="chip ${r.bandCls}">${r.band}</span>
-        <h3 style="font-size:1.2rem;margin:8px 0 6px">${r.gap > 0 ? fundsMoney(r.gap) + ' gap to close' : 'Funds bar met'}</h3>
-        <p class="muted" style="font-size:14px">${r.verdict}</p>
-      </div>
-    </div>
+  return `<div class="listcard">
+    <p>${r.gap > 0 ? fundsMoney(r.gap) + ' gap to close. ' : 'Funds bar met. '}${r.verdict}</p>
 
-    <div class="fc-break" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
+    <div class="fc-break mt-6" style="padding-top:20px;border-top:1px solid var(--line)">
       <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">What INZ expects to see (indicative)</div>
       ${r.track === 'masters'
         ? row('Tuition — first year (full international rate)', r.grossTuition) +
@@ -3203,17 +3184,12 @@ function fundsResultCard(r) {
     </div>
 
     <!-- premium upsell: a mentor who passed the same check reviews the evidence -->
-    <div class="fc-upsell" style="margin-top:16px;padding:16px;border:1px dashed var(--line-2);border-radius:6px;background:var(--gold-soft)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <span class="material-symbols-outlined" style="color:var(--route);font-size:19px">verified</span>
-        <strong style="font-size:14.5px">Funds Evidence Review</strong>
-        <span class="chip chip-gold" style="margin-left:auto">First 15 min free</span>
-      </div>
-      <p class="muted" style="font-size:13px;margin:0 0 12px">A Sri Lankan postgrad who has already cleared the NZ visa funds check looks over your bank statements, sponsor letter and figures — and flags anything INZ would query — before you submit.</p>
-      <a class="btn btn-primary btn-sm" href="#mentors?topic=visa-funds" style="width:100%;justify-content:center">Get my funds evidence reviewed</a>
-    </div>
+    <a class="nudge mt-4" href="#mentors?topic=visa-funds">
+      <span class="material-symbols-outlined nudge-icon" aria-hidden="true">verified</span>
+      <p class="nudge-body"><strong>Funds Evidence Review</strong> — first ${PF_CONFIG.freeIntroMinutes} min free. A postgrad who has already cleared this check looks over your bank statements and sponsor letter before you submit.</p>
+    </a>
 
-    <p class="faint" style="font-size:11.5px;margin-top:18px">Figures are indicative and change with policy — always confirm the current living-cost minimum, fees and dependent requirements with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a> and your university.</p>
+    <p class="row-sub mt-5">Figures are indicative — always confirm the current living-cost minimum, fees and dependent requirements with Immigration New Zealand and your university.</p>
   </div>`;
 }
 
