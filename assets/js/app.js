@@ -3833,14 +3833,14 @@ function renderPricing(main) {
       cta: `<a class="btn btn-quiet btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
     { accent: 'gold', icon: 'travel_explore', name: 'Explorer', included: 4,
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
-      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
+      cta: `<button class="btn btn-quiet btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
     { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
       price: money(p.premium), unit: 'one-time', sub: 'For students who want someone alongside them from first draft to submission.',
-      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
+      cta: `<button class="btn btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
   ];
 
   const card = pl => `<div class="price-tier price-tier-${pl.accent}${pl.best ? ' price-tier-best' : ''}">
-      <span class="chip chip-${pl.accent}" style="align-self:flex-start${pl.chip ? '' : ';visibility:hidden'}" aria-hidden="${pl.chip ? 'false' : 'true'}">${pl.chip || 'Best value'}</span>
+      <span class="chip chip-neutral" style="align-self:flex-start${pl.chip ? '' : ';visibility:hidden'}" aria-hidden="${pl.chip ? 'false' : 'true'}">${pl.chip || 'Best value'}</span>
       <div class="price-tier-icon"><span class="material-symbols-outlined" aria-hidden="true">${pl.icon}</span></div>
       <h2 class="price-tier-name mono">${pl.name}</h2>
       <p class="muted price-tier-sub">${pl.sub}</p>
@@ -3852,27 +3852,29 @@ function renderPricing(main) {
       <div style="margin-top:auto;padding-top:20px">${pl.cta}</div>
     </div>`;
 
-  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay only when you need help.',
-    'Looking around costs nothing. Explorer and Premium are one-time payments, not subscriptions — each one gives you the premium templates plus time with a mentor who has already done this.') +
+  main.innerHTML = renderHero({
+    kicker: 'Plans & pricing', title: 'Free to explore. Pay only when you need help.',
+    body: 'Explorer and Premium are one-time payments, not subscriptions.',
+  }) +
     `<div class="price-tiers">${plans.map(card).join('')}</div>
-    <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Want more mentor time beyond your plan? Extra sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors" class="route-link" style="color:var(--route)">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+    <p class="row-sub mt-6" style="max-width:640px">Extra mentor sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you. ${cloudOn() ? `<a href="#billing">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
 }
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
 function renderBilling(main) {
-  const head = viewHead('receipt_long', 'Billing', 'Your purchases & invoices',
-    'What you have bought and every mentoring session you have had, each with an invoice you can download. Nothing repeats — you pay once per item.');
+  const head = renderHero({ kicker: 'Billing', title: 'Your purchases & invoices',
+    body: 'Every purchase and mentoring session, each with an invoice you can download.' });
 
   if (!cloudOn()) {
-    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px">Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a>.</p></div>`;
+    main.innerHTML = head + `<div class="listcard"><p>Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing">Plans</a>.</p></div>`;
     return;
   }
   if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn())) {
-    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px"><a href="#account" class="route-link" style="color:var(--route)">Create a free account</a> to buy and keep premium unlocks across devices.</p></div>`;
+    main.innerHTML = head + `<div class="listcard"><p><a href="#account">Create a free account</a> to buy and keep premium unlocks across devices.</p></div>`;
     return;
   }
 
-  main.innerHTML = head + `<div id="bill-body"><div class="card"><p class="muted">Loading…</p></div></div>`;
+  main.innerHTML = head + `<div id="bill-body"><div class="listcard"><p>Loading…</p></div></div>`;
   const body = $('#bill-body');
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
   const label = it => (PFPay.items()[it] && PFPay.items()[it].label) || it;
@@ -3926,12 +3928,12 @@ function renderBilling(main) {
    own dashboard from here. */
 function renderAccount(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('account_circle', 'Account', 'Accounts need Firebase',
-      'Sign-in and cross-device sync run on Firebase. The app still works fully on this device without it — configure <code>assets/js/firebase-config.js</code> to enable accounts.');
+    main.innerHTML = renderHero({ kicker: 'Account', title: 'Accounts need Firebase',
+      body: 'Sign-in and cross-device sync run on Firebase — the app still works fully on this device without it.' });
     return;
   }
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('account_circle', 'Account', 'Connecting…', 'Loading the accounts layer.');
+    main.innerHTML = renderHero({ kicker: 'Account', title: 'Connecting…', body: 'Loading the accounts layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 400);
     return;
   }
@@ -3945,22 +3947,20 @@ function accountStatus(main, role) {
   const email = (PFCloud.currentEmail && PFCloud.currentEmail()) || '';
   const prof = (PFCloud.getMentorProfile && PFCloud.getMentorProfile()) || null;
   const cfg = {
-    admin:          ['admin_panel_settings', 'Admin', 'chip-rose', 'You are signed in as the platform admin. View leads, mentors, requests and user records.', 'Open Admin panel', '#admin'],
-    mentor:         ['badge', 'Mentor · approved', 'chip-teal', 'Your mentor account is approved. Claim requests from the shared queue and manage your sessions.', 'Open Mentor Dashboard', '#mentor'],
-    mentor_pending: ['hourglass_top', 'Mentor · pending', 'chip-gold', 'Your mentor application is awaiting admin approval. The request queue unlocks once an admin approves you.', 'View status', '#mentor'],
-    client:         ['account_circle', 'Client / Student', 'chip-violet', 'Your roadmap, applications, saved opportunities and mentor requests now sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
-  }[role] || ['account_circle', 'Signed in', 'chip-dim', '', 'Open Dashboard', '#dashboard'];
+    admin:          ['admin_panel_settings', 'Admin', 'chip-alert', 'You are signed in as the platform admin.', 'Open Admin panel', '#admin'],
+    mentor:         ['badge', 'Mentor · approved', 'chip-ok', 'Your mentor account is approved — claim requests from the shared queue.', 'Open Mentor Dashboard', '#mentor'],
+    mentor_pending: ['hourglass_top', 'Mentor · pending', 'chip-warn', 'Your mentor application is awaiting admin approval.', 'View status', '#mentor'],
+    client:         ['account_circle', 'Client / Student', 'chip-info', 'Your roadmap, applications and mentor requests sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
+  }[role] || ['account_circle', 'Signed in', 'chip-neutral', '', 'Open Dashboard', '#dashboard'];
 
-  main.innerHTML = viewHead('account_circle', 'Account', 'Your account', 'You’re signed in. Manage your session below.') +
-    `<div class="card" style="max-width:560px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        <span class="chip ${cfg[2]}"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:4px">${cfg[0]}</span>${cfg[1]}</span>
-      </div>
-      <p style="font-size:14.5px;margin:0 0 2px"><strong>${esc(email || (prof && prof.displayName) || 'Signed in')}</strong></p>
-      <p class="muted" style="font-size:13.5px;margin:8px 0 18px">${cfg[3]}</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <a class="btn btn-primary btn-sm" href="${cfg[5]}">${cfg[4]}</a>
-        <button class="btn btn-quiet btn-sm" id="acc-out">Sign out</button>
+  main.innerHTML = renderHero({ kicker: 'Account', title: 'Your account', body: "You're signed in — manage your session below." }) +
+    `<div class="listcard" style="max-width:560px">
+      <span class="chip ${cfg[2]}">${cfg[1]}</span>
+      <p style="font-size:14.5px;margin:12px 0 0"><strong>${esc(email || (prof && prof.displayName) || 'Signed in')}</strong></p>
+      <p class="mt-3">${cfg[3]}</p>
+      <div class="hero-actions mt-5">
+        <a class="btn" href="${cfg[5]}">${cfg[4]}</a>
+        <button type="button" class="btn btn-quiet" id="acc-out">Sign out</button>
       </div>
     </div>`;
   $('#acc-out').onclick = () => (role === 'admin' ? PFCloud.signOutAdmin() : PFCloud.signOutUser());
@@ -3969,34 +3969,36 @@ function accountStatus(main, role) {
 /* Not signed in: client sign-up / sign-in (no code) + invite-only doors
    to the mentor and admin flows. */
 function accountAuth(main) {
-  main.innerHTML = viewHead('account_circle', 'Account', 'Sign in or create an account',
-    'Signing in is optional — your data is already saved on this device. Create a free client account to sync it across devices. Mentors and admins use their own doors below.') +
-    `<div class="grid-2" style="gap:18px;align-items:start">
-      <div class="card">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-violet">Client / Student</span></div>
-        <h2 style="font-size:1.15rem;margin-bottom:4px">Create a free account</h2>
-        <p class="muted" style="font-size:13px;margin-bottom:14px">No code needed. Sync your roadmap, applications and saved opportunities across devices.</p>
-        <input class="field" id="ac-email" type="email" autocomplete="email" placeholder="you@example.com" style="margin-bottom:10px">
-        <input class="field" id="ac-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" style="margin-bottom:12px">
-        <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="ac-signup">Create account</button>
-          <button class="btn btn-quiet btn-sm" id="ac-signin">I already have one</button>
-          <button class="btn btn-quiet btn-sm" id="ac-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+  main.innerHTML = renderHero({
+    kicker: 'Account', title: 'Sign in or create an account',
+    body: 'Signing in is optional — your data is already saved on this device.',
+  }) +
+    `<div class="viewgrid">
+      <div class="listcard">
+        <span class="chip chip-info">Client / Student</span>
+        <h2 class="listcard-title mt-3">Create a free account</h2>
+        <p>No code needed. Sync your roadmap, applications and saved opportunities across devices.</p>
+        <input class="field mt-4" id="ac-email" type="email" autocomplete="email" placeholder="you@example.com">
+        <input class="field mt-3" id="ac-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)">
+        <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-top:8px"></p>
+        <div class="hero-actions mt-3">
+          <button type="button" class="btn btn-sm" id="ac-signup">Create account</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="ac-signin">I already have one</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="ac-google"><span class="material-symbols-outlined" aria-hidden="true">login</span> Google</button>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:18px">
-        <div class="card">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-teal">Mentor</span><span class="chip chip-dim">Invite-only</span></div>
-          <h2 style="font-size:1.05rem;margin-bottom:4px">Mentor access</h2>
-          <p class="muted" style="font-size:13px;margin-bottom:14px">Mentoring is invite-only. If you’ve been given an invite code, continue to set up your mentor account — an admin approves it before you take requests.</p>
-          <a class="btn btn-quiet btn-sm" href="#mentor"><span class="material-symbols-outlined" style="font-size:15px">badge</span> Enter mentor sign-up</a>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="chip chip-ok">Mentor</span> <span class="chip chip-neutral">Invite-only</span>
+          <h2 class="listcard-title mt-3" style="font-size:1.05rem">Mentor access</h2>
+          <p>If you've been given an invite code, continue to set up your mentor account.</p>
+          <a class="btn btn-quiet" href="#mentor"><span class="material-symbols-outlined" aria-hidden="true">badge</span> Enter mentor sign-up</a>
         </div>
-        <div class="card">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-rose">Admin</span></div>
-          <h2 style="font-size:1.05rem;margin-bottom:4px">Admin access</h2>
-          <p class="muted" style="font-size:13px;margin-bottom:14px">Platform owners only.</p>
-          <a class="btn btn-quiet btn-sm" href="#admin"><span class="material-symbols-outlined" style="font-size:15px">lock</span> Go to admin sign-in</a>
+        <div class="sidecard">
+          <span class="chip chip-alert">Admin</span>
+          <h2 class="listcard-title mt-3" style="font-size:1.05rem">Admin access</h2>
+          <p>Platform owners only.</p>
+          <a class="btn btn-quiet" href="#admin"><span class="material-symbols-outlined" aria-hidden="true">lock</span> Go to admin sign-in</a>
         </div>
       </div>
     </div>`;
