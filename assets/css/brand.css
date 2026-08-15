@@ -1,19 +1,14 @@
 /* ════════════════════════════════════════════════════════════
-   PathFinder — "Survey Blue" brand system (app.html only)
+   PathFinder — "Ink & Brass" brand system (app.html only)
 
    Loaded after site.css. Overrides site.css's design tokens
    (custom properties) rather than rewriting its structural rules —
    index.html and the four legal pages load site.css directly and
    never see this file, so they keep today's look unchanged.
 
-   Direction: same wayfinding idea PathFinder already has, moved from
-   an "explorer's journal" register (cream ground, decorative serif,
-   vermilion-as-everything) to a "surveyor's instrument" one — a
-   single chart-blue brand color, vermilion demoted to a real
-   semantic job (alerts) instead of also being the button color.
-
-   See the "Survey Blue" design system doc for the full rationale,
-   color/type specimens and contrast figures this file implements.
+   Values are final and contrast-verified — see the handoff doc,
+   "Design tokens". Never use --accent as text on --canvas or
+   --card: use --accent-ink.
    ════════════════════════════════════════════════════════════ */
 
 /* ── Typefaces — self-hosted, no Google Fonts request for these two ──
@@ -36,59 +31,111 @@
 }
 
 :root {
-  --ink:       #12181F;
-  --ink-soft:  rgba(18,24,31,.66);
-  --ink-faint: rgba(18,24,31,.42);
-  --paper:     #F6F5F0;
-  --paper-2:   #ECEAE2;
-  --surface:   #FCFBF7;
-  --surface-2: #FFFFFF;
-  --line:      rgba(18,24,31,.14);
-  --line-2:    rgba(18,24,31,.24);
-  --text:      var(--ink);
-  --text-dim:  var(--ink-soft);
-  --text-faint: var(--ink-faint);
+  /* Surfaces */
+  --canvas: #F5F2EC;          /* page background — warm ivory, never pure white */
+  --card: #FFFFFF;            /* card + panel surfaces on canvas */
+  --chrome: #191D22;          /* near-black — top nav, hero, any inverted surface */
 
-  /* --route is the one token nearly every decorative rule in site.css
-     and app.html already reads (links, active nav, progress bars, focus
-     rings, buttons) — redefining it repaints all of that to the new
-     brand blue with no other change needed. */
-  --route:  #154E6E;
-  --brand:  #154E6E;
-  --brand-hover: #0F3A54;
-  --brand-soft:  rgba(21,78,110,.10);
-  --on-brand:    var(--surface);
-  --grad-brand:  var(--route);
+  /* Text */
+  --ink: #191B1E;             /* primary text on canvas       — 14.8:1 */
+  --ink-dim: rgba(25,27,30,.56);   /* secondary text on canvas — 5.4:1 */
+  --on-chrome: #EFEDE7;       /* primary text on chrome        — 13.9:1 */
+  --on-chrome-dim: rgba(239,237,231,.56); /* secondary on chrome — 5.6:1 */
 
-  /* Old decorative roles keep the SAME meaning, tuned to the new
-     palette — pine still means "confirmed/done", ochre still means
-     "note/pending", sea still means "tertiary category". */
-  --pine:   #29593F;
-  --ochre:  #8A6A22;
-  --sea:    #2B6E78;
-  --confirm:    var(--pine);
-  --annotation: var(--ochre);
-  --depth:      var(--sea);
+  /* Brass — spent ONLY on: primary action, earned progress, active nav marker */
+  --accent: #B08A4A;          /* fills, and text on --chrome   — 5.9:1 on chrome */
+  --on-accent: #15171A;       /* text/icons on a brass fill    — 7.9:1 */
+  --accent-ink: #8C6C33;      /* brass TEXT/ICONS on canvas    — 4.6:1 */
 
-  /* Vermilion survives as a real semantic color — alerts, cancellations,
-     "needs attention" — instead of also being the brand accent. */
-  --alert: #B8391C;
-  --alert-soft: rgba(184,57,28,.10);
+  /* States */
+  --ok: #4E6B4F;              --ok-bg: rgba(78,107,79,.11);    /* offer, approved, done */
+  --warn: #8A6A22;            --warn-bg: rgba(138,106,34,.11); /* deadline, awaiting payment */
+  --alert: #9E3418;           --alert-bg: rgba(158,52,24,.10); /* overdue, rejected */
+  --info: #3F5E66;            --info-bg: rgba(63,94,102,.10);  /* interview, in progress */
 
-  --teal:        var(--pine);
-  --violet:      var(--sea);
-  --gold:        var(--ochre);
-  --rose:        var(--alert);
-  --teal-soft:   rgba(41,89,63,.10);
-  --violet-soft: rgba(43,110,120,.10);
-  --gold-soft:   rgba(138,106,34,.12);
+  /* Lines + tracks */
+  --line: rgba(25,27,30,.10);          /* card borders */
+  --line-soft: rgba(25,27,30,.07);     /* list row dividers, neutral chip fill */
+  --line-strong: rgba(25,27,30,.18);   /* secondary button + field borders */
+  --chrome-line: rgba(239,237,231,.22);   /* borders on chrome, empty progress segments */
+  --chrome-track: rgba(239,237,231,.14);  /* progress track on chrome */
+  --track: rgba(25,27,30,.10);            /* progress track on canvas */
 
-  --shadow-1: 0 1px 2px rgba(18,24,31,.06), 0 8px 28px rgba(18,24,31,.07);
-  --shadow-2: 0 2px 6px rgba(18,24,31,.08), 0 24px 64px rgba(18,24,31,.14);
+  /* Brass washes */
+  --accent-wash: rgba(176,138,74,.14); /* avatar + icon tile fill on canvas */
+  --nudge-bg: rgba(176,138,74,.07);    /* advisory panel fill */
+  --nudge-line: rgba(176,138,74,.24);  /* advisory panel border */
 
+  /* Radius — soft, not round. No pills except chips + avatars. */
+  --r-hero: 18px;
+  --r-card: 16px;
+  --r-sm: 14px;
+  --r-btn: 10px;
+  --r-icon: 10px;
+  --r-pill: 999px;
+
+  /* Elevation — two shadows, no others, never animated */
+  --shadow-card: 0 1px 2px rgba(25,27,30,.04), 0 14px 32px rgba(25,27,30,.05);
+  --shadow-hero: 0 20px 48px rgba(25,27,30,.20);
+
+  /* Type */
   --font-display: 'Source Serif 4', Georgia, serif;
-  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  /* --font-mono unchanged — IBM Plex Mono was already correct. */
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Spacing — 8px base */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+  --s-5: 20px;  --s-6: 24px;  --s-7: 32px;  --s-8: 40px;
+  --pad-view: 40px 44px;      /* desktop content padding */
+  --pad-hero: 32px 34px;
+  --aside-w: 340px;
+  --gap-main: 28px;
+
+  /* Motion — colour/opacity only, never transform or shadow */
+  --t-fast: 140ms ease-out;
+  --t-bar: 420ms ease-out;
+
+  /* ── Legacy aliases ──────────────────────────────────────────
+     site.css, settlement.css and any app.js view not yet ported to
+     the Ink & Brass component classes still read these names inline
+     (style="color:var(--route)" etc). Point them at their nearest
+     Ink & Brass equivalent so unmigrated surfaces stay tonally
+     consistent with the new palette instead of reverting to the old
+     "Atlas" landing colours mid-rollout. Remove each alias only once
+     nothing in the app references it by its old name — see
+     DEVIATIONS.md. */
+  --paper: var(--canvas);
+  --paper-2: var(--canvas);
+  --surface: var(--card);
+  --surface-2: var(--card);
+  --route: var(--accent-ink);      /* old brand accent, used as TEXT/icon colour inline */
+  --brand: var(--accent-ink);
+  --brand-hover: var(--accent);
+  --brand-soft: var(--accent-wash);
+  --on-brand: var(--on-accent);
+  --grad-brand: var(--accent-ink);
+  --line-2: var(--line-strong);
+  --pine: var(--ok);
+  --teal: var(--ok);
+  --ochre: var(--warn);
+  --gold: var(--warn);
+  --sea: var(--info);
+  --violet: var(--info);
+  --rose: var(--alert);
+  --alert-soft: var(--alert-bg);
+  --teal-soft: var(--ok-bg);
+  --violet-soft: var(--info-bg);
+  --gold-soft: var(--warn-bg);
+  --confirm: var(--ok);
+  --annotation: var(--warn);
+  --depth: var(--info);
+  --text: var(--ink);
+  --text-dim: var(--ink-dim);
+  --text-faint: var(--ink-dim);
+  --ink-soft: var(--ink-dim);
+  --ink-faint: var(--ink-dim);
+  --shadow-1: var(--shadow-card);
+  --shadow-2: var(--shadow-hero);
 }
 
 /* No automatic dark mode: the product never had one before this rebrand —
@@ -97,11 +144,8 @@
    Light is the only theme, same as index.html and the legal pages. */
 
 /* ── The one status chip that shared --route with the brand ──────────
-   Every other decorative use of --route (links, active nav, progress,
-   focus rings, buttons) is correctly blue now. chip-rose is a STATUS
-   color (open/unclaimed requests, "significant funding gap", role
-   badges) and needs to stay in the alert family, not follow the brand
-   accent. Same specificity as site.css's rule; wins on source order. */
+   Unmigrated views still emit the old outlined .chip-rose modifier;
+   keep it in the alert family rather than following the brand accent. */
 .chip-rose { color: var(--alert); }
 
 /* ── Icon fallback ─────────────────────────────────────────────────

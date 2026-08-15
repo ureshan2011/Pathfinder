@@ -214,12 +214,16 @@ function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   const fn = ROUTES[view] || renderDashboard;
   if (ROUTES[view]) markSeen(view);
-  $$('.side-link').forEach(a => a.classList.toggle('active', a.dataset.view === view));
-  $('.side-link.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  $$('[data-view]').forEach(a => {
+    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  closeNavPop();
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
-  updateJourneyMeter();
+  updateNavChrome();
+  animateBars(main);
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
   window.scrollTo(0, 0);
@@ -323,9 +327,6 @@ function journeyModel() {
   return { phases, overall, doneSteps, totalSteps, current, nextStep };
 }
 
-/* where a phase chip jumps to: the next unfinished milestone, else its home view */
-function journeyJump(p) { return p.nextStep ? p.nextStep[2] : '#' + p.view; }
-
 function journeyBlurb(J) {
   if (J.overall === 0) return 'Five stages from your first question to enrolment in New Zealand. It starts with a 5-minute assessment.';
   if (J.overall >= 100) return 'Every milestone done — you’re ready. Keep a mentor close for the final stretch.';
@@ -333,56 +334,243 @@ function journeyBlurb(J) {
   return `You’re in <strong>${J.current.label}</strong>. ${J.current.blurb}${left <= 35 ? ' Almost there.' : ''}`;
 }
 
-/* The dashboard hero: a visual, clickable map of the whole journey. */
-function renderJourneyMap() {
-  const J = journeyModel();
-  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
-  const hasData = !!PFStore.getAssessment() || PFStore.getApps().length > 0 || PFStore.getSaved().length > 0;
-  const cont = J.nextStep;
-
-  const cards = J.phases.map((p, idx) => {
-    const isCur = p.id === J.current.id && !p.complete;
-    const badge = p.complete
-      ? '<span class="material-symbols-outlined" style="font-size:17px">check</span>'
-      : (idx + 1);
-    return `<a class="jp ${p.complete ? 'jp-done' : ''} ${isCur ? 'jp-cur' : ''}" href="${journeyJump(p)}" data-phase="${p.id}">
-      <div class="jp-top">
-        <span class="jp-num">${badge}</span>
-        <span class="material-symbols-outlined jp-ic">${p.icon}</span>
+/* ── The hero ──────────────────────────────────────────────────────
+   Every view opens with the same inverted panel: kicker, title, one
+   sentence, ≤2 buttons, an optional right-slot figure, and — on the
+   dashboard — the five journey segments. renderHero() is pure markup;
+   what goes in it is computed by the caller (highestPriorityIncomplete-
+   Step() for the dashboard, per-view logic elsewhere). Replaces
+   viewHead() as views migrate. */
+function renderHero(opts) {
+  const o = opts || {};
+  // Most hero actions navigate (href); a few (Mentor Dashboard's "Someone
+  // called", pause/resume) are JS actions instead — given an id with no
+  // href, render a <button id="..."> for the caller to wire up rather than
+  // forcing every action through the router.
+  const primary = o.primaryHref || o.primaryId
+    ? (o.primaryHref
+        ? `<a class="btn" href="${o.primaryHref}">`
+        : `<button type="button" class="btn" id="${o.primaryId}">`) +
+      `${esc(o.primaryLabel || 'Continue')}${o.primaryIcon ? `<span class="material-symbols-outlined" aria-hidden="true">${o.primaryIcon}</span>` : ''}` +
+      (o.primaryHref ? '</a>' : '</button>')
+    : '';
+  const secondary = o.secondaryHref || o.secondaryId
+    ? (o.secondaryHref
+        ? `<a class="btn btn-ghost" href="${o.secondaryHref}">`
+        : `<button type="button" class="btn btn-ghost" id="${o.secondaryId}">`) +
+      esc(o.secondaryLabel || 'Ask a mentor') +
+      (o.secondaryHref ? '</a>' : '</button>')
+    : '';
+  const figureInner = o.figure != null
+    ? `<div class="hero-figure">${esc(String(o.figure))}${o.figureSuffix ? `<span class="suf">${esc(o.figureSuffix)}</span>` : ''}</div>
+       ${o.figureCaption ? `<div class="hero-caption">${esc(o.figureCaption)}</div>` : ''}`
+    : '';
+  // rendered twice, on purpose: side-by-side with the title on desktop
+  // (.hero-right), between the body and the buttons on mobile
+  // (.hero-figure-mobile) — the two breakpoints put it in a different
+  // reading position, not just a different size, so one flex `order`
+  // can't cover both; each copy is display:none at the other's breakpoint.
+  const figureDesktop = o.figure != null ? `<div class="hero-right">${figureInner}</div>` : '';
+  const figureMobile = o.figure != null ? `<div class="hero-figure-mobile">${figureInner}</div>` : '';
+  return `<section class="hero">
+    <div class="hero-row">
+      <div class="hero-left">
+        <div class="hero-kicker">${esc(o.kicker || '')}</div>
+        <h1 class="hero-title">${esc(o.title || '')}</h1>
+        <p class="hero-body">${esc(o.body || '')}</p>
+        ${figureMobile}
+        <div class="hero-actions">${primary}${secondary}</div>
       </div>
-      <div class="jp-name">${p.label}</div>
-      <div class="jp-bar"><span style="width:${p.pct}%"></span></div>
-      <div class="jp-meta">${isCur ? 'You’re here · ' : ''}${p.done}/${p.total}</div>
-    </a>`;
-  }).join('');
-
-  return `<section class="journey" aria-label="Your journey to a PhD in New Zealand">
-    <div class="journey-head">
-      <div style="min-width:240px">
-        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to ${trackCfg().article} in NZ</span>
-        <h2 class="journey-pct">${J.overall}<small>% complete</small></h2>
-        <p class="muted" style="font-size:13.5px;margin:4px 0 0;max-width:460px">${journeyBlurb(J)}</p>
-      </div>
-      ${cont
-        ? `<a class="btn btn-primary journey-cta" href="${cont[2]}"><span class="material-symbols-outlined" style="font-size:17px">bolt</span>${cont[0]}</a>`
-        : `<a class="btn btn-primary journey-cta" href="#mentors"><span class="material-symbols-outlined" style="font-size:17px">support_agent</span>Pressure-test with a mentor</a>`}
+      ${figureDesktop}
     </div>
-    <div class="journey-track">${cards}</div>
-    ${!synced && hasData
-      ? `<a class="journey-nudge" href="#account"><span class="material-symbols-outlined" style="font-size:17px">cloud_sync</span><span>You’ve built real progress — <strong>create a free account</strong> to keep it safe across devices.</span><span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span></a>`
-      : ''}
+    ${o.segments ? heroSegsHtml(o.segments) : ''}
   </section>`;
 }
 
-/* keep the sidebar journey meter in sync after every route */
-function updateJourneyMeter() {
-  const el = document.getElementById('journey-meter');
-  if (!el) return;
-  const J = journeyModel();
-  const bar = el.querySelector('.jm-bar span'); if (bar) bar.style.width = J.overall + '%';
-  const pct = el.querySelector('.jm-pct'); if (pct) pct.textContent = J.overall + '%';
-  const lbl = el.querySelector('.jm-lbl'); if (lbl) lbl.textContent = J.overall >= 100 ? 'Journey complete' : 'In ' + J.current.label;
+/* Short segment labels for the hero's journey strip — deliberately
+   different (shorter) than journeyModel()'s own phase labels, which
+   stay unchanged for the nav context text and journeyBlurb(). PhD
+   labels are buildPhdRoadmap()'s own phase titles verbatim. */
+const HERO_SEG_LABELS = {
+  masters: ['Choose', 'Credentials', 'Apply & fund', 'Offer & visa', 'Arrive'],
+  phd: ['Foundation', 'Supervisor Discovery', 'Proposal & Application', 'Offer & Visa', 'Arrival & Enrollment'],
+};
+function heroSegLabels() { return HERO_SEG_LABELS[PFStore.getTrack()] || HERO_SEG_LABELS.phd; }
+
+/* J.phases (journeyModel) already carries real pct/done/complete per
+   phase — heroSegments() just re-labels those five phases with the
+   shorter copy above, in the same order, so the strip and the "Phase
+   N of 5" kicker always agree with the Journey Map / nav context. */
+function heroSegments(J) {
+  const labels = heroSegLabels();
+  return J.phases.map((p, i) => ({
+    label: labels[i] || p.label,
+    pct: p.pct,
+    current: p.id === J.current.id && !p.complete,
+  }));
 }
+function heroSegsHtml(segs) {
+  return `<div class="segs">${segs.map(s => `
+    <div class="seg${s.pct <= 0 ? ' is-empty' : ''}${s.current ? ' is-current' : ''}">
+      <div class="seg-track"><span data-pct="${s.pct > 0 ? s.pct : 100}"></span></div>
+      <div class="seg-label">${esc(s.label)}</div>
+    </div>`).join('')}</div>`;
+}
+
+/* a .bar on canvas — pct is clamped and set via data-pct so the fill can
+   animate on first paint (see animateBars) instead of the width arriving
+   inline in the markup */
+function barHtml(pct, extraAttrs) {
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  return `<div class="bar"><span data-pct="${p}"${extraAttrs || ''}></span></div>`;
+}
+
+/* Progress fills animate width on first paint of a view, once — never on
+   re-renders mid-view. Rendering at width:0 and setting the real width a
+   frame later lets the CSS transition (var(--t-bar)) do the animating;
+   prefers-reduced-motion is already handled globally (site.css collapses
+   all transition-duration to ~0). Called once per route() after the view
+   has painted. */
+function animateBars(root) {
+  requestAnimationFrame(() => {
+    $$('[data-pct]', root).forEach(el => { el.style.width = el.dataset.pct + '%'; });
+  });
+}
+
+function truncate(s, n) {
+  s = String(s || '').trim();
+  return s.length > n ? s.slice(0, n - 1).trim() + '…' : s;
+}
+
+/* friendly names for the hero's secondary "Open X" phrasing — not a
+   fabricated fact, just a nicer label for a real, already-computed href */
+const HERO_HREF_LABEL = {
+  '#assessment': 'the assessment', '#courses': 'Courses', '#explore': 'Explore',
+  '#research': 'Research Studio', '#roadmap': 'your roadmap', '#kit': 'Templates',
+  '#funding': 'Funding', '#dashboard': 'your dashboard', '#visa': 'the Visa Hub',
+  '#mentors': 'Mentors', '#funds': 'the Funds Check', '#settlement': 'Settle In',
+};
+
+/* ── The next best action — computed, never hardcoded ────────────────
+   Ranking (hard deadline soonest → blocks another step → cheapest to
+   finish): the visa checklist is the one place in the data model with a
+   genuinely ordered, blocking sequence (each stage gates the next), so an
+   open visa stage outranks the generic next milestone once the student has
+   reached that phase. Applications carry no deadline field and
+   PF_SCHOLARSHIPS.deadline is prose ("1 Mar / 1 Jul / 1 Nov", "Rolling"),
+   not a date — so neither is a sortable "hard deadline" candidate; adding
+   one would mean inventing a date. Everything else falls through to
+   journeyModel()'s own next incomplete milestone, the same engine behind
+   the nav context label. Title ≤42 chars, body ≤120 chars, body never
+   restates the title. */
+function highestPriorityIncompleteStep() {
+  const a = PFStore.getAssessment();
+  const J = journeyModel();
+
+  if (!a) {
+    return { kicker: 'Get started', title: 'Take the 3-minute assessment',
+      body: 'Seven quick questions build your whole plan — pathway, courses and funding.',
+      primaryLabel: 'Start the assessment', primaryHref: '#assessment', consultTopic: '' };
+  }
+  if (J.overall >= 100) {
+    return { kicker: 'Journey complete', title: 'You’re ready to fly',
+      body: 'Every milestone is done — Settle In has your first-weeks checklist.',
+      primaryLabel: 'Open Settle In', primaryHref: '#settlement', consultTopic: 'settle-arrival' };
+  }
+
+  const visaIdx = J.phases.findIndex(p => p.id === 'visa');
+  const visaOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
+  if (visaOpen && (J.current.id === 'visa' || visaProgress().done > 0)) {
+    const step = visaOpen.steps.find(st => !PFStore.isChecked('visa', st.id));
+    return {
+      kicker: `Phase ${visaIdx + 1} of ${J.phases.length} · ${heroSegLabels()[visaIdx]}`,
+      title: truncate(step.t, 42),
+      body: truncate(step.note || visaOpen.summary, 120),
+      primaryLabel: 'Open the Visa Hub', primaryHref: '#visa', consultTopic: visaOpen.consult,
+    };
+  }
+
+  const cur = J.current;
+  const idx = J.phases.findIndex(p => p.id === cur.id);
+  if (J.nextStep) {
+    return {
+      kicker: `Phase ${idx + 1} of ${J.phases.length} · ${heroSegLabels()[idx]}`,
+      title: truncate(J.nextStep[0], 42),
+      body: truncate(cur.blurb, 120),
+      primaryLabel: `Open ${HERO_HREF_LABEL[J.nextStep[2]] || 'this step'}`, primaryHref: J.nextStep[2], consultTopic: '',
+    };
+  }
+
+  return { kicker: 'Almost there', title: 'Ask a mentor to pressure-test your plan',
+    body: 'Nothing outstanding here — a second pair of eyes catches what a checklist can’t.',
+    primaryLabel: 'Ask a mentor', primaryHref: '#mentors', consultTopic: '' };
+}
+
+/* keep the top-nav context label + avatar in sync after every route.
+   Replaces the old sidebar journey meter, which the hero + segments
+   (renderHero) now supersede as the always-visible progress signal. */
+function updateNavChrome() {
+  const ctx = document.getElementById('nav-context');
+  if (ctx) {
+    const R = currentResult();
+    ctx.textContent = trackCfg().label + (R && R.field ? ' · ' + R.field : '');
+  }
+  const av = document.getElementById('nav-avatar');
+  if (av) {
+    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+    const email = signedIn && PFCloud.currentEmail && PFCloud.currentEmail();
+    av.textContent = email ? email.slice(0, 2).toUpperCase() : '·';
+  }
+}
+
+/* ── Overflow popover (top-nav "more" menu) ──────────────────────────
+   A .listcard-styled panel anchored under the avatar, holding the
+   fourteen views that don't fit the six-item top nav, plus the track
+   switch and account controls that used to live in the sidebar. Traps
+   Tab, closes on Escape / outside click / picking a link. */
+function closeNavPop() {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('keydown', navPopKey);
+  document.removeEventListener('click', navPopOutside, true);
+}
+function openNavPop() {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || !btn) return;
+  pop.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  document.addEventListener('keydown', navPopKey);
+  document.addEventListener('click', navPopOutside, true);
+  const first = pop.querySelector('a, button, input');
+  if (first) first.focus();
+}
+function navPopKey(e) {
+  const pop = document.getElementById('nav-pop');
+  if (!pop) return;
+  if (e.key === 'Escape') { closeNavPop(); document.getElementById('nav-more-btn')?.focus(); return; }
+  if (e.key !== 'Tab') return;
+  const items = $$('a, button, input', pop).filter(el => !el.disabled && el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+function navPopOutside(e) {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || pop.contains(e.target) || e.target === btn || (btn && btn.contains(e.target))) return;
+  closeNavPop();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('nav-more-btn');
+  const pop = document.getElementById('nav-pop');
+  if (!btn || !pop) return;
+  btn.addEventListener('click', () => (pop.hidden ? openNavPop() : closeNavPop()));
+});
 
 /* ── Briefing: live immigration + PhD/postgrad news ─────────────────
    Fetches ONLY on-topic news from free, no-key Google News RSS search
@@ -491,60 +679,48 @@ function relTime(ts) {
   return d < 30 ? d + 'd ago' : new Date(ts).toLocaleDateString();
 }
 
-function newsItemRow(x, compact) {
-  const sum = x.summary && x.summary.length > 160 ? x.summary.slice(0, 160) + '…' : (x.summary || '');
-  return `<a class="news-row" href="${esc(x.link)}" target="_blank" rel="noopener">
-    <div class="news-main">
-      <div class="news-meta"><span class="chip chip-${x.accent || 'dim'}">${esc(x.tag)}</span>
-        <span class="news-src">${esc(x.source)}</span>${x.ts ? `<span class="news-time">· ${relTime(x.ts)}</span>` : ''}</div>
-      <strong class="news-title">${esc(x.title)}</strong>
-      ${!compact && sum ? `<p class="news-sum">${esc(sum)}</p>` : ''}
+/* one headline + a mono date — no excerpt, per the Briefing spec */
+function newsItemRow(x) {
+  return `<a class="row" href="${esc(x.link)}" target="_blank" rel="noopener">
+    <div class="row-main">
+      <div class="row-title">${esc(x.title)}</div>
+      <div class="row-sub">${esc(x.source)}${x.ts ? ' · ' + relTime(x.ts) : ''}</div>
     </div>
-    <span class="material-symbols-outlined news-go">north_east</span>
+    <span class="chip chip-neutral">${esc(x.tag)}</span>
   </a>`;
 }
 
-/* compact 3-item strip for the dashboard (a high-traffic, "good for
-   students" surface). Filled async by loadNews after first paint. */
-function newsStrip() {
-  const items = (newsState.items || []).slice(0, 3);
-  const inner = items.length ? items.map(x => newsItemRow(x, true)).join('')
-    : `<p class="muted" style="font-size:13.5px;margin:0">Loading the latest immigration & PhD news…</p>`;
-  return `<section class="card" style="margin-bottom:40px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <h2 style="font-size:1.15rem;margin:0"><span class="material-symbols-outlined" style="font-size:19px;color:var(--route);vertical-align:-4px">newspaper</span> Latest briefing</h2>
-      <a href="#news" class="route-link" style="color:var(--route);font-size:13px">All news →</a>
-    </div>
-    <div id="dash-news" class="news-list">${inner}</div>
-  </section>`;
-}
-
 function renderNews(main) {
-  main.innerHTML = viewHead('newspaper', 'Briefing', 'Immigration & PhD news, live',
-    'Only what matters for a Sri Lankan student heading to New Zealand — visa & immigration changes and PhD / postgraduate news, pulled fresh from across the web and refreshed continuously.') +
-    `<div id="news-body"></div>`;
+  main.innerHTML = renderHero({
+    kicker: 'Briefing', title: 'Immigration & PhD news, live',
+    body: 'Visa/immigration changes and postgraduate news, pulled fresh and refreshed continuously.',
+  }) + `<div id="news-body"></div>`;
   const body = $('#news-body', main);
 
   const paint = () => {
     const items = newsState.items || [];
     const tags = ['all', ...new Set((PF_NEWS.feeds || []).map(f => f.tag))];
-    const chips = tags.map(t => `<button class="chip-filter news-fil ${newsFilter === t ? 'active' : ''}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
+    const chips = tags.map(t => `<button type="button" class="tab news-fil" role="tab" aria-selected="${newsFilter === t}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
     const shown = items.filter(x => newsFilter === 'all' || x.tag === newsFilter);
     const updated = newsState.fetchedAt ? `Updated ${relTime(newsState.fetchedAt)}` : '';
 
     let listHtml;
-    if (newsState.loading && !items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Fetching the latest immigration & PhD news…</p></div>`;
-    else if (!items.length) listHtml = `<div class="card"><p class="muted" style="margin:0">Couldn’t reach the news sources right now. <button class="btn btn-ghost btn-sm news-refresh">Try again</button></p></div>`;
+    if (newsState.loading && !items.length) listHtml = '<p>Fetching the latest immigration & PhD news…</p>';
+    else if (!items.length) listHtml = '<p>Couldn’t reach the news sources right now — <button type="button" class="btn-quiet news-refresh">Try again</button></p>';
     else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
-      : `<div class="card"><p class="muted" style="margin:0">Nothing in this category right now — try “All”.</p></div>`;
+      : '<p>Nothing in this category right now — try "All".</p>';
 
-    body.innerHTML = `<div class="news-bar">
-        <div class="news-fils">${chips}</div>
-        <div class="news-upd">${updated}${newsState.loading ? ' · refreshing…' : ''}
-          <button class="btn btn-ghost btn-sm news-refresh" title="Refresh"><span class="material-symbols-outlined" style="font-size:15px">refresh</span></button></div>
+    body.innerHTML = `<div class="tab-row" role="tablist" aria-label="News category">${chips}
+        <div class="tab-row-end">
+          <span class="row-sub">${updated}${newsState.loading ? ' · refreshing…' : ''}</span>
+          <button type="button" class="icon-btn news-refresh" title="Refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+        </div>
       </div>
-      <div class="news-list">${listHtml}</div>
-      <p class="faint" style="font-size:11.5px;margin-top:20px;max-width:640px">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a>.</p>`;
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Latest</h2></div>
+        ${listHtml}
+      </div>
+      <p class="row-sub mt-5">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with Immigration New Zealand.</p>`;
   };
 
   paint();
@@ -577,22 +753,22 @@ function consultCTA(topic) {
 
 /* status chip for a mentor_requests doc — reuses site.css chip tokens */
 function reqStatusChip(status) {
-  const cls = { open:'chip-rose', claimed:'chip-violet', intro_done:'chip-gold',
-    awaiting_payment:'chip-gold', paid:'chip-teal', completed:'chip-teal', cancelled:'chip-dim' };
+  const cls = { open:'chip-warn', claimed:'chip-info', intro_done:'chip-info',
+    awaiting_payment:'chip-warn', paid:'chip-ok', completed:'chip-ok', cancelled:'chip-neutral' };
   const lbl = { open:'Open', claimed:'Claimed', intro_done:'Intro done',
     awaiting_payment:'Awaiting payment', paid:'Paid', completed:'Completed', cancelled:'Cancelled' };
-  return `<span class="chip ${cls[status] || 'chip-dim'}">${lbl[status] || status}</span>`;
+  return `<span class="chip ${cls[status] || 'chip-neutral'}">${lbl[status] || status}</span>`;
 }
 
 /* payment-status chip — works whether paymentStatus was set manually
    (Tier 1) or by the PayHere webhook (Tier 2): both write the same field */
 function payStatusChip(payment) {
   const ps = (payment && payment.paymentStatus) || 'none';
-  const cls = { none:'chip-dim', requested:'chip-gold', reported:'chip-violet', pending:'chip-gold', paid:'chip-teal' };
+  const cls = { none:'chip-neutral', requested:'chip-warn', reported:'chip-info', pending:'chip-warn', paid:'chip-ok' };
   const lbl = { none:'No payment', requested:'Payment requested', reported:'Payment reported', pending:'Awaiting payment', paid:'Paid' };
   const amt = ps !== 'none' && payment && payment.amountLKR
     ? ` · LKR ${Number(payment.amountLKR).toLocaleString()}` : '';
-  return `<span class="chip ${cls[ps] || 'chip-dim'}">${lbl[ps] || ps}${amt}</span>`;
+  return `<span class="chip ${cls[ps] || 'chip-neutral'}">${lbl[ps] || ps}${amt}</span>`;
 }
 
 /* inline "Ask a mentor" hook — expand + submit, no navigation. Gated
@@ -633,7 +809,7 @@ function partnerRow(placement) {
   return `<div class="partner-row">
     <span class="chip chip-gold">Partner</span>
     <p><strong>${p.name}</strong> — ${p.blurb}</p>
-    <a class="btn btn-ghost btn-sm" href="${p.url}" target="_blank" rel="noopener sponsored">${p.cta}</a>
+    <a class="btn btn-quiet btn-sm" href="${p.url}" target="_blank" rel="noopener sponsored">${p.cta}</a>
   </div>`;
 }
 window.addEventListener('hashchange', route);
@@ -671,9 +847,13 @@ function viewHead(icon, kicker, title, sub) {
    (uni, lab) omit them and are resolved from the static dataset as before. */
 function saveBtn(kind, id, label, sub) {
   const saved = PFStore.isSaved(kind, id);
-  return `<button class="btn btn-ghost btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
+  // .btn-quiet, not .btn-quiet: this renders on light .card/.listcard
+  // surfaces everywhere it's used, and .btn-quiet is built for dark
+  // chrome/hero panels — on a light card its border/text tokens
+  // (--chrome-line/--on-chrome) are nearly invisible.
+  return `<button class="btn btn-quiet btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
     ${label ? `data-label="${esc(label)}"` : ''} ${sub ? `data-sub="${esc(sub)}"` : ''}>
-    <span class="material-symbols-outlined" style="font-size:16px">${saved ? 'bookmark_added' : 'bookmark_add'}</span>
+    <span class="material-symbols-outlined" aria-hidden="true">${saved ? 'bookmark_added' : 'bookmark_add'}</span>
     ${saved ? 'Saved' : 'Save'}
   </button>`;
 }
@@ -683,7 +863,7 @@ document.addEventListener('click', e => {
   if (!b) return;
   const nowSaved = PFStore.toggleSaved(b.dataset.kind, b.dataset.id, b.dataset.label, b.dataset.sub);
   b.classList.toggle('saved', nowSaved);
-  b.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
+  b.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
   toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
 });
 
@@ -710,13 +890,15 @@ function renderAssessment(main) {
     // A result computed on the other track is stale the moment they switch,
     // so recompute from the stored answers rather than showing the old verdict.
     const result = currentResult();
-    main.innerHTML = viewHead('quiz', 'Pathway Assessment', 'You’ve completed your assessment',
-      `Your personalized result is below, for the <strong>${T.label}</strong> track. Retake anytime — your roadmap updates automatically.`) +
-      resultCard(result) +
-      `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-        <a class="btn btn-primary" href="#roadmap">View my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
-        <a class="btn btn-ghost" href="#courses">Browse matching courses</a>
-        <button class="btn btn-ghost" id="retake">Retake assessment</button>
+    main.innerHTML = renderHero({
+      kicker: 'Pathway Assessment', title: result.pathway,
+      body: `Your ${T.label} result, based on your answers. Retake anytime.`,
+      figure: result.readiness, figureSuffix: '%', figureCaption: T.label + '-ready',
+      primaryLabel: 'View my roadmap', primaryHref: '#roadmap',
+    }) + resultCard(result) +
+      `<div class="hero-actions mt-5">
+        <a class="btn btn-quiet" href="${isMasters() ? '#courses' : '#explore'}">${isMasters() ? 'Browse matching courses' : 'Explore matched labs'}</a>
+        <button type="button" class="btn btn-quiet" id="retake">Retake assessment</button>
       </div>`;
     $('#retake').onclick = () => { asmState = { step: 0, answers: {}, retake: true }; route(); };
     return;
@@ -734,16 +916,15 @@ function renderAssessment(main) {
   const q = qs[i];
   const pct = Math.round((i / qs.length) * 100);
 
-  main.innerHTML = viewHead('quiz', `Question ${i + 1} of ${qs.length}`, 'Pathway Assessment',
-    `Seven questions about ${T.article} in New Zealand, and about five minutes. Your answers shape the plan and the course filters.`) +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:22px">${q.q}</h2>
-       <div class="asm-opts">${q.opts.map((o, k) =>
-         `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
-       </div>
-       ${i > 0 ? `<button class="btn btn-ghost btn-sm" id="asm-back" style="margin-top:22px">← Back</button>` : ''}
-     </div>`;
+  main.innerHTML = renderHero({
+    kicker: `Question ${i + 1} of ${qs.length}`, title: q.q,
+    body: `About five minutes in total — your answers shape the plan and the course filters.`,
+  }) +
+    barHtml(pct) +
+    `<div class="asm-opts mt-6">${q.opts.map((o, k) =>
+      `<button type="button" class="field asm-opt" data-k="${k}" role="radio" aria-checked="false">${o.t}</button>`).join('')}
+     </div>
+     ${i > 0 ? `<button type="button" class="btn btn-quiet mt-5" id="asm-back">← Back</button>` : ''}`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
     asmState.answers[q.id] = q.opts[+b.dataset.k].v;
@@ -858,52 +1039,43 @@ function finishAssessment(main) {
   PFStore.setAssessment({ answers: asmState.answers, result, completedAt: Date.now() });
   asmState = { step: 0, answers: {} };
   const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
-  main.innerHTML = viewHead('celebration', 'Assessment complete', 'Your personalized result',
-    'Saved to your dashboard. Your roadmap is built from these answers.') +
+  main.innerHTML = renderHero({
+    kicker: 'Assessment complete', title: result.pathway,
+    body: 'Saved to your dashboard — your roadmap is built from these answers.',
+    figure: result.readiness, figureSuffix: '%', figureCaption: trackCfg().label + '-ready',
+    primaryLabel: 'Open my roadmap', primaryHref: '#roadmap',
+  }) +
     resultCard(result) +
     // Endowed-progress login moment: the student now HAS a result worth
     // keeping — the strongest point to offer a free account (never forced).
     (cloudOn() && !synced
-      ? `<a class="journey-nudge" href="#account" style="margin-top:18px">
-          <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span>
-          <span>You’re <strong>${result.readiness}% ${esc(trackCfg().label)}-ready</strong>. Create a free account and your result and roadmap stay with you on every device.</span>
-          <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
+      ? `<a class="nudge mt-5" href="#account">
+          <span class="material-symbols-outlined nudge-icon" aria-hidden="true">workspace_premium</span>
+          <p class="nudge-body">You're ${result.readiness}% ${esc(trackCfg().label)}-ready. Create a free account and this stays with you on every device.</p>
         </a>`
       : '') +
-    `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-      <a class="btn btn-primary" href="#roadmap">Open my roadmap <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></a>
+    `<div class="hero-actions mt-5">
       ${isMasters()
-        ? '<a class="btn btn-ghost" href="#courses">Browse matching qualifications</a>'
-        : '<a class="btn btn-ghost" href="#explore">Explore matched labs</a>'}
+        ? '<a class="btn btn-quiet" href="#courses">Browse matching qualifications</a>'
+        : '<a class="btn btn-quiet" href="#explore">Explore matched labs</a>'}
     </div>`;
 }
 
+/* The recommended-pathway panel — shown both right after finishing and
+   whenever the student revisits a completed assessment. The readiness
+   ring the old design used is gone: the hero's own figure slot already
+   carries that percentage, so this listcard only needs the pathway
+   explanation and the field-specific counts. */
 function resultCard(r) {
-  const ring = 2 * Math.PI * 42;
-  return `<div class="card" style="max-width:720px">
-    <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
-      <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
-          stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.readiness / 100)}" transform="rotate(-90 50 50)"/>
-        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.readiness}%</text>
-      </svg>
-      <div style="flex:1;min-width:240px">
-        <span class="chip chip-teal">Recommended pathway</span>
-        <h3 style="font-size:1.25rem;margin:8px 0 6px">${r.pathway}</h3>
-        <p class="muted" style="font-size:14px">${r.pathwayWhy}</p>
-      </div>
-    </div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Field</div><strong>${esc(r.field)}</strong></div>
-      ${r.track === 'masters' ? `
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Qualifications you could take</div><strong>${r.courses || '—'}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Providers offering them</div><strong>${r.providers || '—'}</strong></div>`
-      : `
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched universities</div><strong>${r.unis.length}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Matched labs</div><strong>${r.labs.length}</strong></div>
-      <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em">Eligible scholarships</div><strong>${r.schols.length}</strong></div>`}
-    </div>
+  const stats = r.track === 'masters'
+    ? [['school', r.courses || 0, 'Qualifications'], ['apartment', r.providers || 0, 'Providers']]
+    : [['school', r.unis.length, 'Matched universities'], ['science', r.labs.length, 'Matched labs'], ['payments', r.schols.length, 'Eligible scholarships']];
+  return `<div class="listcard">
+    <div class="listcard-head"><h2 class="listcard-title">Why this pathway</h2><span class="listcard-summary">${esc(r.field)}</span></div>
+    <p>${r.pathwayWhy}</p>
+    <div class="result-stats">${stats.map(([ic, n, l]) => `<div class="stat">
+      <span class="material-symbols-outlined stat-icon" aria-hidden="true">${ic}</span>
+      <div class="stat-figure">${n}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
     ${r.english < 3 ? partnerRow('ielts') : ''}
   </div>`;
 }
@@ -992,35 +1164,95 @@ function buildPhdRoadmap(r) {
   return phases;
 }
 
+/* A .nudge variant that keeps the same underlying "Ask a mentor" toggle +
+   inline form as consultCTA() (same classes, same global delegated
+   handlers below) so migrated views get the new panel shape with zero
+   behaviour change. */
+function consultNudge(topic) {
+  const t = topic || '';
+  return `<div class="nudge">
+    <span class="material-symbols-outlined nudge-icon" aria-hidden="true">support_agent</span>
+    <button type="button" class="consult-hook-toggle nudge-toggle">Stuck at this step? Ask a mentor →</button>
+    <form class="consult-hook-form hidden" data-topic="${t}">
+      <input class="field ch-name" placeholder="Your name" autocomplete="name">
+      <input class="field ch-contact" placeholder="Email or WhatsApp — how a mentor reaches you">
+      <textarea class="field ch-note" rows="2" placeholder="One line about where you're stuck (optional)"></textarea>
+      <button type="submit" class="btn btn-quiet btn-sm">Send request</button>
+    </form>
+  </div>`;
+}
+
 function renderRoadmap(main) {
   const T = trackCfg();
-  const a = PFStore.getAssessment();
   // Recompute against the active track so switching tracks re-plans rather
   // than leaving a PhD pathway attached to a master's roadmap.
   const r = currentResult();
   const phases = buildRoadmap(r);
   const when = { '6m':'aiming at the next intake', '1y':'starting in about a year',
                  '2y':'starting in 1–2 years', 'explore':'exploration' };
-  main.innerHTML = viewHead('route', 'Interactive Roadmap',
-    r ? `Your roadmap to ${T.article} in ${esc(r.field)}` : `Your ${T.label} roadmap`,
-    r ? `Personalized for the <strong>${esc(r.pathway)}</strong> pathway, ${when[r.timeline] || ''}.`
-      : `This is the standard NZ ${T.label} timeline. <a href="#assessment" style="color:var(--route)">Take the 5-minute assessment</a> to personalize it.`) +
-    `<div class="timeline">${phases.map((p, i) => `
-      <div class="tl-phase" data-reveal style="transition-delay:${i * 90}ms">
-        <div class="tl-node tl-${p.color}"><span>${i + 1}</span></div>
-        <div class="card tl-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-            <h3 style="font-size:1.1rem">${p.title}</h3>
-            <span class="chip chip-${p.color}">${p.when}</span>
+  // Step completion is new persisted state — buildRoadmap() has no checkable
+  // items today. Reuses the same generic checklist store as the Visa Hub
+  // (PFStore.isChecked/setChecklistItem), track-scoped so switching tracks
+  // doesn't cross-contaminate a master's checklist with a PhD one.
+  const key = 'roadmap-' + PFStore.getTrack();
+
+  const phaseRows = (p, ids) => `<ul class="ck-list">${p.items.map((it, ii) => {
+    const done = PFStore.isChecked(key, ids[ii]);
+    return `<li class="ck-item ${done ? 'done' : ''}">
+      <label>
+        <input type="checkbox" data-roadmap-id="${ids[ii]}" ${done ? 'checked' : ''}>
+        <span class="ck-box"><span class="material-symbols-outlined" aria-hidden="true">check</span></span>
+        <span class="ck-t">${it}</span>
+      </label>
+    </li>`;
+  }).join('')}</ul>`;
+
+  main.innerHTML = renderHero({
+    kicker: 'Interactive Roadmap',
+    title: r ? `Your roadmap to ${T.article} in ${r.field}` : `Your ${T.label} roadmap`,
+    body: r ? `Personalized for the ${r.pathway} pathway, ${when[r.timeline] || ''}.`
+             : `This is the standard NZ ${T.label} timeline.`,
+    primaryLabel: r ? '' : 'Take the assessment', primaryHref: r ? '' : '#assessment',
+    secondaryLabel: 'Ask a mentor', secondaryHref: '#mentors',
+  }) +
+    phases.map((p, pi) => {
+      const ids = p.items.map((_, ii) => `p${pi}-i${ii}`);
+      const allDone = ids.every(id => PFStore.isChecked(key, id));
+      const body = phaseRows(p, ids) +
+        (p.link ? `<div class="phase-link"><a class="btn btn-quiet btn-sm" href="${p.link.href}">${p.link.label}</a></div>` : '') +
+        (p.consult ? consultNudge(p.consult) : '');
+      return `<div class="listcard roadmap-phase" data-phase="${pi}">
+        <div class="listcard-head">
+          <div class="phase-head-left">
+            <span class="phase-num ${allDone ? 'is-done' : ''}">${allDone ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : pi + 1}</span>
+            <h2 class="listcard-title">${p.title}</h2>
           </div>
-          <ul class="tl-list">${p.items.map(it => `<li>${it}</li>`).join('')}</ul>
-          ${p.link ? `<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="${p.link.href}">${p.link.label}</a></div>` : ''}
-          ${p.consult ? consultCTA(p.consult) : ''}
+          <span class="chip chip-neutral">${p.when}</span>
         </div>
-      </div>`).join('')}
-    </div>`;
-  requestAnimationFrame(() => $$('[data-reveal]', main).forEach(el => el.classList.add('visible')));
+        ${allDone ? `<button type="button" class="phase-collapse-toggle" data-toggle="${pi}">
+            <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            All ${p.items.length} steps done — show them
+          </button>
+          <div class="phase-body hidden" data-body="${pi}">${body}</div>`
+        : `<div class="phase-body" data-body="${pi}">${body}</div>`}
+      </div>`;
+    }).join('');
 }
+
+/* Delegated on document (not on #view) so the handler is registered once,
+   not re-added on every renderRoadmap() re-render — #view's own node
+   persists across route() calls even though its innerHTML is replaced. */
+document.addEventListener('change', e => {
+  const cb = e.target.closest('[data-roadmap-id]');
+  if (!cb) return;
+  PFStore.setChecklistItem('roadmap-' + PFStore.getTrack(), cb.dataset.roadmapId, cb.checked);
+  route();
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('.phase-collapse-toggle');
+  if (!t) return;
+  document.querySelector(`[data-body="${t.dataset.toggle}"]`)?.classList.toggle('hidden');
+});
 
 /* ── 2b · Research Studio (topic & proposal generator) ───────
    "AI" = a free, no-key scholarly-API search (OpenAlex) + a
@@ -1563,7 +1795,7 @@ function nzOpportunityPanel(authors) {
     </ul>
     <div class="rs-nz-cta">
       <a class="btn btn-primary btn-sm" href="#explore">Explore their universities</a>
-      <a class="btn btn-ghost btn-sm" href="#kit">First-contact email template</a>
+      <a class="btn btn-quiet btn-sm" href="#kit">First-contact email template</a>
     </div>
     <p class="faint" style="font-size:11.5px;margin-top:12px">Authors and affiliations are drawn from the public research literature. PathFinder doesn’t arrange supervision — any approach is yours to make.</p>
   </section>`;
@@ -1816,8 +2048,8 @@ function renderResearch(main) {
         the giveaway.</p>
         <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
           <a class="btn btn-primary" href="#kit">Write my statement of purpose</a>
-          <a class="btn btn-ghost" href="#courses">Check my qualification</a>
-          <button class="btn btn-ghost" id="rs-anyway">I’m applying for a research master’s</button>
+          <a class="btn btn-quiet" href="#courses">Check my qualification</a>
+          <button class="btn btn-quiet" id="rs-anyway">I’m applying for a research master’s</button>
         </div>
       </div>`;
     $('#rs-anyway').onclick = () => { researchState.started = true; route(); };
@@ -1841,7 +2073,7 @@ function renderResearchLanding(main, saved) {
       <p class="muted" style="font-size:13.5px">Field: ${esc(saved.intake.field)} · saved ${new Date(saved.proposal.generatedAt).toLocaleDateString()}</p>
       <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
         <button class="btn btn-primary" id="rs-resume">Open saved proposal</button>
-        <button class="btn btn-ghost" id="rs-new">Start a new topic</button>
+        <button class="btn btn-quiet" id="rs-new">Start a new topic</button>
       </div>
     </div>`;
   $('#rs-resume', main).onclick = () => {
@@ -1945,7 +2177,7 @@ function renderResearchDiscover(main) {
   main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Candidate directions & literature map',
     `For “${esc(rs.intake.topic)}” in ${esc(rs.intake.field)}.`) +
     notice +
-    `<div style="margin-bottom:24px"><button class="btn btn-ghost btn-sm" id="rs-back">← Edit answers</button></div>
+    `<div style="margin-bottom:24px"><button class="btn btn-quiet btn-sm" id="rs-back">← Edit answers</button></div>
      <h2 class="rs-h2">Pick a direction to expand</h2>
      <div class="grid-2" style="margin-bottom:36px">
        ${rs.candidates.map(c => `
@@ -2014,10 +2246,10 @@ function renderResearchProposal(main) {
   main.innerHTML = viewHead('lightbulb', 'Research Studio', 'Your draft proposal',
     'A structured scaffold from your answers and real literature. Refine it with a supervisor before submitting.') +
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
-      <button class="btn btn-ghost btn-sm" id="rs-back2">← Back to directions</button>
+      <button class="btn btn-quiet btn-sm" id="rs-back2">← Back to directions</button>
       <button class="btn btn-primary btn-sm rs-copy"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
-      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="md"><span class="material-symbols-outlined" style="font-size:15px">download</span> .md</button>
-      <button class="btn btn-ghost btn-sm rs-dl" data-fmt="txt"><span class="material-symbols-outlined" style="font-size:15px">download</span> .txt</button>
+      <button class="btn btn-quiet btn-sm rs-dl" data-fmt="md"><span class="material-symbols-outlined" style="font-size:15px">download</span> .md</button>
+      <button class="btn btn-quiet btn-sm rs-dl" data-fmt="txt"><span class="material-symbols-outlined" style="font-size:15px">download</span> .txt</button>
     </div>
     <div class="card rs-proposal" style="max-width:800px">
       <div class="rs-stamps">
@@ -2077,13 +2309,13 @@ let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '',
 
 function renderCourses(main) {
   const T = trackCfg();
-  main.innerHTML = viewHead('school', 'Course Catalogue', `Find ${T.article} that fits`,
-    'Loading the NZQA register…') + '<p class="muted">Loading…</p>';
+  main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: `Find ${T.article} that fits`,
+    body: 'Loading the NZQA register…' });
 
   ensureCatalogue().then(cat => {
     if (!cat) {
-      main.innerHTML = viewHead('school', 'Course Catalogue', 'Course catalogue unavailable',
-        'The catalogue could not be loaded. Check your connection and refresh — everything else in PathFinder still works.');
+      main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: 'Course catalogue unavailable',
+        body: 'Could not load the register — check your connection and refresh.' });
       return;
     }
     // First visit lands on the subject area matching the student's
@@ -2140,12 +2372,10 @@ function paintCourses(main, cat) {
   const rows = coursesMatching(cat);
   const rootName = coursesState.root ? cat.taxonomy[coursesState.root].n : 'every subject';
 
-  main.innerHTML = viewHead('school', 'Course Catalogue',
-    `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
-    `Every current NZQF level ${T.levels.join(' and ')} qualification on the NZQA register, and the ` +
-    `${cat.meta.providerCount} providers that teach them. ` +
-    `Showing <strong>${T.label}</strong>-level study in ${esc(rootName)}.`) +
-
+  main.innerHTML = renderHero({
+    kicker: 'Course Catalogue', title: `${cat.meta.qualCount.toLocaleString()} postgraduate qualifications`,
+    body: `Every current NZQF level ${T.levels.join(' and ')} qualification on the register, in ${esc(rootName)}.`,
+  }) +
     `<div class="crs-bar">
       <input class="crs-search" id="crs-q" type="search" placeholder="Search by qualification or provider…"
         value="${esc(coursesState.q)}" aria-label="Search courses" />
@@ -2164,32 +2394,31 @@ function paintCourses(main, cat) {
       </select>
     </div>
 
-    <div class="crs-rail" id="crs-rail">
-      <button class="chip-filter ${!coursesState.root ? 'active' : ''}" data-root="">All subjects</button>
-      ${cat.roots.map(r => `<button class="chip-filter ${coursesState.root === r ? 'active' : ''}"
-        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="crs-n">${cat.shards[r].count}</span></button>`).join('')}
+    <div class="crs-rail" id="crs-rail" role="tablist" aria-label="Subject area">
+      <button type="button" class="tab" role="tab" aria-selected="${!coursesState.root}" data-root="">All subjects</button>
+      ${cat.roots.map(r => `<button type="button" class="tab" role="tab" aria-selected="${coursesState.root === r}"
+        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="tab-n">${cat.shards[r].count}</span></button>`).join('')}
     </div>
     ${coursesState.root ? subAreaRail(cat) : ''}
 
-    <p class="faint crs-count">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
-    <div id="crs-list">${rows.length
+    <p class="listcard-summary mt-4">${rows.length.toLocaleString()} ${rows.length === 1 ? 'qualification' : 'qualifications'}</p>
+    <div class="card-grid mt-3" id="crs-list">${rows.length
       ? rows.map(courseRow).join('')
-      : '<p class="muted">Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
+      : '<p>Nothing matches those filters. Try widening the subject area or clearing the search.</p>'}</div>
 
-    <p class="faint" style="margin-top:28px;font-size:12px">
-      Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
+    <p class="row-sub mt-7">Source: NZQA qualifications register, synced ${esc(cat.meta.generated)}. Always confirm entry
       requirements and fees with the provider before you apply.</p>`;
 
   // Loading the shard fills in the prose behind each row's detail panel.
   if (coursesState.root) ensureSubjectArea(coursesState.root);
 
   const rerender = () => paintCourses(main, cat);
-  $$('#crs-rail .chip-filter').forEach(b => b.onclick = () => {
+  $$('#crs-rail .tab').forEach(b => b.onclick = () => {
     coursesState.root = b.dataset.root; coursesState.sub = null; coursesState.open = null;
     rerender();
     if (coursesState.root) ensureSubjectArea(coursesState.root).then(rerender);
   });
-  $$('#crs-sub .chip-filter').forEach(b => b.onclick = () => {
+  $$('#crs-sub .tab').forEach(b => b.onclick = () => {
     coursesState.sub = b.dataset.sub || null; coursesState.open = null; rerender();
   });
   ['level', 'type', 'org'].forEach(k => {
@@ -2237,29 +2466,29 @@ function subAreaRail(cat) {
   });
   const subs = Object.keys(counts).sort((a, b) => catTaxon(a).n.localeCompare(catTaxon(b).n));
   if (!subs.length) return '';
-  return `<div class="crs-rail crs-rail-sub" id="crs-sub">
-    <button class="chip-filter ${!coursesState.sub ? 'active' : ''}" data-sub="">All of ${esc(cat.taxonomy[coursesState.root].n)}</button>
-    ${subs.map(s => `<button class="chip-filter ${coursesState.sub === s ? 'active' : ''}"
-      data-sub="${s}">${esc(catTaxon(s).n)} <span class="crs-n">${counts[s]}</span></button>`).join('')}
+  return `<div class="crs-rail crs-rail-sub" id="crs-sub" role="tablist" aria-label="Sub-area">
+    <button type="button" class="tab" role="tab" aria-selected="${!coursesState.sub}" data-sub="">All of ${esc(cat.taxonomy[coursesState.root].n)}</button>
+    ${subs.map(s => `<button type="button" class="tab" role="tab" aria-selected="${coursesState.sub === s}"
+      data-sub="${s}">${esc(catTaxon(s).n)} <span class="tab-n">${counts[s]}</span></button>`).join('')}
   </div>`;
 }
 
 function courseRow(row) {
   const open = coursesState.open === row.i;
   const providers = row.o.map(catProvider).filter(Boolean);
-  return `<div class="card crs-card" data-id="${esc(row.i)}">
+  return `<div class="listcard crs-card ${open ? 'is-open' : ''}" data-id="${esc(row.i)}">
     <div class="crs-head">
       <div style="flex:1;min-width:240px">
-        <h3 style="font-size:1.02rem;line-height:1.35">${esc(row.t)}</h3>
-        <div class="faint" style="font-size:12.5px;margin-top:4px">
+        <h3 class="listcard-title">${esc(row.t)}</h3>
+        <div class="row-sub mt-3">
           ${esc(providers.map(p => p.name).join(' · ') || 'Provider not listed')}
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="chip chip-dim">Level ${esc(row.l)}</span>
-        ${row.c ? `<span class="chip chip-dim">${esc(row.c)} credits</span>` : ''}
+        <span class="chip chip-neutral">Level ${esc(row.l)}</span>
+        ${row.c ? `<span class="chip chip-neutral">${esc(row.c)} credits</span>` : ''}
         ${saveBtn('course', row.i, row.t, providers.map(p => p.name).join(' · '))}
-        <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
+        <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}" aria-hidden="true">expand_more</span>
       </div>
     </div>
     ${open ? courseDetail(row, providers) : ''}
@@ -2274,8 +2503,8 @@ function courseDetail(row, providers) {
 
   return `<div class="crs-body">
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">
-      <span class="chip chip-teal">${esc(row.y)}</span>
-      ${catRoots(row).map(r => `<span class="chip chip-dim">${esc(catTaxon(r).n)}</span>`).join('')}
+      <span class="chip chip-ok">${esc(row.y)}</span>
+      ${catRoots(row).map(r => `<span class="chip chip-neutral">${esc(catTaxon(r).n)}</span>`).join('')}
     </div>
     ${sect('Entry requirements', d.entryRequirements)}
     ${sect('What it is for', d.strategicPurposeStatement)}
@@ -2307,9 +2536,9 @@ function courseDetail(row, providers) {
       </div>`).join('')}
     </div>
 
-    ${d.nzqaLink ? `<a class="btn btn-ghost btn-sm" href="${esc(d.nzqaLink)}" target="_blank" rel="noopener">
-      View on NZQA <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
-    ${consultCTA(isMasters() ? 'masters-intake' : 'roadmap-supervisor')}
+    ${d.nzqaLink ? `<a class="btn btn-quiet btn-sm" href="${esc(d.nzqaLink)}" target="_blank" rel="noopener">
+      View on NZQA <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">open_in_new</span></a>` : ''}
+    ${consultNudge(isMasters() ? 'masters-intake' : 'roadmap-supervisor')}
   </div>`;
 }
 
@@ -2330,15 +2559,17 @@ function renderExplore(main) {
   const a = PFStore.getAssessment();
   const myField = (!isMasters() && currentResult()) ? currentResult().field : '';
 
-  main.innerHTML = viewHead('science', isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
-    isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
-    isMasters()
-      ? 'Every New Zealand provider that teaches postgraduate qualifications — universities, polytechnics and private colleges — with what each one offers and how to reach them.'
-      : 'The eight NZ universities and their main research groups. Filter by field, save what fits, then write using the Starter Kit template.') +
+  main.innerHTML = renderHero({
+    kicker: isMasters() ? 'Provider Explorer' : 'Research Lab Explorer',
+    title: isMasters() ? 'Where you could study' : 'Universities, labs & supervisors',
+    body: isMasters()
+      ? 'Every New Zealand provider that teaches postgraduate qualifications.'
+      : 'The eight NZ universities and their main research groups.',
+  }) +
     (isMasters() ? '' :
-      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px" id="field-filters">
-        <button class="chip-filter ${!myField ? 'active' : ''}" data-f="">All fields</button>
-        ${PF_FIELDS.map(f => `<button class="chip-filter ${f === myField ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}
+      `<div class="tab-row" id="field-filters" role="tablist" aria-label="Field">
+        <button type="button" class="tab" role="tab" aria-selected="${!myField}" data-f="">All fields</button>
+        ${PF_FIELDS.map(f => `<button type="button" class="tab" role="tab" aria-selected="${f === myField}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}
       </div>`) +
     '<div id="explore-list"></div>';
 
@@ -2358,9 +2589,9 @@ function renderExplore(main) {
   ensureCatalogue().then(() => paint(myField));
   paint(myField);
 
-  $$('#field-filters .chip-filter').forEach(b => b.onclick = () => {
-    $$('#field-filters .chip-filter').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
+  $$('#field-filters .tab').forEach(b => b.onclick = () => {
+    $$('#field-filters .tab').forEach(x => x.setAttribute('aria-selected', 'false'));
+    b.setAttribute('aria-selected', 'true');
     paint(b.dataset.f);
   });
 }
@@ -2401,11 +2632,11 @@ function uniCard(u, field) {
     </div>
     <p class="muted" style="font-size:13.5px;margin:10px 0 14px">${u.note}</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${labs.length ? '16px' : '10px'}">
-      ${u.strengths.map(s => `<span class="chip chip-dim">${esc(s)}</span>`).join('')}
+      ${u.strengths.map(s => `<span class="chip chip-neutral">${esc(s)}</span>`).join('')}
     </div>
-    ${n ? `<a class="btn btn-ghost btn-sm" href="#courses">${n} ${trackCfg().label}-level qualification${n === 1 ? '' : 's'}
-      <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>` : ''}
-    ${p && p.website ? `<a class="btn btn-ghost btn-sm" href="https://${esc(p.website.replace(/^https?:\/\//, ''))}"
+    ${n ? `<a class="btn btn-quiet btn-sm" href="#courses">${n} ${trackCfg().label}-level qualification${n === 1 ? '' : 's'}
+      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">arrow_forward</span></a>` : ''}
+    ${p && p.website ? `<a class="btn btn-quiet btn-sm" href="https://${esc(p.website.replace(/^https?:\/\//, ''))}"
       target="_blank" rel="noopener" style="margin-left:8px">Website</a>` : ''}
     ${labs.map(l => `
       <div class="lab-row">
@@ -2451,7 +2682,7 @@ function polytechCards() {
             <div class="faint" style="font-size:12.5px;margin-top:2px">${esc(p.location || p.address || '')}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span class="chip chip-dim">${n} qualification${n === 1 ? '' : 's'}</span>
+            <span class="chip chip-neutral">${n} qualification${n === 1 ? '' : 's'}</span>
             ${saveBtn('provider', id, p.name, p.location)}
             <span class="material-symbols-outlined crs-caret ${open ? 'open' : ''}">expand_more</span>
           </div>
@@ -2467,8 +2698,8 @@ function polytechCards() {
               ${p.providerLink ? `<a href="${esc(p.providerLink)}" target="_blank" rel="noopener">NZQA profile</a>` : ''}
             </div>
           </div>
-          <a class="btn btn-ghost btn-sm" href="#courses">See its qualifications
-            <span class="material-symbols-outlined" style="font-size:15px">arrow_forward</span></a>
+          <a class="btn btn-quiet btn-sm" href="#courses">See its qualifications
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">arrow_forward</span></a>
         </div>` : ''}
       </div>`;
     }).join('');
@@ -2491,31 +2722,45 @@ function renderFunding(main) {
   paintFunding(main);
 }
 
+/* A scholarship's deadline chip — real date math when s.closing parses to
+   one (warn inside 30 days, alert once passed), a plain neutral chip with
+   the provider's own text otherwise ("Refer to website" isn't a date). */
+function deadlineChip(closing) {
+  const ts = closing ? Date.parse(closing) : NaN;
+  if (isNaN(ts)) return `<span class="chip chip-neutral">Closes: ${esc(closing || 'Refer to website')}</span>`;
+  const days = Math.ceil((ts - Date.now()) / 86400000);
+  const cls = days < 0 ? 'chip-alert' : days <= 30 ? 'chip-warn' : 'chip-neutral';
+  const label = days < 0 ? 'Closed' : days === 0 ? 'Closes today' : `Closes in ${days}d`;
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
 function paintFunding(main) {
   const T = trackCfg();
   const list = window.PF_CAT_SCHOLARSHIPS || null;
   const masters = isMasters();
+  const savedCount = PFStore.getSaved().filter(s => s.kind === 'scholarship').length;
 
-  main.innerHTML = viewHead('payments', 'Scholarship & Funding Hub', `Fund ${T.possessive}`,
-    masters
-      ? 'Master’s students pay full international tuition and there is no NZ equivalent of the doctoral stipend — so scholarships here mostly discount fees, have hard deadlines, and are not automatic with admission. Apply early and apply widely.'
-      : 'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend, awarded with admission rather than by separate application.') +
+  main.innerHTML = renderHero({
+    kicker: 'Scholarship & Funding Hub', title: `Fund ${T.possessive}`,
+    body: masters
+      ? 'Master’s scholarships discount fees, have hard deadlines, and are not automatic with admission.'
+      : 'Most doctoral scholarships cover fees plus a living stipend, awarded with admission.',
+    figure: savedCount, figureCaption: 'Saved',
+  }) +
     fundsCheckBanner() +
     (list ? scholarshipBrowser(list) : legacyScholarships()) +
 
-    `<div class="sec-head" style="margin:72px 0 28px">
-      <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">flight_takeoff</span>Immigration & Visa</span>
-      <h2 style="font-size:1.6rem;margin-top:14px">Latest visa updates for ${masters ? 'master’s' : 'PhD'} students</h2>
-    </div>
-    <div>${visaUpdates().map(v => `
-      <div class="visa-row">
-        <span class="chip chip-violet" style="flex-shrink:0">${esc(v.tag)}</span>
-        <div>
-          <strong style="font-size:14.5px">${esc(v.title)}</strong>
-          <span class="faint" style="font-size:12px;margin-left:8px">${esc(v.date)}</span>
-          <p class="muted" style="font-size:13.5px;margin-top:4px">${esc(v.body)}</p>
-        </div>
-      </div>`).join('')}
+    `<div class="listcard mt-7">
+      <div class="listcard-head"><h2 class="listcard-title">Latest visa updates</h2>
+        <span class="listcard-summary">${masters ? 'Master’s' : 'PhD'} students</span></div>
+      ${visaUpdates().map(v => `
+        <div class="row">
+          <span class="chip chip-info">${esc(v.tag)}</span>
+          <div class="row-main">
+            <div class="row-title">${esc(v.title)} <span class="row-sub">· ${esc(v.date)}</span></div>
+            <div class="row-sub">${esc(v.body)}</div>
+          </div>
+        </div>`).join('')}
     </div>`;
 
   const rerender = () => paintFunding(main);
@@ -2549,18 +2794,23 @@ function scholarshipBrowser(list) {
     return true;
   });
 
-  /* Providers publish a lot of catch-all pages — "General Scholarship",
-     "scholarships FAQs" — with no stated value and no closing date. They are
-     real entries, but a student cannot act on them, so anything carrying a
-     dollar figure and a specific level tag sorts above them. */
+  // Sort by deadline: a real, parseable closing date soonest first: then
+  // scholarships with an unparseable closing note ("Refer to website"); a
+  // dollar figure and a specific level tag still break ties within each
+  // group, since providers publish a lot of catch-all pages with neither.
   const actionable = s => {
     let score = 0;
-    if ((s.values || []).some(v => /\d/.test(v.value || ''))) score -= 4;
-    if (!/refer to website|open all year/i.test(s.closing || '')) score -= 2;
+    if ((s.values || []).some(v => /\d/.test(v.value || ''))) score -= 2;
     if ((s.levels || []).some(l => l !== 'General')) score -= 1;
     return score;
   };
-  rows.sort((a, b) => actionable(a) - actionable(b) || a.n.localeCompare(b.n));
+  rows.sort((a, b) => {
+    const da = Date.parse(a.closing), db = Date.parse(b.closing);
+    if (!isNaN(da) && !isNaN(db)) return da - db;
+    if (!isNaN(da)) return -1;
+    if (!isNaN(db)) return 1;
+    return actionable(a) - actionable(b) || a.n.localeCompare(b.n);
+  });
 
   const orgs = [...new Set(list.map(s => s.o))]
     .map(id => [id, cat && cat.providers[id]]).filter(([, p]) => p)
@@ -2578,39 +2828,40 @@ function scholarshipBrowser(list) {
       <label class="fh-check"><input type="checkbox" id="fh-intl" ${fundingState.intlOnly ? 'checked' : ''} />
         Open to international students only</label>
     </div>
-    <p class="faint crs-count">${rows.length} scholarship${rows.length === 1 ? '' : 's'}</p>
-    <div class="grid-2">${rows.map(s => scholarshipCard(s, cat)).join('') ||
-      '<p class="muted">Nothing matches those filters yet — try clearing the provider or level.</p>'}</div>
-    <p class="faint" style="margin-top:22px;font-size:12px">Sourced from provider scholarship pages via the NZQA register.
+    <div class="listcard mt-3">
+      <div class="listcard-head"><h2 class="listcard-title">Scholarships</h2>
+        <span class="listcard-summary">${rows.length} sorted by deadline</span></div>
+      ${rows.length ? rows.map(s => scholarshipRow(s, cat)).join('')
+        : '<p>Nothing matches those filters yet — try clearing the provider or level.</p>'}
+    </div>
+    <p class="row-sub mt-4">Sourced from provider scholarship pages via the NZQA register.
       Values and closing dates change every year — confirm on the provider’s own page before you rely on one.</p>`;
 }
 
-function scholarshipCard(s, cat) {
+function scholarshipRow(s, cat) {
   const provider = cat && cat.providers[s.o];
-  // `values` and `lengths` are condition-keyed: an award can be worth one
-  // thing to a domestic student and another to an international one, so we
-  // show every condition rather than collapsing to a single headline figure.
+  // `values` are condition-keyed: an award can be worth one thing to a
+  // domestic student and another to an international one, so every
+  // condition shows rather than collapsing to a single headline figure.
   const values = (s.values || []).filter(v => v.value);
   const el = s.eligibility || {};
-  return `<div class="card">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <h3 style="font-size:1.02rem;line-height:1.35">${esc(s.n)}</h3>
-      ${saveBtn('scholarship', s.i, s.n, provider ? provider.name : '')}
-    </div>
-    <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap">
-      ${values.map(v => `<span class="chip chip-teal">${esc(v.value)}${
-        v.condition && v.condition !== 'NoCondition' ? ` (${esc(v.condition)})` : ''}</span>`).join('')}
-      <span class="chip chip-gold">Closes: ${esc(s.closing || 'Refer to website')}</span>
-      ${(s.levels || []).map(l => `<span class="chip chip-dim">${esc(l)}</span>`).join('')}
-      ${el.internationalOnly ? '<span class="chip chip-violet">International students</span>' : ''}
-    </div>
-    ${provider ? `<p class="faint" style="font-size:12.5px;margin-bottom:8px">${esc(provider.name)}</p>` : ''}
-    <p class="muted" style="font-size:13.5px">${esc((s.about || '').slice(0, 320))}${(s.about || '').length > 320 ? '…' : ''}</p>
-    ${el.other ? `<p class="muted" style="font-size:13px;margin-top:8px"><strong>Eligibility:</strong> ${esc(el.other)}</p>` : ''}
-    ${s.url ? `<a class="btn btn-ghost btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-top:12px">
-      Provider page <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
-    ${consultCTA(isMasters() ? 'masters-intake' : 'visa-offer')}
-  </div>`;
+  return `<div class="row">
+      <div class="row-main">
+        <div class="row-title">${esc(s.n)}</div>
+        <div class="row-sub">${provider ? esc(provider.name) + ' · ' : ''}${esc((s.about || '').slice(0, 200))}${(s.about || '').length > 200 ? '…' : ''}
+          ${el.other ? ` <strong>Eligibility:</strong> ${esc(el.other)}` : ''}</div>
+        <div class="mt-3">
+          ${values.map(v => `<span class="chip chip-ok">${esc(v.value)}${
+            v.condition && v.condition !== 'NoCondition' ? ` (${esc(v.condition)})` : ''}</span>`).join('')}
+          ${deadlineChip(s.closing)}
+          ${el.internationalOnly ? '<span class="chip chip-info">International students</span>' : ''}
+        </div>
+      </div>
+      <div class="row-actions">
+        ${s.url ? `<a class="btn btn-quiet btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener">Provider page</a>` : ''}
+        ${saveBtn('scholarship', s.i, s.n, provider ? provider.name : '')}
+      </div>
+    </div>`;
 }
 
 /* Fallback when the scholarship shard can't load — the original eight
@@ -2774,10 +3025,10 @@ function computeFunds(a) {
   const score = Math.max(0, Math.min(100, Math.round(Math.min(1, ratio) * 100) - penalty));
 
   let band, bandCls, verdict;
-  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-teal'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
-  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-gold'; verdict = 'A small gap left to close, and a workable one.'; }
-  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-violet'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
-  else { band = 'Significant gap'; bandCls = 'chip-rose'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
+  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-ok'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
+  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-warn'; verdict = 'A small gap left to close, and a workable one.'; }
+  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-info'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
+  else { band = 'Significant gap'; bandCls = 'chip-alert'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
 
   return { fundsNZD, tuition, grossTuition, tuitionCovered, livingReq, airfare, requiredTotal,
            livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads,
@@ -2816,13 +3067,13 @@ function renderFunds(main) {
 
   // landing on a completed check → show the result (with re-check)
   if (saved && saved.result && fundsState.step === 0 && !fundsState.retake) {
-    main.innerHTML = viewHead('savings', 'Funds Readiness Check', 'Your visa-funds readiness',
-      'How your money stacks up against what Immigration New Zealand expects to see. Indicative — always confirm current figures with INZ.') +
-      fundsResultCard(saved.result) +
-      `<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-        <button class="btn btn-primary" id="fc-redo">Re-check my funds</button>
-        <a class="btn btn-ghost" href="#settlement">Detailed funds planner</a>
-      </div>`;
+    main.innerHTML = renderHero({
+      kicker: 'Funds Readiness Check', title: saved.result.band,
+      body: 'How your money compares to what Immigration New Zealand expects to see.',
+      figure: saved.result.score, figureSuffix: '%', figureCaption: 'Funds readiness',
+      primaryLabel: 'Re-check my funds', primaryId: 'fc-redo',
+      secondaryLabel: 'Detailed funds planner', secondaryHref: '#settlement',
+    }) + fundsResultCard(saved.result);
     $('#fc-redo').onclick = () => { fundsState = { step: 0, answers: {}, retake: true }; route(); };
     return;
   }
@@ -2836,17 +3087,14 @@ function renderFunds(main) {
   const q = QS[i];
   const pct = Math.round((i / (QS.length + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${i + 1} of ${QS.length + 1}`, 'Funds Readiness Check',
-    'A quick self-check of your visa funds — answers stay on your device.') +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:8px">${q.q}</h2>
-       <p class="muted" style="font-size:13.5px;margin-bottom:20px">${q.help}</p>
-       <div class="asm-opts">${q.opts.map((o, k) =>
-         `<button class="asm-opt" data-k="${k}"><span class="asm-radio"></span>${o.t}</button>`).join('')}
-       </div>
-       ${i > 0 ? `<button class="btn btn-ghost btn-sm" id="fc-back" style="margin-top:22px">← Back</button>` : ''}
-     </div>`;
+  main.innerHTML = renderHero({
+    kicker: `Funds check · ${i + 1} of ${QS.length + 1}`, title: q.q, body: q.help,
+  }) +
+    barHtml(pct) +
+    `<div class="asm-opts mt-6">${q.opts.map((o, k) =>
+      `<button type="button" class="field asm-opt" data-k="${k}" role="radio" aria-checked="false">${o.t}</button>`).join('')}
+     </div>
+     ${i > 0 ? `<button type="button" class="btn btn-quiet mt-5" id="fc-back">← Back</button>` : ''}`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
     fundsState.answers[q.id] = q.opts[+b.dataset.k].v;
@@ -2863,25 +3111,22 @@ function renderFundsAmount(main) {
   const n = fundsQuestions().length;
   const pct = Math.round((n / (n + 1)) * 100);
 
-  main.innerHTML = viewHead('savings', `Funds check · ${n + 1} of ${n + 1}`, 'Funds Readiness Check',
-    'A quick self-check of your visa funds — answers stay on your device.') +
-    `<div class="bar" style="max-width:560px;margin-bottom:36px"><span style="width:${pct}%"></span></div>
-     <div class="card" style="max-width:680px">
-       <h2 style="font-size:1.25rem;margin-bottom:8px">Roughly how much in liquid funds can you show?</h2>
-       <p class="muted" style="font-size:13.5px;margin-bottom:20px">Money you (or your sponsor) can actually evidence in a bank account — savings, fixed deposits, scholarship funds. A rough figure is fine.</p>
-       <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
-         <div style="display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden">
-           <button class="fc-cur ${cur === 'LKR' ? 'active' : ''}" data-cur="LKR">LKR</button>
-           <button class="fc-cur ${cur === 'NZD' ? 'active' : ''}" data-cur="NZD">NZ$</button>
-         </div>
-         <input class="field" id="fc-amount" type="number" inputmode="numeric" min="0" step="10000"
-           placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}"
-           style="flex:1;min-width:160px;font-size:16px">
+  main.innerHTML = renderHero({
+    kicker: `Funds check · ${n + 1} of ${n + 1}`, title: 'Roughly how much in liquid funds can you show?',
+    body: 'Money you (or your sponsor) can evidence in a bank account — a rough figure is fine.',
+  }) +
+    barHtml(pct) +
+    `<div class="fc-amount-row mt-6">
+       <div class="fc-currency">
+         <button type="button" class="fc-cur ${cur === 'LKR' ? 'active' : ''}" data-cur="LKR">LKR</button>
+         <button type="button" class="fc-cur ${cur === 'NZD' ? 'active' : ''}" data-cur="NZD">NZ$</button>
        </div>
-       <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
-         <button class="btn btn-primary" id="fc-finish">See my readiness <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span></button>
-         <button class="btn btn-ghost btn-sm" id="fc-back">← Back</button>
-       </div>
+       <input class="field" id="fc-amount" type="number" inputmode="numeric" min="0" step="10000"
+         placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}">
+     </div>
+     <div class="hero-actions mt-6">
+       <button type="button" class="btn" id="fc-finish">See my readiness <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+       <button type="button" class="btn btn-quiet" id="fc-back">← Back</button>
      </div>`;
 
   $$('.fc-cur', main).forEach(b => b.onclick = () => {
@@ -2903,26 +3148,13 @@ function renderFundsAmount(main) {
 }
 
 function fundsResultCard(r) {
-  const ring = 2 * Math.PI * 42;
   const row = (label, nzd, strong) => `<div class="fc-row ${strong ? 'fc-row-strong' : ''}">
-    <span>${label}</span><strong>${fundsMoney(nzd)} <em style="font-style:normal;color:var(--ink-faint);font-weight:400">· ${fundsLkr(nzd)}</em></strong></div>`;
+    <span>${label}</span><strong>${fundsMoney(nzd)} <em style="font-style:normal;color:var(--ink-dim);font-weight:400">· ${fundsLkr(nzd)}</em></strong></div>`;
 
-  return `<div class="card" style="max-width:760px">
-    <div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
-      <svg width="110" height="110" viewBox="0 0 100 100" style="flex-shrink:0">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(28,26,21,.1)" stroke-width="2"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#C2401C" stroke-width="4" stroke-linecap="butt"
-          stroke-dasharray="${ring}" stroke-dashoffset="${ring * (1 - r.score / 100)}" transform="rotate(-90 50 50)"/>
-        <text x="50" y="56" text-anchor="middle" fill="#1C1A15" font-size="18" font-weight="600" font-family="IBM Plex Mono">${r.score}%</text>
-      </svg>
-      <div style="flex:1;min-width:240px">
-        <span class="chip ${r.bandCls}">${r.band}</span>
-        <h3 style="font-size:1.2rem;margin:8px 0 6px">${r.gap > 0 ? fundsMoney(r.gap) + ' gap to close' : 'Funds bar met'}</h3>
-        <p class="muted" style="font-size:14px">${r.verdict}</p>
-      </div>
-    </div>
+  return `<div class="listcard">
+    <p>${r.gap > 0 ? fundsMoney(r.gap) + ' gap to close. ' : 'Funds bar met. '}${r.verdict}</p>
 
-    <div class="fc-break" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
+    <div class="fc-break mt-6" style="padding-top:20px;border-top:1px solid var(--line)">
       <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">What INZ expects to see (indicative)</div>
       ${r.track === 'masters'
         ? row('Tuition — first year (full international rate)', r.grossTuition) +
@@ -2955,160 +3187,177 @@ function fundsResultCard(r) {
     </div>
 
     <!-- premium upsell: a mentor who passed the same check reviews the evidence -->
-    <div class="fc-upsell" style="margin-top:16px;padding:16px;border:1px dashed var(--line-2);border-radius:6px;background:var(--gold-soft)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <span class="material-symbols-outlined" style="color:var(--route);font-size:19px">verified</span>
-        <strong style="font-size:14.5px">Funds Evidence Review</strong>
-        <span class="chip chip-gold" style="margin-left:auto">First 15 min free</span>
-      </div>
-      <p class="muted" style="font-size:13px;margin:0 0 12px">A Sri Lankan postgrad who has already cleared the NZ visa funds check looks over your bank statements, sponsor letter and figures — and flags anything INZ would query — before you submit.</p>
-      <a class="btn btn-primary btn-sm" href="#mentors?topic=visa-funds" style="width:100%;justify-content:center">Get my funds evidence reviewed</a>
-    </div>
+    <a class="nudge mt-4" href="#mentors?topic=visa-funds">
+      <span class="material-symbols-outlined nudge-icon" aria-hidden="true">verified</span>
+      <p class="nudge-body"><strong>Funds Evidence Review</strong> — first ${PF_CONFIG.freeIntroMinutes} min free. A postgrad who has already cleared this check looks over your bank statements and sponsor letter before you submit.</p>
+    </a>
 
-    <p class="faint" style="font-size:11.5px;margin-top:18px">Figures are indicative and change with policy — always confirm the current living-cost minimum, fees and dependent requirements with <a href="https://www.immigration.govt.nz" target="_blank" rel="noopener" style="color:var(--route)">Immigration New Zealand</a> and your university.</p>
+    <p class="row-sub mt-5">Figures are indicative — always confirm the current living-cost minimum, fees and dependent requirements with Immigration New Zealand and your university.</p>
   </div>`;
 }
 
 /* ── 5 · Dashboard (saved + tracker) ────────────────────── */
+function appStatusChipClass(status) {
+  if (status === 'Offer' || status === 'Enrolled') return 'chip-ok';
+  if (status === 'Researching') return 'chip-neutral';
+  return 'chip-info';
+}
+
+/* Funds evidence side card — real figures only, from the student's own
+   completed Funds Readiness Check (computeFunds()). No check yet → a
+   prompt, never a placeholder number. */
+function fundsSidecard() {
+  const fc = PFStore.get('fundsCheck', null);
+  if (fc && fc.result) {
+    const r = fc.result;
+    return `<a class="sidecard" href="#funds">
+      <span class="sidecard-kicker">Funds evidence</span>
+      <div class="sidecard-figure">${fundsMoney(r.counted)}</div>
+      <p>${esc(trackCfg().label)} pathway — ${fundsMoney(r.livingReq)} living costs required.</p>
+      ${barHtml(r.score)}
+      <div class="bar-caption">${r.score}% evidenced</div>
+    </a>`;
+  }
+  return `<div class="sidecard">
+    <span class="sidecard-kicker">Funds evidence</span>
+    <p>See how your money compares to what Immigration New Zealand expects to see.</p>
+    <a class="btn btn-quiet" href="#funds">Run the funds check</a>
+  </div>`;
+}
+
+/* Mentor side card. The app doesn't sync a claiming mentor's name or a
+   personal note back to the student's device (mentor_requests only carries
+   a mentorId uid on claim — see firebase.js claimRequest) so this shows the
+   real state of the student's own most recent request instead of a
+   fabricated mentor identity/quote. */
+function mentorSidecard(reqs) {
+  const active = reqs.find(r => !['completed', 'cancelled'].includes(r.status)) || reqs[0];
+  if (!active) {
+    return `<div class="sidecard">
+      <span class="sidecard-kicker">Mentors</span>
+      <p>Stuck on a step? Ask someone who has already done it — your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>
+      <a class="btn btn-quiet" href="#mentors">Ask a mentor</a>
+    </div>`;
+  }
+  const cls = { open: 'chip-warn', claimed: 'chip-info', intro_done: 'chip-info',
+    awaiting_payment: 'chip-warn', paid: 'chip-ok', completed: 'chip-ok', cancelled: 'chip-neutral' };
+  const lbl = { open: 'Open', claimed: 'Claimed', intro_done: 'Intro done',
+    awaiting_payment: 'Awaiting payment', paid: 'Paid', completed: 'Completed', cancelled: 'Cancelled' };
+  return `<a class="sidecard" href="#mentors?tab=mine">
+    <span class="sidecard-kicker">Your mentor request</span>
+    <div class="sidecard-name">${esc(PF_CONSULT_TOPICS[active.topic] || 'General guidance')}</div>
+    <p>${active.note ? esc(active.note) : 'Track replies and next steps in Mentors → My requests.'}</p>
+    <span class="chip ${cls[active.status] || 'chip-neutral'}">${lbl[active.status] || active.status}</span>
+  </a>`;
+}
+
+/* Advisory panel — the visa checklist's next open step when one exists
+   (a real blocking, ordered sequence), else a generic mentor hook. */
+function advisoryNudge(vp) {
+  const stage = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
+  if (vp.done > 0 && stage) {
+    const step = stage.steps.find(st => !PFStore.isChecked('visa', st.id));
+    return `<a class="nudge" href="#visa">
+      <span class="material-symbols-outlined nudge-icon" aria-hidden="true">flight_takeoff</span>
+      <p class="nudge-body">Visa ${vp.done} of ${vp.total} steps. ${esc(step.t)}${step.note ? ' — ' + esc(step.note) : '.'}</p>
+    </a>`;
+  }
+  return `<a class="nudge" href="#mentors">
+    <span class="material-symbols-outlined nudge-icon" aria-hidden="true">support_agent</span>
+    <p class="nudge-body">Stuck on your next step? A mentor's first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>
+  </a>`;
+}
+
 function renderDashboard(main) {
-  const a = PFStore.getAssessment();
-  const saved = PFStore.getSaved();
   const apps = PFStore.getApps();
   const ST = PFStore.APP_STATUSES;
   const vp = visaProgress();
   const reqs = PFStore.getMentorRequests().slice().reverse();
-
-  // ── Derived insights (client/student dashboard) ──
-  const inProg = apps.filter(x => ['Contacted Supervisor', 'Preparing Documents', 'Applied', 'Interview'].includes(x.status)).length;
   const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
-  const activeReqs = reqs.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  // single source of truth — same engine that drives the Journey Map + meter
-  const J = journeyModel();
-  const nextAction = J.nextStep
-    ? [J.current.icon, J.nextStep[0], J.nextStep[2]]
-    : ['support_agent', 'Nothing outstanding here — a mentor can pressure-test the plan', '#mentors'];
-  const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
-
-  const SAVED_KIND = { uni:'University', lab:'Research lab', scholarship:'Scholarship',
-                       course:'Qualification', provider:'Provider' };
-  const SAVED_HREF = { uni:'#explore', lab:'#explore', scholarship:'#funding',
-                       course:'#courses', provider:'#explore' };
-  const savedHtml = saved.length ? saved.map(s => {
-    // Catalogue items carry their own label (see toggleSaved) so the dashboard
-    // never has to pull a shard down; curated items resolve from the dataset.
-    let title = s.label || '', sub = s.sub || '';
-    if (!title && s.kind === 'uni') { const u = uniById(s.id); if (!u) return ''; title = u.name; sub = u.city; }
-    if (!title && s.kind === 'lab') { const l = PF_LABS.find(x => x.id === s.id); if (!l) return ''; title = l.name; sub = uniById(l.uni).name; }
-    if (!title && s.kind === 'scholarship') { const sc = PF_SCHOLARSHIPS.find(x => x.id === s.id); if (!sc) return ''; title = sc.name; sub = sc.value; }
-    if (!title) return '';
-    return `<div class="lab-row">
-      <div style="flex:1"><strong style="font-size:14px">${esc(title)}</strong>
-        <div class="faint" style="font-size:12.5px">${SAVED_KIND[s.kind] || 'Saved'}${sub ? ' · ' + esc(sub) : ''}</div></div>
-      <a class="btn btn-ghost btn-sm" href="${SAVED_HREF[s.kind] || '#explore'}">View</a>
-      ${saveBtn(s.kind, s.id, s.label, s.sub)}
-    </div>`;
-  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark qualifications in the <a href="#courses" style="color:var(--route)">Course Catalogue</a> or scholarships in <a href="#funding" style="color:var(--route)">Funding</a>.</p>`;
-
+  const saved = PFStore.getSaved();
   const R = currentResult();
-  main.innerHTML = viewHead('space_dashboard', 'Your Dashboard', R ? `Welcome back — ${R.readiness}% ${trackCfg().label}-ready` : 'Welcome to PathFinder',
-    R ? `Pathway: <strong>${esc(R.pathway)}</strong> in ${esc(R.field)}.`
-      : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> — it builds the rest of your plan.') +
+  const T = trackCfg();
+  const next = highestPriorityIncompleteStep();
 
-    renderJourneyMap() +
+  main.innerHTML = renderHero({
+    kicker: next.kicker, title: next.title, body: next.body,
+    figure: R ? R.readiness : '—', figureSuffix: R ? '%' : '', figureCaption: T.label + '-ready',
+    primaryLabel: next.primaryLabel, primaryHref: next.primaryHref,
+    secondaryLabel: 'Ask a mentor', secondaryHref: next.consultTopic ? `#mentors?topic=${next.consultTopic}` : '#mentors',
+    segments: heroSegments(journeyModel()),
+  }) +
 
-    `<div class="grid-4" style="margin:40px 0">
-      ${[['quiz', R ? R.readiness + '%' : '—', 'Readiness score', '#assessment'],
-         ['bookmark', saved.length, 'Saved opportunities', isMasters() ? '#courses' : '#explore'],
-         ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
-         ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard'],
-         ['flight_takeoff', vp.done + '/' + vp.total, 'Visa steps done', '#visa'],
-         ['support_agent', reqs.length, 'Mentor requests', '#mentors?tab=mine']]
-        .map(([ic, n, l, href]) => `<a class="card" href="${href}" style="display:block">
-          <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
-          <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
-          <div class="faint" style="font-size:12.5px">${l}</div></a>`).join('')}
+    `<div class="stat-grid" style="margin:24px 0">
+      <a class="stat" href="${isMasters() ? '#courses' : '#explore'}">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">bookmark</span>
+        <div class="stat-figure">${saved.length}</div>
+        <div class="stat-label">Saved</div>
+      </a>
+      <a class="stat" href="#dashboard">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">folder_managed</span>
+        <div class="stat-figure">${apps.length}</div>
+        <div class="stat-label">Applications</div>
+      </a>
+      <a class="stat" href="#dashboard">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">workspace_premium</span>
+        <div class="stat-figure">${offers}</div>
+        <div class="stat-label">Offer${offers === 1 ? '' : 's'}</div>
+      </a>
+      <a class="stat" href="#visa">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">flight_takeoff</span>
+        <div class="stat-figure">${vp.done}/${vp.total}</div>
+        <div class="stat-label">Visa steps</div>
+      </a>
     </div>
 
-    <div class="card" style="margin-bottom:40px">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px">
-        <h2 style="font-size:1.15rem;margin:0">Your insights</h2>
-        <span class="chip ${synced ? 'chip-teal' : 'chip-dim'}">${synced ? 'Synced across devices' : 'Saved on this device'}</span>
-      </div>
-      <p class="muted" style="font-size:13.5px;margin:0 0 12px">${R
-        ? `You’re <strong>${R.readiness}% ${esc(trackCfg().label)}-ready</strong> on the <strong>${esc(R.pathway)}</strong> pathway in ${esc(R.field)}.`
-        : `Complete the <a href="#assessment" style="color:var(--route)">assessment</a> to see personalised insights.`}${synced ? '' : ` <a href="#account" style="color:var(--route)">Create a free account</a> to sync.`}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <span class="chip chip-dim">${apps.length} tracked</span>
-        <span class="chip chip-violet">${inProg} in progress</span>
-        <span class="chip chip-teal">${offers} offer${offers === 1 ? '' : 's'}</span>
-        <span class="chip chip-gold">${activeReqs} active mentor request${activeReqs === 1 ? '' : 's'}</span>
-        <span class="chip chip-dim">visa ${vp.done}/${vp.total}</span>
-      </div>
-      <div class="consult-hook" style="margin-top:12px">
-        <span class="material-symbols-outlined" style="font-size:15px">${nextAction[0]}</span>
-        Next step: <a href="${nextAction[2]}" style="color:var(--route)">${nextAction[1]}</a>
-      </div>
-    </div>
-
-    ${newsStrip()}
-
-    <h2 style="font-size:1.3rem;margin-bottom:16px">Application tracker</h2>
-    <div class="card" style="margin-bottom:18px">
-      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:10px;align-items:end" class="app-form">
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">University / Program</label>
-          <input class="field" id="app-uni" placeholder="e.g. UoA — PhD Computer Science" style="margin-top:5px"></div>
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Supervisor</label>
-          <input class="field" id="app-sup" placeholder="Prof. ..." style="margin-top:5px"></div>
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Status</label>
-          <select class="field" id="app-status" style="margin-top:5px">${ST.map(s => `<option>${s}</option>`).join('')}</select></div>
-        <button class="btn btn-primary" id="app-add">Add</button>
-      </div>
-    </div>
-    <div id="app-list">${apps.length ? apps.map(appRow).join('') :
-      '<p class="muted" style="font-size:14px">No applications yet. Add your first one above — every supervisor email counts as “Contacted Supervisor”.</p>'}</div>
-
-    <h2 style="font-size:1.3rem;margin:48px 0 16px">Your mentor requests</h2>
-    <div id="con-list">${reqs.length ? reqs.map(conRow).join('') :
-      `<p class="muted" style="font-size:14px">No requests yet — when a step gets confusing, <a href="#mentors" style="color:var(--route)">ask a mentor who has done it</a>. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>`}</div>
-
-    <h2 style="font-size:1.3rem;margin:48px 0 16px">Saved opportunities</h2>
-    <div class="card">${savedHtml}</div>`;
-
-  // read-only summary row — status is mentor-driven; students track here and
-  // can pay / see full detail under Mentors → My requests.
-  function conRow(c) {
-    return `<div class="card" style="margin-bottom:12px" data-con="${c.id}">
-      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
-        <div style="flex:1;min-width:200px">
-          <strong style="font-size:14.5px">${PF_CONSULT_TOPICS[c.topic] || 'General guidance'}</strong>
-          <div class="faint" style="font-size:12.5px">${c.at ? new Date(c.at).toLocaleDateString() : ''}</div>
-          ${c.note ? `<div class="muted" style="font-size:13px;margin-top:4px">${esc(c.note)}</div>` : ''}
+    <div class="viewgrid">
+      <div>
+        <div class="listcard" style="margin-bottom:16px">
+          <div class="listcard-head"><h2 class="listcard-title">Track a new application</h2></div>
+          <div class="form-row">
+            <div><span class="field-label">University / programme</span>
+              <input class="field" id="app-uni" placeholder="e.g. UoA — ${isMasters() ? 'MDataSci' : 'PhD Computer Science'}"></div>
+            <div><span class="field-label">Supervisor</span>
+              <input class="field" id="app-sup" placeholder="Prof. ..."></div>
+            <div><span class="field-label">Status</span>
+              <select class="field" id="app-status">${ST.map(s => `<option>${s}</option>`).join('')}</select></div>
+            <button type="button" class="btn btn-quiet" id="app-add">Add</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-          ${reqStatusChip(c.status)}
-          ${c.payment ? payStatusChip(c.payment) : ''}
-          <a class="btn btn-ghost btn-sm" href="#mentors?tab=mine">Open</a>
-          <button class="btn btn-ghost btn-sm con-del" title="Remove from this device"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+
+        <div class="listcard">
+          <div class="listcard-head">
+            <h2 class="listcard-title">Applications</h2>
+            <span class="listcard-summary">${apps.length} tracked${offers ? ` · ${offers} offer${offers === 1 ? '' : 's'}` : ''}</span>
+          </div>
+          <div id="app-list">${apps.length ? apps.map(appRow).join('') :
+            '<p>No applications yet — add your first one above. Every supervisor email counts as “Contacted Supervisor”.</p>'}</div>
         </div>
+      </div>
+
+      <div class="aside">
+        ${fundsSidecard()}
+        ${mentorSidecard(reqs)}
+        ${advisoryNudge(vp)}
       </div>
     </div>`;
-  }
 
   function appRow(app) {
     const pct = Math.round(((ST.indexOf(app.status) + 1) / ST.length) * 100);
-    return `<div class="card" style="margin-bottom:12px" data-app="${app.id}">
-      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
-        <div style="flex:1;min-width:200px">
-          <strong style="font-size:14.5px">${esc(app.uni)}</strong>
-          <div class="faint" style="font-size:12.5px">${esc(app.supervisor || 'No supervisor listed')}</div>
-        </div>
-        <select class="field app-status-sel" style="width:auto;padding:8px 36px 8px 12px;font-size:13px">
+    return `<div class="row" data-app="${app.id}">
+      <div class="row-main">
+        <div class="row-title">${esc(app.uni)}</div>
+        <div class="row-sub">${esc(app.supervisor || 'No supervisor listed')} · ${pct}%</div>
+      </div>
+      <div class="row-actions">
+        <select class="field app-status-sel" aria-label="Status for ${esc(app.uni)}">
           ${ST.map(s => `<option ${s === app.status ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
-        <button class="btn btn-ghost btn-sm app-del" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+        <span class="chip ${appStatusChipClass(app.status)}">${esc(app.status)}</span>
+        <button type="button" class="icon-btn app-del" title="Delete" aria-label="Delete ${esc(app.uni)}">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+        </button>
       </div>
-      <div class="bar" style="margin-top:14px"><span style="width:${pct}%"></span></div>
-      <div class="faint" style="font-size:11.5px;margin-top:6px">${pct}% — ${app.status}</div>
     </div>`;
   }
 
@@ -3136,22 +3385,6 @@ function renderDashboard(main) {
     toast('Application removed');
     route();
   });
-  $('#con-list').addEventListener('click', e => {
-    const d = e.target.closest('.con-del');
-    if (!d) return;
-    PFStore.deleteMentorRequest(d.closest('[data-con]').dataset.con);
-    toast('Removed from this device');
-    route();
-  });
-
-  // fill the briefing strip async (won't block the dashboard render)
-  loadNews(() => {
-    const el = document.getElementById('dash-news');
-    if (!el) return;
-    const items = (newsState.items || []).slice(0, 3);
-    if (items.length) el.innerHTML = items.map(x => newsItemRow(x, true)).join('');
-    else if (!newsState.loading) el.innerHTML = `<p class="muted" style="font-size:13px;margin:0">News sources are unreachable right now — <a href="#news" style="color:var(--route)">open the Briefing</a> to retry.</p>`;
-  }, false);
 }
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
@@ -3176,7 +3409,7 @@ function renderKit(main) {
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="btn btn-primary btn-sm tpl-dl" data-id="${t.id}">
           <span class="material-symbols-outlined" style="font-size:15px">download</span> Download .txt</button>
-        <button class="btn btn-ghost btn-sm tpl-copy" data-id="${t.id}">
+        <button class="btn btn-quiet btn-sm tpl-copy" data-id="${t.id}">
           <span class="material-symbols-outlined" style="font-size:15px">content_copy</span> Copy</button>
       </div>
     </div>`;
@@ -3198,7 +3431,7 @@ function renderKit(main) {
   const banner = (gate && !unlocked) ? `<div class="card" style="margin-bottom:24px;border-color:var(--ochre);display:flex;gap:14px;flex-wrap:wrap;align-items:center">
       <span class="material-symbols-outlined" style="color:var(--ochre)">workspace_premium</span>
       <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${PF_TEMPLATES.length - premiumIds.length} templates are free. Unlock the ${premiumIds.length} advanced ones (research proposal, interview prep, 3-year plan, budgets &amp; more) with the <strong>Explorer</strong> plan.</p>
-      <a class="btn btn-ghost btn-sm" href="#pricing">See plans</a>
+      <a class="btn btn-quiet btn-sm" href="#pricing">See plans</a>
     </div>` : '';
 
   // Track-specific templates (the master's statement of purpose, the
@@ -3207,8 +3440,8 @@ function renderKit(main) {
   // both and always show.
   const templates = PF_TEMPLATES.filter(t => !t.track || t.track === PFStore.getTrack());
 
-  main.innerHTML = viewHead('package_2', `${trackCfg().label} Starter Kit`, 'Templates & resources',
-    'Drafts to start from, for each stage — preview, copy, or download. Rewrite them in your own words; the structure is the useful part, not the wording.') +
+  main.innerHTML = renderHero({ kicker: `${trackCfg().label} Starter Kit`, title: 'Templates & resources',
+    body: 'Drafts to start from — preview, copy, or download, then rewrite them in your own words.' }) +
     banner +
     `<div class="grid-2">${templates.map(t => {
       const isPremium = gate && premiumIds.includes(t.id);
@@ -3238,71 +3471,68 @@ function visaProgress() {
 function renderVisa(main) {
   const { done, total } = visaProgress();
   const firstOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
-
   const T = trackCfg();
-  main.innerHTML = viewHead('flight_takeoff', 'NZ Student Visa Hub', 'The visa, stage by stage',
-    'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to talk to, what it costs, and a checklist that remembers where you got to.') +
-    // The stages are the same for everyone; the conditions attached to the
-    // visa are not, and getting them wrong is expensive. State them up front.
-    `<div class="card" style="max-width:760px;margin-bottom:22px">
-      <div class="crs-lbl">Your visa as ${T.article} student</div>
-      <div class="vh-facts">
-        <div><span>Tuition</span><strong>${T.feeMode === 'domestic'
-          ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
-          : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</strong></div>
-        <div><span>Living-costs evidence</span><strong>${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</strong></div>
-        <div><span>Work rights</span><strong>${esc(T.workRights)}</strong></div>
-        <div><span>After you finish</span><strong>${esc(T.postStudy)}</strong></div>
-      </div>
-    </div>
-    <div class="card" style="max-width:760px;margin-bottom:32px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
-        <strong>Your visa progress</strong>
-        <span class="mono" id="visa-pct">${done} / ${total} steps</span>
-      </div>
-      <div class="bar" style="margin-top:12px"><span id="visa-bar" style="width:${total ? Math.round(done / total * 100) : 0}%"></span></div>
-    </div>
-    <div class="timeline">${PF_VISA_STAGES.map((s, i) => {
-      const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
-      const open = firstOpen && firstOpen.id === s.id;
-      return `
-      <div class="tl-phase">
-        <div class="tl-node tl-${s.color}"><span>${i + 1}</span></div>
-        <div class="card tl-card vh-stage ${sDone === s.steps.length ? 'done' : ''} ${open ? 'open' : ''}" data-stage="${s.id}">
-          <button class="vh-head" data-vh-toggle="${s.id}" aria-expanded="${open}">
-            <h3>${s.title}</h3>
-            <span class="chip chip-${s.color}">${s.dur}</span>
-            <span class="chip chip-dim">${s.cost}</span>
-            <span class="mono vh-count">${sDone}/${s.steps.length}</span>
-            <span class="material-symbols-outlined vh-caret">expand_more</span>
-          </button>
-          <p class="muted" style="font-size:13.5px;margin-top:10px">${s.summary}</p>
-          <div class="vh-body ${open ? '' : 'hidden'}">
+
+  main.innerHTML = renderHero({
+    kicker: 'NZ Student Visa Hub', title: 'The visa, stage by stage',
+    body: 'Where to go in Sri Lanka, who to talk to, and a checklist that remembers where you got to.',
+    figure: total ? Math.round(done / total * 100) : 0, figureSuffix: '%', figureCaption: `${done}/${total} steps done`,
+  }) +
+    `<div class="viewgrid">
+      <div>${PF_VISA_STAGES.map((s, i) => {
+        const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
+        const stageDone = sDone === s.steps.length;
+        const open = firstOpen && firstOpen.id === s.id;
+        const bodyHtml = `
             ${s.where.map(w => `
-              <div class="visa-row" style="padding:14px 0">
-                <span class="material-symbols-outlined" style="font-size:18px;color:var(--sea);flex-shrink:0;margin-top:2px">location_on</span>
-                <div><strong style="font-size:13.5px">${esc(w.name)}</strong>
-                  <p class="muted" style="font-size:13px;margin-top:3px">${esc(tv(w, 'detail'))}</p></div>
+              <div class="row">
+                <span class="material-symbols-outlined stat-icon" aria-hidden="true">location_on</span>
+                <div class="row-main"><div class="row-title">${esc(w.name)}</div>
+                  <div class="row-sub">${esc(tv(w, 'detail'))}</div></div>
               </div>`).join('')}
             <ul class="ck-list">${s.steps.map(st => {
               const c = PFStore.isChecked('visa', st.id);
               return `<li class="ck-item ${c ? 'done' : ''}">
                 <label><input type="checkbox" data-ck="visa" data-id="${st.id}" ${c ? 'checked' : ''}>
-                  <span class="ck-box"><span class="material-symbols-outlined" style="font-size:13px">check</span></span>
+                  <span class="ck-box"><span class="material-symbols-outlined" aria-hidden="true">check</span></span>
                   <span class="ck-t">${esc(tv(st, 't'))}${tv(st, 'note') ? `<em>${esc(tv(st, 'note'))}</em>` : ''}</span></label>
               </li>`;
             }).join('')}</ul>
             ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
             ${s.id === 'vs2' ? fundsStageCTA() : ''}
-            ${consultCTA(s.consult)}
+            ${consultNudge(s.consult)}`;
+        return `<div class="listcard roadmap-phase vh-stage ${stageDone ? 'done' : ''} ${open ? 'open' : ''}" data-stage="${s.id}">
+          <div class="listcard-head">
+            <div class="phase-head-left">
+              <span class="phase-num ${stageDone ? 'is-done' : ''}">${stageDone ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : i + 1}</span>
+              <button type="button" class="vh-head" data-vh-toggle="${s.id}" aria-expanded="${open}">
+                <h2 class="listcard-title">${s.title}</h2>
+              </button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="chip chip-neutral">${s.dur}</span>
+              <span class="chip chip-neutral">${s.cost}</span>
+              <span class="tab-n mono vh-count">${sDone}/${s.steps.length}</span>
+            </div>
           </div>
+          <p class="mt-3">${s.summary}</p>
+          <div class="vh-body mt-4 ${open ? '' : 'hidden'}">${bodyHtml}</div>
+        </div>`;
+      }).join('')}
+      </div>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Your visa as ${esc(T.article)} student</span>
+          <p><strong>Tuition</strong> — ${T.feeMode === 'domestic'
+            ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
+            : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</p>
+          <p><strong>Living-costs evidence</strong> — ${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</p>
+          <p><strong>Work rights</strong> — ${esc(T.workRights)}</p>
+          <p><strong>After you finish</strong> — ${esc(T.postStudy)}</p>
         </div>
-      </div>`;
-    }).join('')}
+      </div>
     </div>
-    <p class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:8px">
-      Figures are estimates — verify with immigration.govt.nz before relying on them.
-    </p>`;
+    <p class="row-sub mt-6">Figures are estimates — verify with immigration.govt.nz before relying on them.</p>`;
 }
 
 /* checklist + stage toggle — delegated once; progress updates IN PLACE so the
@@ -3318,10 +3548,16 @@ document.addEventListener('change', e => {
     const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
     stage.querySelector('.vh-count').textContent = `${sDone}/${s.steps.length}`;
     stage.classList.toggle('done', sDone === s.steps.length);
+    // Update the hero's own figure in place — same reason as the stage
+    // count above: a full route() re-render would collapse the open stage.
+    // renderHero() renders the figure twice (desktop .hero-right and the
+    // <900px .hero-figure-mobile copy) so both need the update.
     const { done, total } = visaProgress();
-    const pct = $('#visa-pct'), bar = $('#visa-bar');
-    if (pct) pct.textContent = `${done} / ${total} steps`;
-    if (bar) bar.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    const hero = document.querySelector('.hero');
+    if (hero) {
+      $$('.hero-figure', hero).forEach(fig => { fig.firstChild.textContent = String(total ? Math.round(done / total * 100) : 0); });
+      $$('.hero-caption', hero).forEach(cap => { cap.textContent = `${done}/${total} steps done`; });
+    }
   }
 });
 document.addEventListener('click', e => {
@@ -3353,8 +3589,8 @@ function renderSettlement(main) {
     { id: 'buying-power',  label: 'What NZ$20 buys' },
   ];
 
-  main.innerHTML = viewHead('luggage', 'Settle In', 'Your first months in New Zealand',
-    'Arrival, banking, transport, housing, family — plus a funds planner, a 90-day cost simulator, and what NZ$20 actually buys you there.') +
+  main.innerHTML = renderHero({ kicker: 'Settle In', title: 'Your first months in New Zealand',
+    body: 'Arrival, banking, transport and housing — plus a funds planner and a 90-day cost simulator.' }) +
     `<div id="set-tabs" class="set-tabs">
       ${PF_SETTLEMENT_CATS.map((c, i) => `<button class="chip-filter ${i === 0 ? 'active' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}
       <span class="set-tab-sep" aria-hidden="true"></span>
@@ -3435,11 +3671,13 @@ function renderMentors(main) {
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
 
-  main.innerHTML = viewHead('support_agent', 'Mentors', 'Ask someone who has been through it',
-    `Ask anything about your move to New Zealand — a Sri Lankan postgrad who has been through it will pick it up. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free; paid follow-on sessions are optional and only if you want to continue.`) +
-    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px" id="mtr-tabs">
-      <button class="chip-filter ${mentorsTab === 'ask' ? 'active' : ''}" data-mtab="ask">Ask a mentor</button>
-      <button class="chip-filter ${mentorsTab === 'mine' ? 'active' : ''}" data-mtab="mine">My requests</button>
+  main.innerHTML = renderHero({
+    kicker: 'Mentors', title: 'Ask someone who has been through it',
+    body: `Your first ${PF_CONFIG.freeIntroMinutes} minutes are free — paid follow-on sessions are optional.`,
+  }) +
+    `<div class="tab-row" id="mtr-tabs" role="tablist" aria-label="Mentors">
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'ask'}" data-mtab="ask">Ask a mentor</button>
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'mine'}" data-mtab="mine">My requests</button>
     </div>
     <div id="mtr-body"></div>`;
 
@@ -3452,12 +3690,10 @@ function renderMentors(main) {
     // mentor network freely, but to actually ask one they create/sign into a
     // free account first, so the request is tied to them and trackable.
     const askCard = signedIn ? `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
-        <p class="muted" style="font-size:13.5px;margin-bottom:16px">
-          One question, one form. No need to pick a person — your request joins a shared queue and the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: <strong>${topicLabel}</strong>.` : ''}
-        </p>
-        <form id="ask-form" style="display:flex;flex-direction:column;gap:12px">
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Ask a mentor</h2></div>
+        <p>Your request joins a shared queue — the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: ${esc(topicLabel)}.` : ''}</p>
+        <form id="ask-form" class="mt-4" style="display:flex;flex-direction:column;gap:12px">
           <select class="field" id="ask-topic">
             <option value="">General guidance</option>
             ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
@@ -3466,28 +3702,25 @@ function renderMentors(main) {
           <input class="field" id="ask-name" placeholder="Your name" autocomplete="name">
           <input class="field" id="ask-contact" placeholder="Email or WhatsApp — how a mentor reaches you">
           <textarea class="field" id="ask-note" rows="3" placeholder="What do you want to ask? (a line or two)"></textarea>
-          <button class="btn btn-primary" type="submit" style="align-self:flex-start">Ask a mentor</button>
+          <button class="btn" type="submit" style="align-self:flex-start">Ask a mentor</button>
         </form>
       </div>` : `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
-        <p class="muted" style="font-size:13.5px;margin-bottom:16px">
-          Connecting with a mentor needs a free account, so your request is tied to you and you can follow it across devices. Exploring everything else stays free — no account needed.${topicLabel ? ` We’ll keep your topic: <strong>${topicLabel}</strong>.` : ''}
-        </p>
-        <a class="btn btn-primary" href="${accountHref('mentors' + (topic ? '?topic=' + topic : ''))}" style="align-self:flex-start">
-          <span class="material-symbols-outlined" style="font-size:16px">account_circle</span>
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Ask a mentor</h2></div>
+        <p>Connecting with a mentor needs a free account, so your request is tied to you and follows you across devices.${topicLabel ? ` We'll keep your topic: ${esc(topicLabel)}.` : ''}</p>
+        <a class="btn mt-4" href="${accountHref('mentors' + (topic ? '?topic=' + topic : ''))}" style="align-self:flex-start">
+          <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
           Create a free account to ask
         </a>
       </div>`;
 
-    body.innerHTML = askCard + `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <div class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">The mentor network</div>
-        <p style="font-size:14px;margin:0 0 12px"><strong>${st.count} mentor${st.count === 1 ? '' : 's'}</strong> active across <strong>${st.fields.length} field${st.fields.length === 1 ? '' : 's'}</strong> — current PhD students and graduates from Sri Lanka, already in New Zealand.</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${st.fields.map(([f, n]) => `<span class="chip chip-dim">${esc(f)} · ${n}</span>`).join('')}
-        </div>
+    const sidecard = `<div class="sidecard">
+        <span class="sidecard-kicker">The mentor network</span>
+        <p>${st.count} mentor${st.count === 1 ? '' : 's'} active across ${st.fields.length} field${st.fields.length === 1 ? '' : 's'} — postgrads from Sri Lanka, already in New Zealand.</p>
+        <div class="chip-row mt-4">${st.fields.map(([f, n]) => `<span class="chip chip-neutral">${esc(f)} · ${n}</span>`).join('')}</div>
       </div>`;
+
+    body.innerHTML = `<div class="viewgrid"><div style="max-width:680px">${askCard}</div><div class="aside">${sidecard}</div></div>`;
 
     const askForm = $('#ask-form');
     if (askForm) askForm.addEventListener('submit', e => {
@@ -3506,10 +3739,12 @@ function renderMentors(main) {
   function paintMine() {
     const render = (list, live) => {
       cacheReqs(list);
-      body.innerHTML = list.length ? `
-        ${live ? '' : `<p class="faint" style="font-size:12.5px;margin:0 0 14px">Showing requests saved on this device.${window.PFCloud && PFCloud.isSignedIn() ? '' : ' Sign in to track them across devices.'}</p>`}
-        ${list.map(r => studentReqCard(r)).join('')}`
-        : `<div class="card"><p class="muted" style="font-size:14px">No requests yet. Use <a href="#mentors" class="route-link" style="color:var(--route)">Ask a mentor</a> above whenever a step gets confusing — your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p></div>`;
+      body.innerHTML = `<div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">My requests</h2>
+          ${!live ? `<span class="listcard-summary">On this device${window.PFCloud && PFCloud.isSignedIn() ? '' : ' — sign in to sync'}</span>` : ''}</div>
+        ${list.length ? list.map(r => studentReqCard(r)).join('')
+          : `<p>No requests yet — ask above whenever a step gets confusing. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>`}
+      </div>`;
     };
     // Local copy is the synchronous source of truth; if signed in, refresh
     // from Firestore so mentor-side status/payment updates show through.
@@ -3524,9 +3759,9 @@ function renderMentors(main) {
 
   function paint() { (mentorsTab === 'mine' ? paintMine : paintAsk)(); }
 
-  $$('#mtr-tabs .chip-filter').forEach(b => b.onclick = () => {
+  $$('#mtr-tabs .tab').forEach(b => b.onclick = () => {
     mentorsTab = b.dataset.mtab;
-    $$('#mtr-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#mtr-tabs .tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   paint();
@@ -3538,30 +3773,21 @@ function studentReqCard(r) {
   const payable = r.status === 'awaiting_payment' && ps === 'requested';
   const reported = r.status === 'awaiting_payment' && ps === 'reported';
   const payLabel = PFPay.isPayHereLive()
-    ? 'Pay securely (Cards, HelaPay, eZ Cash, Genie &amp; more)'
+    ? 'Pay securely (Cards, HelaPay, eZ Cash, Genie & more)'
     : 'Pay now (bank transfer / mobile wallet)';
-  return `<div class="card" style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
-      <div style="flex:1;min-width:200px">
-        <strong style="font-size:14.5px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'}</strong>
-        <div class="faint" style="font-size:12.5px">${r.at ? new Date(r.at).toLocaleDateString() : ''}</div>
-        ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        ${reqStatusChip(r.status)}
-        ${r.payment ? payStatusChip(r.payment) : ''}
-      </div>
+  return `<div class="row" style="flex-wrap:wrap">
+    <div class="row-main">
+      <div class="row-title">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'}</div>
+      <div class="row-sub">${r.at ? new Date(r.at).toLocaleDateString() : ''}${r.note ? ' · ' + esc(r.note) : ''}</div>
+      ${payable ? `<p class="mt-3">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. Continue with a paid follow-on session for LKR ${Number(r.payment.amountLKR).toLocaleString()}.</p>
+        <button type="button" class="btn btn-sm pay-now mt-3" data-req="${r.id}">
+          <span class="material-symbols-outlined" aria-hidden="true">lock</span>${payLabel}</button>` : ''}
+      ${reported ? `<p class="mt-3">Payment reported — your mentor will confirm receipt and book the session shortly.${r.payment.payerRef ? ` Reference: ${esc(r.payment.payerRef)}.` : ''}</p>` : ''}
     </div>
-    ${payable ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. To continue with a paid follow-on session (LKR ${Number(r.payment.amountLKR).toLocaleString()}), pay below — then your mentor confirms and books the session.</p>
-      <button class="btn btn-primary btn-sm pay-now" data-req="${r.id}" style="width:100%;justify-content:center">
-        <span class="material-symbols-outlined" style="font-size:16px">lock</span>
-        ${payLabel}
-      </button>
-    </div>` : ''}
-    ${reported ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
-      <p class="muted" style="font-size:13px;margin:0">Payment reported — your mentor will confirm receipt and book the session shortly.${r.payment.payerRef ? ` Reference: <strong class="mono">${esc(r.payment.payerRef)}</strong>.` : ''}</p>
-    </div>` : ''}
+    <div class="row-actions">
+      ${reqStatusChip(r.status)}
+      ${r.payment ? payStatusChip(r.payment) : ''}
+    </div>
   </div>`;
 }
 
@@ -3604,17 +3830,17 @@ function renderPricing(main) {
   const plans = [
     { accent: 'teal', icon: 'lightbulb', name: 'Free', included: 3,
       price: 'LKR 0', unit: '', sub: 'No account needed — your work saves on this device.',
-      cta: `<a class="btn btn-ghost btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
+      cta: `<a class="btn btn-quiet btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
     { accent: 'gold', icon: 'travel_explore', name: 'Explorer', included: 4,
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
-      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
+      cta: `<button class="btn btn-quiet btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
     { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
       price: money(p.premium), unit: 'one-time', sub: 'For students who want someone alongside them from first draft to submission.',
-      cta: `<button class="btn btn-primary btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
+      cta: `<button class="btn btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
   ];
 
   const card = pl => `<div class="price-tier price-tier-${pl.accent}${pl.best ? ' price-tier-best' : ''}">
-      <span class="chip chip-${pl.accent}" style="align-self:flex-start${pl.chip ? '' : ';visibility:hidden'}" aria-hidden="${pl.chip ? 'false' : 'true'}">${pl.chip || 'Best value'}</span>
+      <span class="chip chip-neutral" style="align-self:flex-start${pl.chip ? '' : ';visibility:hidden'}" aria-hidden="${pl.chip ? 'false' : 'true'}">${pl.chip || 'Best value'}</span>
       <div class="price-tier-icon"><span class="material-symbols-outlined" aria-hidden="true">${pl.icon}</span></div>
       <h2 class="price-tier-name mono">${pl.name}</h2>
       <p class="muted price-tier-sub">${pl.sub}</p>
@@ -3626,27 +3852,29 @@ function renderPricing(main) {
       <div style="margin-top:auto;padding-top:20px">${pl.cta}</div>
     </div>`;
 
-  main.innerHTML = viewHead('payments', 'Plans & pricing', 'Free to explore. Pay only when you need help.',
-    'Looking around costs nothing. Explorer and Premium are one-time payments, not subscriptions — each one gives you the premium templates plus time with a mentor who has already done this.') +
+  main.innerHTML = renderHero({
+    kicker: 'Plans & pricing', title: 'Free to explore. Pay only when you need help.',
+    body: 'Explorer and Premium are one-time payments, not subscriptions.',
+  }) +
     `<div class="price-tiers">${plans.map(card).join('')}</div>
-    <p class="faint" style="font-size:12px;margin-top:22px;max-width:640px">Want more mentor time beyond your plan? Extra sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors" class="route-link" style="color:var(--route)">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you — we may earn a small commission. ${cloudOn() ? `<a href="#billing" class="route-link" style="color:var(--route)">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+    <p class="row-sub mt-6" style="max-width:640px">Extra mentor sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you. ${cloudOn() ? `<a href="#billing">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
 }
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
 function renderBilling(main) {
-  const head = viewHead('receipt_long', 'Billing', 'Your purchases & invoices',
-    'What you have bought and every mentoring session you have had, each with an invoice you can download. Nothing repeats — you pay once per item.');
+  const head = renderHero({ kicker: 'Billing', title: 'Your purchases & invoices',
+    body: 'Every purchase and mentoring session, each with an invoice you can download.' });
 
   if (!cloudOn()) {
-    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px">Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a>.</p></div>`;
+    main.innerHTML = head + `<div class="listcard"><p>Purchases are tied to an account, which needs Firebase configured. See <a href="#pricing">Plans</a>.</p></div>`;
     return;
   }
   if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn())) {
-    main.innerHTML = head + `<div class="card"><p class="muted" style="font-size:14px"><a href="#account" class="route-link" style="color:var(--route)">Create a free account</a> to buy and keep premium unlocks across devices.</p></div>`;
+    main.innerHTML = head + `<div class="listcard"><p><a href="#account">Create a free account</a> to buy and keep premium unlocks across devices.</p></div>`;
     return;
   }
 
-  main.innerHTML = head + `<div id="bill-body"><div class="card"><p class="muted">Loading…</p></div></div>`;
+  main.innerHTML = head + `<div id="bill-body"><div class="listcard"><p>Loading…</p></div></div>`;
   const body = $('#bill-body');
   const money = n => 'LKR ' + Number(n || 0).toLocaleString();
   const label = it => (PFPay.items()[it] && PFPay.items()[it].label) || it;
@@ -3700,12 +3928,12 @@ function renderBilling(main) {
    own dashboard from here. */
 function renderAccount(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('account_circle', 'Account', 'Accounts need Firebase',
-      'Sign-in and cross-device sync run on Firebase. The app still works fully on this device without it — configure <code>assets/js/firebase-config.js</code> to enable accounts.');
+    main.innerHTML = renderHero({ kicker: 'Account', title: 'Accounts need Firebase',
+      body: 'Sign-in and cross-device sync run on Firebase — the app still works fully on this device without it.' });
     return;
   }
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('account_circle', 'Account', 'Connecting…', 'Loading the accounts layer.');
+    main.innerHTML = renderHero({ kicker: 'Account', title: 'Connecting…', body: 'Loading the accounts layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 400);
     return;
   }
@@ -3719,22 +3947,20 @@ function accountStatus(main, role) {
   const email = (PFCloud.currentEmail && PFCloud.currentEmail()) || '';
   const prof = (PFCloud.getMentorProfile && PFCloud.getMentorProfile()) || null;
   const cfg = {
-    admin:          ['admin_panel_settings', 'Admin', 'chip-rose', 'You are signed in as the platform admin. View leads, mentors, requests and user records.', 'Open Admin panel', '#admin'],
-    mentor:         ['badge', 'Mentor · approved', 'chip-teal', 'Your mentor account is approved. Claim requests from the shared queue and manage your sessions.', 'Open Mentor Dashboard', '#mentor'],
-    mentor_pending: ['hourglass_top', 'Mentor · pending', 'chip-gold', 'Your mentor application is awaiting admin approval. The request queue unlocks once an admin approves you.', 'View status', '#mentor'],
-    client:         ['account_circle', 'Client / Student', 'chip-violet', 'Your roadmap, applications, saved opportunities and mentor requests now sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
-  }[role] || ['account_circle', 'Signed in', 'chip-dim', '', 'Open Dashboard', '#dashboard'];
+    admin:          ['admin_panel_settings', 'Admin', 'chip-alert', 'You are signed in as the platform admin.', 'Open Admin panel', '#admin'],
+    mentor:         ['badge', 'Mentor · approved', 'chip-ok', 'Your mentor account is approved — claim requests from the shared queue.', 'Open Mentor Dashboard', '#mentor'],
+    mentor_pending: ['hourglass_top', 'Mentor · pending', 'chip-warn', 'Your mentor application is awaiting admin approval.', 'View status', '#mentor'],
+    client:         ['account_circle', 'Client / Student', 'chip-info', 'Your roadmap, applications and mentor requests sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
+  }[role] || ['account_circle', 'Signed in', 'chip-neutral', '', 'Open Dashboard', '#dashboard'];
 
-  main.innerHTML = viewHead('account_circle', 'Account', 'Your account', 'You’re signed in. Manage your session below.') +
-    `<div class="card" style="max-width:560px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        <span class="chip ${cfg[2]}"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;margin-right:4px">${cfg[0]}</span>${cfg[1]}</span>
-      </div>
-      <p style="font-size:14.5px;margin:0 0 2px"><strong>${esc(email || (prof && prof.displayName) || 'Signed in')}</strong></p>
-      <p class="muted" style="font-size:13.5px;margin:8px 0 18px">${cfg[3]}</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <a class="btn btn-primary btn-sm" href="${cfg[5]}">${cfg[4]}</a>
-        <button class="btn btn-ghost btn-sm" id="acc-out">Sign out</button>
+  main.innerHTML = renderHero({ kicker: 'Account', title: 'Your account', body: "You're signed in — manage your session below." }) +
+    `<div class="listcard" style="max-width:560px">
+      <span class="chip ${cfg[2]}">${cfg[1]}</span>
+      <p style="font-size:14.5px;margin:12px 0 0"><strong>${esc(email || (prof && prof.displayName) || 'Signed in')}</strong></p>
+      <p class="mt-3">${cfg[3]}</p>
+      <div class="hero-actions mt-5">
+        <a class="btn" href="${cfg[5]}">${cfg[4]}</a>
+        <button type="button" class="btn btn-quiet" id="acc-out">Sign out</button>
       </div>
     </div>`;
   $('#acc-out').onclick = () => (role === 'admin' ? PFCloud.signOutAdmin() : PFCloud.signOutUser());
@@ -3743,34 +3969,36 @@ function accountStatus(main, role) {
 /* Not signed in: client sign-up / sign-in (no code) + invite-only doors
    to the mentor and admin flows. */
 function accountAuth(main) {
-  main.innerHTML = viewHead('account_circle', 'Account', 'Sign in or create an account',
-    'Signing in is optional — your data is already saved on this device. Create a free client account to sync it across devices. Mentors and admins use their own doors below.') +
-    `<div class="grid-2" style="gap:18px;align-items:start">
-      <div class="card">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-violet">Client / Student</span></div>
-        <h2 style="font-size:1.15rem;margin-bottom:4px">Create a free account</h2>
-        <p class="muted" style="font-size:13px;margin-bottom:14px">No code needed. Sync your roadmap, applications and saved opportunities across devices.</p>
-        <input class="field" id="ac-email" type="email" autocomplete="email" placeholder="you@example.com" style="margin-bottom:10px">
-        <input class="field" id="ac-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" style="margin-bottom:12px">
-        <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="ac-signup">Create account</button>
-          <button class="btn btn-ghost btn-sm" id="ac-signin">I already have one</button>
-          <button class="btn btn-ghost btn-sm" id="ac-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+  main.innerHTML = renderHero({
+    kicker: 'Account', title: 'Sign in or create an account',
+    body: 'Signing in is optional — your data is already saved on this device.',
+  }) +
+    `<div class="viewgrid">
+      <div class="listcard">
+        <span class="chip chip-info">Client / Student</span>
+        <h2 class="listcard-title mt-3">Create a free account</h2>
+        <p>No code needed. Sync your roadmap, applications and saved opportunities across devices.</p>
+        <input class="field mt-4" id="ac-email" type="email" autocomplete="email" placeholder="you@example.com">
+        <input class="field mt-3" id="ac-pass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)">
+        <p class="faint" id="ac-msg" style="font-size:12.5px;min-height:16px;margin-top:8px"></p>
+        <div class="hero-actions mt-3">
+          <button type="button" class="btn btn-sm" id="ac-signup">Create account</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="ac-signin">I already have one</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="ac-google"><span class="material-symbols-outlined" aria-hidden="true">login</span> Google</button>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:18px">
-        <div class="card">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-teal">Mentor</span><span class="chip chip-dim">Invite-only</span></div>
-          <h2 style="font-size:1.05rem;margin-bottom:4px">Mentor access</h2>
-          <p class="muted" style="font-size:13px;margin-bottom:14px">Mentoring is invite-only. If you’ve been given an invite code, continue to set up your mentor account — an admin approves it before you take requests.</p>
-          <a class="btn btn-ghost btn-sm" href="#mentor"><span class="material-symbols-outlined" style="font-size:15px">badge</span> Enter mentor sign-up</a>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="chip chip-ok">Mentor</span> <span class="chip chip-neutral">Invite-only</span>
+          <h2 class="listcard-title mt-3" style="font-size:1.05rem">Mentor access</h2>
+          <p>If you've been given an invite code, continue to set up your mentor account.</p>
+          <a class="btn btn-quiet" href="#mentor"><span class="material-symbols-outlined" aria-hidden="true">badge</span> Enter mentor sign-up</a>
         </div>
-        <div class="card">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip chip-rose">Admin</span></div>
-          <h2 style="font-size:1.05rem;margin-bottom:4px">Admin access</h2>
-          <p class="muted" style="font-size:13px;margin-bottom:14px">Platform owners only.</p>
-          <a class="btn btn-ghost btn-sm" href="#admin"><span class="material-symbols-outlined" style="font-size:15px">lock</span> Go to admin sign-in</a>
+        <div class="sidecard">
+          <span class="chip chip-alert">Admin</span>
+          <h2 class="listcard-title mt-3" style="font-size:1.05rem">Admin access</h2>
+          <p>Platform owners only.</p>
+          <a class="btn btn-quiet" href="#admin"><span class="material-symbols-outlined" aria-hidden="true">lock</span> Go to admin sign-in</a>
         </div>
       </div>
     </div>`;
@@ -3967,10 +4195,10 @@ function personCard(p, opts = {}) {
       </div>
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-      ${phone ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(phone)}">Call</a>` : ''}
-      ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
-      <button class="btn btn-ghost btn-sm px-history" data-person="${esc(p.key)}">History</button>
+      ${wa ? `<a class="btn btn-quiet btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+      ${phone ? `<a class="btn btn-quiet btn-sm" href="tel:${esc(phone)}">Call</a>` : ''}
+      ${mail ? `<a class="btn btn-quiet btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+      <button class="btn btn-quiet btn-sm px-history" data-person="${esc(p.key)}">History</button>
       ${opts.canLog ? `<button class="btn btn-primary btn-sm px-log" data-person="${esc(p.key)}" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log a session</button>` : ''}
     </div>
@@ -4157,10 +4385,10 @@ function sessionCard(s, opts = {}) {
       <span class="faint mono" style="font-size:11px">${esc(s.invoiceNo || '—')}</span>
       <button class="btn btn-primary btn-sm sx-send" data-sess="${esc(s.id)}" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">send</span> Send it</button>
-      <button class="btn btn-ghost btn-sm sx-invoice" data-sess="${esc(s.id)}">PDF</button>
-      <button class="btn btn-ghost btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
-      ${!opts.readOnly && !paid && amt ? `<button class="btn btn-ghost btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
-      ${!opts.readOnly ? `<button class="btn btn-ghost btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
+      <button class="btn btn-quiet btn-sm sx-invoice" data-sess="${esc(s.id)}">PDF</button>
+      <button class="btn btn-quiet btn-sm sx-preview" data-sess="${esc(s.id)}">Preview</button>
+      ${!opts.readOnly && !paid && amt ? `<button class="btn btn-quiet btn-sm sx-paid" data-sess="${esc(s.id)}">Mark paid</button>` : ''}
+      ${!opts.readOnly ? `<button class="btn btn-quiet btn-sm sx-edit" data-sess="${esc(s.id)}">Edit</button>` : ''}
     </div>
   </div>`;
 }
@@ -4220,7 +4448,7 @@ function sessionFormHTML(s, mentors) {
     <p class="faint" id="sx-msg" style="font-size:12.5px;min-height:16px;margin:0"></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn btn-primary" type="submit" style="flex:1;justify-content:center">Save</button>
-      <button class="btn btn-ghost" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save and make the invoice</button>
+      <button class="btn btn-quiet" type="button" id="sx-save-inv" style="flex:1;justify-content:center">Save and make the invoice</button>
     </div>
   </form>`;
 }
@@ -4299,7 +4527,7 @@ function openSessionForm(o = {}) {
           ${past.sessions.length} session${past.sessions.length === 1 ? '' : 's'}${past.due ? `, <strong>LKR ${past.due.toLocaleString()}</strong> still due` : ''}.
           ${last ? `Last time: ${esc(sessionTitle(last))}${last.date ? ' on ' + esc(dayLabel(last.date)) : ''}.` : ''}
         </p>
-        <button class="btn btn-ghost btn-sm" type="button" id="sx-known-more">Show</button>
+        <button class="btn btn-quiet btn-sm" type="button" id="sx-known-more">Show</button>
       </div>
       <div id="sx-known-body" class="hidden" style="margin-top:4px"></div>`;
     const more = known.querySelector('#sx-known-more');
@@ -4394,8 +4622,8 @@ function openSendInvoice(s) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         ${wa ? `<a class="btn btn-primary btn-sm" id="ix-wa" href="${esc(waHref)}" target="_blank" rel="noopener">Open WhatsApp</a>`
              : `<span class="faint" style="font-size:12.5px">No phone number on this record — copy the message instead.</span>`}
-        ${mail ? `<a class="btn btn-ghost btn-sm" id="ix-mail" href="${esc(mailHref)}">Open email</a>` : ''}
-        <button class="btn btn-ghost btn-sm" id="ix-copy">Copy message</button>
+        ${mail ? `<a class="btn btn-quiet btn-sm" id="ix-mail" href="${esc(mailHref)}">Open email</a>` : ''}
+        <button class="btn btn-quiet btn-sm" id="ix-copy">Copy message</button>
       </div>
     </div>`);
   m.el.querySelector('.modal-card').style.maxWidth = '560px';
@@ -4464,12 +4692,12 @@ let mentorState = { tab: 'open', open: null, claimed: null, sessions: null, load
 
 function renderMentor(main) {
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', 'Mentoring needs Firebase',
-      'The mentor marketplace (accounts, the request queue, payments) runs on Firebase. Configure <code>assets/js/firebase-config.js</code> and deploy <code>firestore.rules</code> to enable it.');
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Mentoring needs Firebase',
+      body: 'The mentor marketplace runs on Firebase — configure firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', 'Connecting…', 'Loading the Firebase layer.');
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Connecting…', body: 'Loading the Firebase layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 400);
     return;
   }
@@ -4488,8 +4716,8 @@ function mentorApply(main) {
   const signedIn = PFCloud.isSignedIn();
 
   if (!signedIn) {
-    main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Mentor sign-up',
-      'PathFinder mentors are vetted Sri Lankan postgrads already in New Zealand. Enter your invite code and create your account — an admin reviews and approves your profile before you take any requests.') +
+    main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Mentor sign-up',
+      body: 'Enter your invite code and create your account — an admin reviews your profile before you take requests.' }) +
       `<div class="card" style="max-width:440px">
         <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Mentor invite code</label>
         <input class="field" id="mt-code" autocomplete="off" placeholder="Enter your invite code" style="margin:6px 0 14px;text-transform:uppercase">
@@ -4499,8 +4727,8 @@ function mentorApply(main) {
         <p class="faint" id="mt-msg" style="font-size:12.5px;min-height:16px;margin-bottom:8px"></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="mt-signup">Create account</button>
-          <button class="btn btn-ghost btn-sm" id="mt-signin">I already have one</button>
-          <button class="btn btn-ghost btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
+          <button class="btn btn-quiet btn-sm" id="mt-signin">I already have one</button>
+          <button class="btn btn-quiet btn-sm" id="mt-google"><span class="material-symbols-outlined" style="font-size:15px">login</span> Google</button>
         </div>
         <p class="faint" style="font-size:12px;margin-top:14px">Not a mentor? <a href="#account" style="color:var(--route)">Back to account</a> · <a href="#mentors" style="color:var(--route)">Ask a mentor instead</a></p>
       </div>`;
@@ -4534,8 +4762,8 @@ function mentorApply(main) {
     return;
   }
 
-  main.innerHTML = viewHead('badge', 'Mentor Dashboard', 'Your mentor profile',
-    'Tell us what you can help with — an admin will review and approve your profile before it goes live.') +
+  main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Your mentor profile',
+    body: 'Tell us what you can help with — an admin reviews it before it goes live.' }) +
     `<div class="card" style="max-width:520px" id="mt-profile-card">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Display name (students see this after they’re matched with you)</label>
       <input class="field" id="mp-name" placeholder="e.g. Kasun J." style="margin:5px 0 14px">
@@ -4588,8 +4816,8 @@ function humanAuthError(err) {
 
 function mentorPending(main) {
   const p = PFCloud.getMentorProfile() || {};
-  main.innerHTML = viewHead('hourglass_top', 'Mentor Dashboard', 'Application pending review',
-    'Thanks for applying. An admin will review your profile shortly — once approved, the open request queue appears here.') +
+  main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Application pending review',
+    body: 'An admin will review your profile shortly — the open request queue appears here once approved.' }) +
     `<div class="card" style="max-width:560px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <span class="chip chip-gold">Pending approval</span>
@@ -4597,7 +4825,7 @@ function mentorPending(main) {
       </div>
       <p style="font-size:14px;margin:0 0 4px"><strong>${esc(p.displayName || '')}</strong>${p.city ? ' · ' + esc(p.city) : ''}</p>
       ${p.bio ? `<p class="muted" style="font-size:13.5px;margin-top:8px">${esc(p.bio)}</p>` : ''}
-      <button class="btn btn-ghost btn-sm" id="mt-out" style="margin-top:16px">Sign out</button>
+      <button class="btn btn-quiet btn-sm" id="mt-out" style="margin-top:16px">Sign out</button>
     </div>`;
   $('#mt-out').onclick = () => PFCloud.signOutUser();
 }
@@ -4613,37 +4841,6 @@ async function mentorLoad() {
   mentorState.sessions = s.status === 'fulfilled' ? s.value : null;
   mentorState.loading = false;
   mentorState.loaded = true;
-}
-
-/* At-a-glance insights strip for the mentor dashboard, derived from the
-   already-loaded queue + claimed lists (no extra Firestore reads). */
-function mentorInsights() {
-  const open = mentorState.open || [];
-  const claimed = mentorState.claimed || [];
-  const sessions = mentorState.sessions || [];
-  const active = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  // Sessions logged in the session log are the record of delivered work;
-  // claimed requests completed without a log still count once.
-  const loggedFromReq = new Set(sessions.map(s => s.requestId).filter(Boolean));
-  const completed = sessions.length +
-    claimed.filter(r => r.status === 'completed' && !loggedFromReq.has(r.id)).length;
-  // Earnings = paid session records + paid requests that have no session
-  // record behind them (so a logged session never double-counts).
-  const earned = sessions.filter(s => s.paymentStatus === 'paid')
-      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0)
-    + claimed.filter(r => r.payment && r.payment.paymentStatus === 'paid' && !loggedFromReq.has(r.id))
-      .reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
-  const owed = sessions.filter(s => s.paymentStatus === 'unpaid' || s.paymentStatus === 'reported')
-      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0);
-  const n = v => (mentorState.loaded ? v : '·');
-  const lkr = v => (mentorState.loaded ? 'LKR ' + v.toLocaleString() : '·');
-  return `<div class="grid-4" style="margin-bottom:24px">
-    ${admMetric('hourglass_top', n(open.length), 'Open in queue')}
-    ${admMetric('assignment_ind', n(active), 'Active with you')}
-    ${admMetric('task_alt', n(completed), 'Sessions delivered')}
-    ${admMetric('payments', lkr(earned), 'Earned (paid)')}
-    ${owed ? admMetric('pending_actions', lkr(owed), 'Invoiced, not yet paid') : ''}
-  </div>`;
 }
 
 /* The mentor's own client book, folded out of the two lists the dashboard
@@ -4667,20 +4864,45 @@ function mentorDashboard(main) {
     people: mentorState.loaded ? people.length : '·',
   };
 
-  main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', `Welcome, ${esc(p.displayName || 'mentor')}`,
-    'Claim a request from the queue, run the free intro, and if the student wants more, send them a payment link. Sessions that came to you on WhatsApp or by phone go in the session log — write down what you covered and send the invoice from there.') +
-    `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
-      <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Available for requests' : 'Not taking requests'}</span>
-      <p class="muted" style="flex:1;min-width:200px;font-size:13px;margin:0">${active ? 'You appear in the active mentor count and can claim from the queue.' : 'You’re paused — turn this back on when you have time.'}</p>
-      <button class="btn btn-primary btn-sm" id="mt-intake">
-        <span class="material-symbols-outlined" style="font-size:15px">phone_in_talk</span> Someone called</button>
-      <button class="btn btn-ghost btn-sm" id="mt-toggle">${active ? 'Pause requests' : 'Resume requests'}</button>
-      <button class="btn btn-ghost btn-sm" id="mt-out">Sign out</button>
+  // 4 stats max — "Invoiced, not yet paid" drops from the row (see
+  // DEVIATIONS.md); it still surfaces inside the Session log tab itself.
+  const claimed = mentorState.claimed || [];
+  const sessions = mentorState.sessions || [];
+  const activeReqs = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const loggedFromReq = new Set(sessions.map(s => s.requestId).filter(Boolean));
+  const completed = sessions.length + claimed.filter(r => r.status === 'completed' && !loggedFromReq.has(r.id)).length;
+  const earned = sessions.filter(s => s.paymentStatus === 'paid').reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0)
+    + claimed.filter(r => r.payment && r.payment.paymentStatus === 'paid' && !loggedFromReq.has(r.id)).reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
+  const n = v => (mentorState.loaded ? v : '·');
+
+  main.innerHTML = renderHero({
+    kicker: 'Mentor Dashboard', title: `Welcome, ${p.displayName || 'mentor'}`,
+    body: 'Claim a request, run the free intro, and log sessions that come to you off-platform.',
+    figure: active ? 'On' : 'Off', figureCaption: active ? 'Taking requests' : 'Not taking requests',
+    primaryId: 'mt-intake', primaryLabel: 'Someone called', primaryIcon: 'phone_in_talk',
+    secondaryId: 'mt-toggle', secondaryLabel: active ? 'Pause requests' : 'Resume requests',
+  }) +
+    `<div class="stat-grid" style="margin:24px 0">
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">hourglass_top</span>
+        <div class="stat-figure">${n(mentorState.open ? mentorState.open.length : '·')}</div>
+        <div class="stat-label">Open in queue</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">assignment_ind</span>
+        <div class="stat-figure">${n(activeReqs)}</div>
+        <div class="stat-label">Active with you</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">task_alt</span>
+        <div class="stat-figure">${n(completed)}</div>
+        <div class="stat-label">Sessions delivered</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">payments</span>
+        <div class="stat-figure">${mentorState.loaded ? 'LKR ' + earned.toLocaleString() : '·'}</div>
+        <div class="stat-label">Earned (paid)</div></div>
     </div>
-    ${mentorInsights()}
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="mtd-tabs">
-      ${TABS.map(([id, lbl]) => `<button class="chip-filter ${mentorState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl} <span class="mono" style="opacity:.6">${counts[id]}</span></button>`).join('')}
-      <button class="chip-filter" id="mtd-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
+
+    <div class="tab-row" id="mtd-tabs" role="tablist" aria-label="Mentor dashboard sections">
+      ${TABS.map(([id, lbl]) => `<button type="button" class="tab" role="tab" aria-selected="${mentorState.tab === id}" data-tab="${id}">${lbl} <span class="tab-n">${counts[id]}</span></button>`).join('')}
+      <div class="tab-row-end">
+        <button type="button" class="tab" id="mtd-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refresh</button>
+        <button type="button" class="btn-quiet" id="mt-out">Sign out</button>
+      </div>
     </div>
     <div id="mtd-body"></div>`;
 
@@ -4770,9 +4992,9 @@ function mentorDashboard(main) {
       : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
   }
 
-  $$('#mtd-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
+  $$('#mtd-tabs .tab[data-tab]').forEach(b => b.onclick = () => {
     mentorState.tab = b.dataset.tab;
-    $$('#mtd-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#mtd-tabs .tab[data-tab]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   $('#mtd-refresh').onclick = async () => {
@@ -4837,7 +5059,7 @@ function claimedReqCard(r) {
   const price = (r.payment && r.payment.amountLKR) || PF_CONFIG.defaultSessionPriceLKR;
   let actions = '';
   if (r.status === 'claimed') {
-    actions = `<button class="btn btn-ghost btn-sm mt-intro" data-req="${r.id}">Mark ${PF_CONFIG.freeIntroMinutes}-min intro complete</button>`;
+    actions = `<button class="btn btn-quiet btn-sm mt-intro" data-req="${r.id}">Mark ${PF_CONFIG.freeIntroMinutes}-min intro complete</button>`;
   } else if (r.status === 'intro_done') {
     actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%">
         <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Follow-on price (LKR)</label>
@@ -4845,7 +5067,7 @@ function claimedReqCard(r) {
         <button class="btn btn-primary btn-sm mt-genlink" data-req="${r.id}">Generate payment link</button>
       </div>`;
   } else if (r.status === 'awaiting_payment') {
-    actions = `${PFPay.isPayHereLive() ? `<button class="btn btn-ghost btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>` : ''}
+    actions = `${PFPay.isPayHereLive() ? `<button class="btn btn-quiet btn-sm mt-checkout" data-req="${r.id}">Preview PayHere link</button>` : ''}
       <button class="btn btn-primary btn-sm mt-paid" data-req="${r.id}">Mark payment received</button>`;
   } else if (r.status === 'paid') {
     actions = `<button class="btn btn-primary btn-sm mt-complete" data-req="${r.id}">Mark session completed</button>`;
@@ -4866,9 +5088,9 @@ function claimedReqCard(r) {
           const wa = waNumber(r.contact), mail = contactEmailOf(r.contact), tel = contactPhoneOf(r.contact);
           if (r.studentUid || !(wa || mail)) return '';
           return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            ${wa ? `<a class="btn btn-ghost btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-            ${tel ? `<a class="btn btn-ghost btn-sm" href="tel:${esc(tel)}">Call</a>` : ''}
-            ${mail ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
+            ${wa ? `<a class="btn btn-quiet btn-sm" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+            ${tel ? `<a class="btn btn-quiet btn-sm" href="tel:${esc(tel)}">Call</a>` : ''}
+            ${mail ? `<a class="btn btn-quiet btn-sm" href="mailto:${esc(mail)}">Email</a>` : ''}
           </div>`;
         })()}
         ${reported ? `<div class="muted" style="font-size:12.5px;margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:3px">Student reported payment via <strong>${esc(r.payment.method || 'transfer')}</strong>${r.payment.payerRef ? ` · ref <strong class="mono">${esc(r.payment.payerRef)}</strong>` : ''}${r.payment.payerTxn ? ` · txn <span class="mono">${esc(r.payment.payerTxn)}</span>` : ''}. Verify in your banking app, then “Mark payment received”.</div>` : ''}
@@ -4882,9 +5104,9 @@ function claimedReqCard(r) {
       // Writing up the session is available at every live stage — the
       // conversation often happens (and is worth recording) well before
       // any money changes hands.
-      const log = r.status === 'cancelled' ? '' : `<button class="btn btn-ghost btn-sm mt-log" data-req="${r.id}">
+      const log = r.status === 'cancelled' ? '' : `<button class="btn btn-quiet btn-sm mt-log" data-req="${r.id}">
         <span class="material-symbols-outlined" style="font-size:15px">edit_note</span> Log session</button>`;
-      const cancel = canCancel ? `<button class="btn btn-ghost btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : '';
+      const cancel = canCancel ? `<button class="btn btn-quiet btn-sm mt-cancel" data-req="${r.id}" style="margin-left:auto">Cancel</button>` : '';
       return (actions || log || cancel)
         ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
              ${actions}${log}${cancel}
@@ -4988,13 +5210,13 @@ const ADMIN_BLANK = () => ({ tab: 'action', leads: null, mentors: null, requests
 function renderAdmin(main) {
   // Firebase off entirely → nothing to administer.
   if (!window.PF_FIREBASE_CONFIG || !window.PF_FIREBASE_CONFIG.apiKey) {
-    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Admin panel unavailable',
-      'Firebase is not configured. Paste your project config into <code>assets/js/firebase-config.js</code> and deploy <code>firestore.rules</code> to enable leads, mentors, requests and user records here.');
+    main.innerHTML = renderHero({ kicker: 'Admin', title: 'Admin panel unavailable',
+      body: 'Firebase is not configured — set up firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
   // Sync layer still loading (deferred module) → wait, then re-render.
   if (!window.PFCloud) {
-    main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Connecting…', 'Loading the Firebase admin layer.');
+    main.innerHTML = renderHero({ kicker: 'Admin', title: 'Connecting…', body: 'Loading the Firebase admin layer.' });
     setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 400);
     return;
   }
@@ -5004,8 +5226,8 @@ function renderAdmin(main) {
 }
 
 function adminLogin(main) {
-  main.innerHTML = viewHead('lock', 'Admin', 'Admin sign-in',
-    'Enter the admin access code and password to view leads, mentors, requests and user records.') +
+  main.innerHTML = renderHero({ kicker: 'Admin', title: 'Admin sign-in',
+    body: 'Enter the admin access code and password to view leads, mentors, requests and user records.' }) +
     `<div class="card" style="max-width:420px">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Access code</label>
       <input class="field" id="adm-code" autocomplete="off" placeholder="Admin code" style="margin:6px 0 14px;text-transform:uppercase">
@@ -5084,17 +5306,16 @@ function adminDashboard(main) {
     users: adminState.users ? adminState.users.length : '·',
   };
 
-  main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Platform admin',
-    'Live data from Firestore. Visible only to the admin account — ordinary visitors are blocked by security rules.') +
-    `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
-      <span class="material-symbols-outlined" style="color:var(--route)">phone_in_talk</span>
-      <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
-        Someone rang and they’re not on the system? Write them down here — it goes into the same queue as a request from the site, and you can hand it to a mentor straight away.</p>
-      <button class="btn btn-primary btn-sm" id="adm-intake">Someone called</button>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="adm-tabs">
-      ${TABS.map(([id, lbl]) => `<button class="chip-filter ${adminState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="mono" style="opacity:.6">${counts[id]}</span>` : ''}</button>`).join('')}
-      <button class="chip-filter" id="adm-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
+  const actionN = adminState.loaded ? admActionCount() : '·';
+  main.innerHTML = renderHero({
+    kicker: 'Admin', title: 'Platform admin',
+    body: 'Live data from Firestore, visible only to the admin account.',
+    figure: actionN, figureCaption: 'Need action',
+    primaryId: 'adm-intake', primaryLabel: 'Someone called', primaryIcon: 'phone_in_talk',
+  }) +
+    `<div class="tab-row" id="adm-tabs" role="tablist" aria-label="Admin sections">
+      ${TABS.map(([id, lbl]) => `<button type="button" class="tab" role="tab" aria-selected="${adminState.tab === id}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="tab-n">${counts[id]}</span>` : ''}</button>`).join('')}
+      <button type="button" class="tab tab-row-end" id="adm-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refresh</button>
     </div>
     <div id="adm-body"></div>`;
 
@@ -5120,9 +5341,9 @@ function adminDashboard(main) {
     },
   });
 
-  $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
+  $$('#adm-tabs .tab[data-tab]').forEach(b => b.onclick = () => {
     adminState.tab = b.dataset.tab;
-    $$('#adm-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#adm-tabs .tab[data-tab]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   $('#adm-refresh').onclick = async () => {
@@ -5256,7 +5477,7 @@ function admAction(body) {
   const jumpCard = (tab, icon, text) => `<a class="card" href="#" data-jump="${tab}" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;border-color:var(--ochre)">
       <span class="material-symbols-outlined" style="color:var(--ochre)">${icon}</span>
       <p style="flex:1;min-width:220px;font-size:13.5px;margin:0">${text}</p>
-      <span class="btn btn-ghost btn-sm">Open</span>
+      <span class="btn btn-quiet btn-sm">Open</span>
     </a>`;
 
   body.innerHTML = `
@@ -5268,7 +5489,7 @@ function admAction(body) {
 
   $$('a[data-jump]', body).forEach(a => a.onclick = e => {
     e.preventDefault();
-    $(`#adm-tabs .chip-filter[data-tab="${a.dataset.jump}"]`)?.click();
+    $(`#adm-tabs .tab[data-tab="${a.dataset.jump}"]`)?.click();
   });
 }
 
@@ -5333,7 +5554,7 @@ function admLeads(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${leads.length} lead${leads.length === 1 ? '' : 's'}</p>
-      ${leads.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-leads"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${leads.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-leads"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     <div class="card">${leads.length ? `<table class="ledger"><tbody>
       ${leads.map(l => `<tr>
@@ -5366,9 +5587,9 @@ function mentorCard(m) {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
         ${m.approved
-          ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
+          ? `<button class="btn btn-quiet btn-sm" data-muid="${m.uid}" data-act="${active ? 'deactivate' : 'activate'}">${active ? 'Deactivate' : 'Reactivate'}</button>`
           : `<button class="btn btn-primary btn-sm" data-muid="${m.uid}" data-act="approve">Approve</button>`}
-        ${m.approved ? `<button class="btn btn-ghost btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
+        ${m.approved ? `<button class="btn btn-quiet btn-sm" data-muid="${m.uid}" data-act="reject">Revoke</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -5411,7 +5632,7 @@ function requestCard(r) {
     </div>
     ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
       ${canPaid ? `<button class="btn btn-primary btn-sm" data-radoc="${r.id}" data-act="paid">Mark payment received</button>` : ''}
-      ${canCancel ? `<button class="btn btn-ghost btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+      ${canCancel ? `<button class="btn btn-quiet btn-sm" data-radoc="${r.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -5422,7 +5643,7 @@ function admRequests(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${reqs.length} request${reqs.length === 1 ? '' : 's'}</p>
-      ${reqs.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-reqs"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${reqs.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-reqs"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${reqs.length ? reqs.map(requestCard).join('') : `<div class="card"><p class="muted" style="font-size:14px">No mentor requests yet.</p></div>`}`;
 
@@ -5445,7 +5666,7 @@ function admOrders(body) {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${orders.length} order${orders.length === 1 ? '' : 's'} · LKR ${revenue.toLocaleString()} confirmed</p>
-      ${orders.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-orders"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${orders.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-orders"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${orders.length ? orders.map(o => {
       const canPaid = o.status === 'reported' || o.status === 'pending';
@@ -5464,7 +5685,7 @@ function admOrders(body) {
         </div>
         ${canPaid || canCancel ? `<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap">
           ${canPaid ? `<button class="btn btn-primary btn-sm" data-oid="${o.id}" data-act="paid">Mark paid &amp; unlock</button>` : ''}
-          ${canCancel ? `<button class="btn btn-ghost btn-sm" data-oid="${o.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
+          ${canCancel ? `<button class="btn btn-quiet btn-sm" data-oid="${o.id}" data-act="cancel" style="margin-left:auto">Cancel</button>` : ''}
         </div>` : ''}
       </div>`;
     }).join('') : `<div class="card"><p class="muted" style="font-size:14px">No premium orders yet.</p></div>`}`;
@@ -5513,7 +5734,7 @@ function admSessions(body, repaint) {
         <option value="">Any payment state</option>
         ${Object.entries(PF_SESSION_PAYMENT_STATES).map(([k, v]) => `<option value="${k}" ${admSessionFilter.pay === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
       </select>
-      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-sx"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${list.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-sx"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
       <button class="btn btn-primary btn-sm" id="adm-sx-log" style="margin-left:auto">
         <span class="material-symbols-outlined" style="font-size:15px">add</span> Log a session</button>
     </div>
@@ -5581,7 +5802,7 @@ function admPeople(body) {
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
       <input class="field" id="adm-px-q" placeholder="Search by name or number" value="${esc(admPeopleQuery)}" style="width:auto;min-width:220px;flex:1;max-width:340px">
-      ${list.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
+      ${list.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
     ${list.length ? list.map(p => personCard(p, { canLog: true })).join('')
       : `<div class="card"><p class="muted" style="font-size:14px">${people.length ? 'Nobody matches that search.' : 'No one on record yet. Requests from the site and calls you write down both land here.'}</p></div>`}`;
@@ -5716,7 +5937,7 @@ function admAccounting(body) {
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <p class="faint" style="font-size:12.5px;margin:0">${rows.length} transaction${rows.length === 1 ? '' : 's'} · ledger newest first</p>
-      ${rows.length ? `<button class="btn btn-ghost btn-sm" id="adm-dl-acct"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export ledger CSV</button>` : ''}
+      ${rows.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-acct"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export ledger CSV</button>` : ''}
     </div>
     ${rows.length ? `<div class="card" style="overflow-x:auto"><table class="ledger" style="min-width:660px"><thead>
       <tr><th style="text-align:left">Date</th><th style="text-align:left">Invoice</th><th style="text-align:left">Item</th><th style="text-align:left">Method</th><th style="text-align:right">Amount</th><th style="text-align:left">Status</th><th></th></tr>
@@ -5729,8 +5950,8 @@ function admAccounting(body) {
         <td class="mono" style="text-align:right;white-space:nowrap">${money(r.amountLKR)}</td>
         <td>${payStatusChip({ paymentStatus: r.status })}</td>
         <td style="text-align:right;white-space:nowrap">
-          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" data-act="download" title="Download PDF invoice"><span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span></button>
-          <button class="btn btn-ghost btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Preview / print"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button>
+          <button class="btn btn-quiet btn-sm" data-invoice="${esc(r.invoiceNo)}" data-act="download" title="Download PDF invoice"><span class="material-symbols-outlined" style="font-size:15px">picture_as_pdf</span></button>
+          <button class="btn btn-quiet btn-sm" data-invoice="${esc(r.invoiceNo)}" title="Preview / print"><span class="material-symbols-outlined" style="font-size:15px">receipt</span></button>
         </td>
       </tr>`).join('')}
     </tbody></table></div>` : `<div class="card"><p class="muted" style="font-size:14px">No payments recorded yet. Logged mentoring sessions, reported and confirmed request payments, and premium unlocks all appear here.</p></div>`}

@@ -225,16 +225,16 @@ if (cfg && cfg.apiKey) {
     if (isAdminUser(user)) {
       slot.innerHTML = `
         <div class="faint" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;margin-bottom:8px">ADMIN SESSION</div>
-        <button class="btn btn-ghost btn-sm" id="pf-signout">Sign out</button>`;
+        <button class="btn btn-quiet btn-sm" id="pf-signout">Sign out</button>`;
       slot.querySelector('#pf-signout').onclick = () => signOut(auth);
     } else if (user && !user.isAnonymous) {
       slot.innerHTML = `
         <div class="faint" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${user.email || ''}">
           ${user.displayName || user.email || 'Signed in'}</div>
-        <button class="btn btn-ghost btn-sm" id="pf-signout">Sign out</button>`;
+        <button class="btn btn-quiet btn-sm" id="pf-signout">Sign out</button>`;
       slot.querySelector('#pf-signout').onclick = () => signOut(auth);
     } else {
-      slot.innerHTML = `<button class="btn btn-ghost btn-sm" id="pf-signin">
+      slot.innerHTML = `<button class="btn btn-quiet btn-sm" id="pf-signin">
         <span class="material-symbols-outlined" style="font-size:15px">cloud_sync</span> Sign in to sync</button>`;
       slot.querySelector('#pf-signin').onclick = async () => {
         try { await googleSignIn(); }
