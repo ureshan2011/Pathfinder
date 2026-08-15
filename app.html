@@ -336,6 +336,7 @@
         <!-- which journey the student is on; painted by paintTrackSwitch() -->
         <div class="track-switch" id="track-switch" role="group" aria-label="Study track"></div>
         <a class="navpop-link" role="menuitem" data-view="assessment" href="#assessment"><span class="material-symbols-outlined" aria-hidden="true">quiz</span>Assessment</a>
+        <a class="navpop-link" role="menuitem" data-view="cost"       href="#cost"><span class="material-symbols-outlined" aria-hidden="true">savings</span>Cost &amp; payback</a>
         <a class="navpop-link" role="menuitem" data-view="news"       href="#news"><span class="material-symbols-outlined" aria-hidden="true">newspaper</span>Briefing</a>
         <a class="navpop-link" role="menuitem" data-view="billing"    href="#billing"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Billing</a>
         <a class="navpop-link" role="menuitem" data-view="account"    href="#account"><span class="material-symbols-outlined" aria-hidden="true">account_circle</span>Account</a>
@@ -371,6 +372,11 @@
 <div id="toast" role="status"></div>
 
 <script src="assets/js/data.js"></script>
+<!-- Cost-and-payback dataset + model (#cost). roi-data.js is the dated,
+     hand-verified source of every fee, wage, tax and earnings figure;
+     roi.js is the pure model over it. Both must load before app.js. -->
+<script src="assets/js/roi-data.js"></script>
+<script src="assets/js/roi.js"></script>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/payhere.js"></script>
 <script src="assets/js/paypal.js"></script>

@@ -234,7 +234,7 @@ function cloudOn() { return !!(window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_C
 
 function emptyEntitlements() {
   return { plans: [], toolkit: false, priority: false, fullAudit: false, interview: false,
-           sessions: 0, audits: 0, sessionsGranted: 0, auditsGranted: 0 };
+           costCompare: false, sessions: 0, audits: 0, sessionsGranted: 0, auditsGranted: 0 };
 }
 
 /* Everything the student's PAID orders grant, summed. An order only reaches
@@ -244,7 +244,7 @@ function emptyEntitlements() {
 function grantsFrom(orders) {
   const table = PF_CONFIG.planGrants || {};
   const out = { plans: [], toolkit: false, priority: false, fullAudit: false,
-                interview: false, sessions: 0, audits: 0 };
+                interview: false, costCompare: false, sessions: 0, audits: 0 };
   (orders || []).filter(o => o.status === 'paid').forEach(o => {
     const g = table[o.item];
     if (!g) return;
@@ -285,7 +285,7 @@ function loadEntitlements(cb) {
     entState = { loaded: true, items: {
       plans: g.plans,
       toolkit: g.toolkit, priority: g.priority,
-      fullAudit: g.fullAudit, interview: g.interview,
+      fullAudit: g.fullAudit, interview: g.interview, costCompare: g.costCompare,
       sessionsGranted: g.sessions, auditsGranted: g.audits,
       sessions: Math.max(0, g.sessions - used.sessions),
       audits: Math.max(0, g.audits - used.audits),
@@ -303,6 +303,7 @@ const ROUTES = {
   explore:    renderExplore,
   funding:    renderFunding,
   funds:      renderFunds,
+  cost:       renderCost,
   news:       renderNews,
   dashboard:  renderDashboard,
   kit:        renderKit,
@@ -1341,7 +1342,7 @@ function buildMastersRoadmap(r) {
   phases.push({ when: 'Intake month', title: 'Arrive & enrol', color: 'teal', consult: 'settle-arrival', link: { href: '#settlement', label: 'Open the Settle In guide →' }, items: [
     'IRD number, NZ bank account and a SIM card in week one',
     'Enrol in courses before orientation — popular papers fill, and a wrong enrolment can cost you a semester',
-    'Check your work rights: 20 hours a week during semester, full-time over the summer break',
+    'Check your work rights: 25 hours a week during semester, full-time over the summer break',
   ]});
   return phases;
 }
@@ -4235,6 +4236,344 @@ document.addEventListener('click', e => {
   if (!r) return;
   PFPay.startSession(r);
 });
+
+/* ── 9c9 · Cost & Payback (#cost) ───────────────────────────────────────
+   The master's track's own high-stakes screen.
+
+   A PhD student is walking toward money: domestic fees and a stipend. A
+   master's student is walking toward a bill — full international tuition,
+   no stipend, one to two years — and on the University of Auckland's own
+   published 2026 rates, an IT master's in Auckland comes to roughly
+   NZ$180,000 all in. For a family in Sri Lanka that is not a tuition
+   figure, it is a house.
+
+   Nobody in that market will do this arithmetic for them honestly,
+   because everybody else is paid a percentage of the tuition. An agent
+   earns less when the student picks the cheaper qualification, so the
+   cheaper qualification never gets mentioned. PathFinder takes no
+   provider commission, which is the only reason this screen can exist.
+
+   Free: the truth about the plan they already have.
+   Premium: what to do about it — the cheaper routes, and the one-page
+   sheet they put in front of the person who actually holds the money. */
+
+let roiState = null;
+
+function roiDefaults() {
+  const R = currentResult();
+  const saved = PFStore.get('roiPlan', null);
+  // computeMastersResult() carries the NZQA subject-area ROOT as
+  // `subjectArea` (`field` is its display name), which is exactly the key
+  // PF_ROI.uniBySubject and the earnings table are cut by — so a student
+  // who has taken the assessment lands here already pointed at their own
+  // subject, with the right fee and the right salary band.
+  const subj = (saved && saved.subjectRoot) || (R && R.subjectArea) || '76450';
+  return Object.assign({
+    subjectRoot: subj, tier: 'universities', city: 'akl', years: 2,
+    who: 'single', scholarshipPct: 0, workHours: 25, feeOverride: 0,
+    ownFundsNZD: 0, partnerWorks: false,
+  }, saved || {});
+}
+
+function roiSave() { PFStore.set('roiPlan', roiState); }
+
+function renderCost(main) {
+  // roi-data.js and roi.js are classic scripts declaring top-level `const`,
+  // which is script-scoped and NOT a property of window — so test the
+  // bindings themselves, exactly as PF_CONFIG is tested elsewhere.
+  if (typeof PF_ROI === 'undefined' || typeof PFRoi === 'undefined') {
+    main.innerHTML = renderHero({ kicker: 'Cost & payback', title: 'Cost data unavailable',
+      body: 'The cost dataset did not load. Reload the page — if it keeps happening, the roi-data.js script tag is missing from app.html.' });
+    return;
+  }
+  if (!roiState) roiState = roiDefaults();
+  const cat = window.PF_CATALOGUE;
+  if (!cat) ensureCatalogue().then(() => { if (location.hash.slice(1).split('?')[0] === 'cost') route(); });
+
+  // The PhD economics are the opposite shape, so say so rather than
+  // running a master's model over a doctoral plan and quoting nonsense.
+  if (!isMasters()) return roiPhdNote(main);
+
+  const r = PFRoi.compute(roiState);
+  const ent = entitlements();
+  const unlocked = !cloudOn() || ent.costCompare === true;
+
+  main.innerHTML = renderHero({
+    kicker: 'Cost & payback',
+    title: r.band,
+    body: r.verdict,
+    figure: PFRoi.fmtYears(r.paybackYears) === 'never' ? '—' : Math.round(r.paybackYears * 10) / 10,
+    figureSuffix: isFinite(r.paybackYears) ? ' yr' : '',
+    figureCaption: 'to earn it back',
+    primaryLabel: unlocked ? 'Download the family sheet' : 'See the cheaper routes',
+    primaryId: unlocked ? 'roi-sheet' : null,
+    primaryHref: unlocked ? null : '#pricing',
+    secondaryLabel: 'Ask a mentor', secondaryHref: '#mentors?topic=funding-costs',
+  }) +
+    roiHeadline(r) +
+    `<div class="viewgrid mt-6">
+      <div>${roiCostCard(r)}${roiAfterCard(r)}${roiRoutesCard(r, unlocked)}</div>
+      <div class="aside">${roiFormCard(cat)}${roiSourcesCard(r)}</div>
+    </div>` +
+    consultCTA('funding-costs');
+
+  roiBindForm();
+  const sheetBtn = $('#roi-sheet');
+  if (sheetBtn) sheetBtn.onclick = () => roiDownloadSheet(r);
+
+  // Resolve the plan before deciding what to show behind the lock — one
+  // Firestore read per session, then repaint. Same pattern as #kit.
+  if (cloudOn() && !entState.loaded) loadEntitlements(() => {
+    if (location.hash.slice(1).split('?')[0] === 'cost') route();
+  });
+}
+
+/* The single number the whole screen exists to deliver, in the currency
+   the person paying actually thinks in. */
+function roiHeadline(r) {
+  return `<div class="listcard mt-5" style="border-color:var(--ochre)">
+    <span class="sidecard-kicker">What this costs, all in</span>
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;margin-top:8px">
+      <div>
+        <div class="hero-figure" style="font-size:2.1rem">${esc(PFRoi.lkr(r.netCost))}</div>
+        <div class="faint" style="font-size:12.5px;margin-top:2px">${esc(PFRoi.money(r.netCost))} over ${r.years} year${r.years === 1 ? '' : 's'}, after part-time earnings</div>
+      </div>
+      <div style="flex:1;min-width:210px">
+        <div class="row-sub">Gross cost before any work income — ${esc(PFRoi.money(r.totalCost))}</div>
+        <div class="row-sub mt-3">Earned while studying — ${esc(PFRoi.money(r.studyIncomeTotal))} at ${r.income.hours} hrs/week</div>
+        ${r.ownFunds ? `<div class="row-sub mt-3">Still to arrange — <strong>${esc(PFRoi.lkr(r.gap))}</strong></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function roiCostCard(r) {
+  const rows = r.costLines.map(l => `<div class="row">
+      <div class="row-main">
+        <div class="row-title">${esc(l.label)}</div>
+        <div class="row-sub">${esc(l.detail || '')}${l.perYear ? ` · ${esc(PFRoi.money(l.perYear))}/yr` : ''}</div>
+      </div>
+      <div class="row-actions" style="text-align:right">
+        <div><strong>${esc(PFRoi.money(l.amount))}</strong></div>
+        <div class="faint" style="font-size:11.5px">${esc(PFRoi.lkr(l.amount))}</div>
+      </div>
+    </div>`).join('');
+  return `<div class="listcard" style="margin-bottom:16px">
+    <div class="listcard-head"><h2 class="listcard-title">Where the money goes</h2>
+      <span class="listcard-summary">${esc(PFRoi.money(r.totalCost))} gross</span></div>
+    ${rows}
+    <p class="row-sub mt-4">Tuition is from ${esc(r.tuition.label)}.${r.tuition.basis === 'tier-band'
+      ? ' Enter the fee you were actually quoted on the right for an exact figure.' : ''}</p>
+  </div>`;
+}
+
+function roiAfterCard(r) {
+  const e = r.earnings;
+  return `<div class="listcard" style="margin-bottom:16px">
+    <div class="listcard-head"><h2 class="listcard-title">After you graduate</h2>
+      <span class="chip ${r.bandCls}">${esc(r.band)}</span></div>
+    <div class="row"><div class="row-main">
+        <div class="row-title">Likely salary in this field</div>
+        <div class="row-sub">${e.basis === 'field' ? esc(e.eg) : esc(e.note || '')}</div>
+      </div>
+      <div class="row-actions"><strong>${esc(PFRoi.money(r.grossAfter))}</strong></div></div>
+    <div class="row"><div class="row-main">
+        <div class="row-title">After tax and ACC</div>
+        <div class="row-sub">NZ PAYE ${esc(PF_ROI.tax.asOf)} plus the ${(PF_ROI.tax.accRate * 100).toFixed(2)}% earner levy</div>
+      </div>
+      <div class="row-actions"><strong>${esc(PFRoi.money(r.netAfter))}</strong></div></div>
+    <div class="row"><div class="row-main">
+        <div class="row-title">Left over each year, after living costs</div>
+        <div class="row-sub">What can actually go toward repaying this</div>
+      </div>
+      <div class="row-actions"><strong>${esc(PFRoi.money(r.annualSurplus))}</strong></div></div>
+    <p class="row-sub mt-4"><strong>The window matters.</strong> A level 9 master's earns a ${r.pswYears}-year
+      post-study work visa with open work rights and no job offer needed. Staying past that needs residence,
+      which is a separate decision and is never guaranteed — so a payback longer than ${r.pswYears} years is
+      a plan that depends on something outside your control.</p>
+  </div>`;
+}
+
+function roiRoutesCard(r, unlocked) {
+  const counts = PFRoi.levelNineTierCounts();
+  const evidence = counts
+    ? `The register holds ${counts.quals} level 9 master's qualifications. ${counts.polytechnics + counts.ptes} of those offerings are at polytechnics and private colleges, not universities — the same level on the same framework.`
+    : `Polytechnics and private colleges award level 9 master's degrees on the same framework as universities.`;
+
+  if (!unlocked) {
+    return `<div class="listcard locked-card" style="border-color:var(--ochre)">
+      <span class="chip chip-gold"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px">lock</span> Premium</span>
+      <h2 class="listcard-title mt-3">Cheaper routes to the same qualification</h2>
+      <p class="mt-3">${esc(evidence)}</p>
+      <p class="mt-3">Premium compares your plan against every cheaper route to the same NZQF level — a different provider tier, a level 8 diploma first, a lower-cost city — with the saving on each, and generates the one-page sheet you put in front of whoever is paying.</p>
+      <p class="muted mt-3" style="font-size:12.5px">Every education agent in Colombo is paid a percentage of your tuition, so none of them will show you this. We take no provider commission.</p>
+      <a class="btn mt-4" href="#pricing">See what Premium includes</a>
+    </div>`;
+  }
+
+  const routes = PFRoi.cheaperRoutes(r, roiState);
+  if (!routes.length) {
+    return `<div class="listcard"><div class="listcard-head"><h2 class="listcard-title">Cheaper routes</h2></div>
+      <p>Nothing in the register comes out cheaper than the plan you've entered — this is already the low-cost route.</p></div>`;
+  }
+  return `<div class="listcard">
+    <div class="listcard-head"><h2 class="listcard-title">Cheaper routes to the same level</h2>
+      <span class="listcard-summary">${routes.length} option${routes.length === 1 ? '' : 's'}</span></div>
+    <p class="row-sub">${esc(evidence)}</p>
+    ${routes.map(a => `<div class="row" style="flex-wrap:wrap">
+      <div class="row-main">
+        <div class="row-title">${esc(a.title)}</div>
+        <div class="row-sub">${esc(a.why)}</div>
+        <p class="muted mt-3" style="font-size:12.5px"><strong>Trade-off:</strong> ${esc(a.tradeoff)}</p>
+      </div>
+      <div class="row-actions" style="text-align:right">
+        <div class="chip chip-ok">saves ${esc(PFRoi.money(a.saving))}</div>
+        <div class="faint" style="font-size:11.5px;margin-top:4px">${esc(PFRoi.lkr(a.saving))}</div>
+        <div class="faint" style="font-size:11.5px;margin-top:4px">${a.payback == null
+          ? esc(a.paybackNote || '') : 'pays back in ' + esc(PFRoi.fmtYears(a.payback))}</div>
+      </div>
+    </div>`).join('')}
+    <p class="row-sub mt-4">These are real qualifications on the NZQA register, not recommendations. Check each provider's
+      standing and talk to a graduate before you commit — <a href="#courses">browse them in the catalogue</a>.</p>
+  </div>`;
+}
+
+function roiFormCard(cat) {
+  const s = roiState;
+  const roots = cat ? cat.roots.map(id => [id, cat.taxonomy[id].n]) : [[s.subjectRoot, 'Loading subjects…']];
+  const cities = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
+  const opt = (v, l, sel) => `<option value="${esc(v)}" ${String(sel) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+  return `<div class="sidecard">
+    <span class="sidecard-kicker">Your plan</span>
+    <div class="mt-4"><span class="field-label">Subject area</span>
+      <select class="field" id="roi-subject">${roots.map(([id, n]) => opt(id, n, s.subjectRoot)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">Provider</span>
+      <select class="field" id="roi-tier">
+        ${Object.entries(PF_ROI.tiers).map(([k, t]) => opt(k, t.label, s.tier)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">City</span>
+      <select class="field" id="roi-city">${cities.map(c => opt(c.id, c.city, s.city)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">Length</span>
+      <select class="field" id="roi-years">${[[1, '1 year'], [1.5, '18 months'], [2, '2 years']].map(([v, l]) => opt(v, l, s.years)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">Going as</span>
+      <select class="field" id="roi-who">${[['single', 'On my own'], ['couple', 'With a partner'], ['family', 'With family']].map(([v, l]) => opt(v, l, s.who)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">Work hours a week (in semester)</span>
+      <select class="field" id="roi-hours">${[[25, '25 — current rules'], [20, '20 — older visa conditions'], [0, 'Not planning to work']].map(([v, l]) => opt(v, l, s.workHours)).join('')}</select></div>
+    <div class="mt-3"><span class="field-label">Fee you were quoted (NZ$/yr, optional)</span>
+      <input class="field" id="roi-fee" type="number" min="0" placeholder="e.g. 42000" value="${s.feeOverride || ''}"></div>
+    <div class="mt-3"><span class="field-label">Scholarship covering tuition (%)</span>
+      <input class="field" id="roi-schol" type="number" min="0" max="100" value="${s.scholarshipPct || 0}"></div>
+    <div class="mt-3"><span class="field-label">Funds already arranged (NZ$)</span>
+      <input class="field" id="roi-funds" type="number" min="0" value="${s.ownFundsNZD || 0}"></div>
+  </div>`;
+}
+
+function roiSourcesCard(r) {
+  const d = PF_ROI;
+  return `<div class="sidecard">
+    <span class="sidecard-kicker">Where these numbers come from</span>
+    <p class="mt-3" style="font-size:12.5px">Every figure here is from a published source, dated. Data last checked <strong>${esc(d.verified)}</strong>.</p>
+    <ul class="rs-sup mt-3" style="font-size:12px">
+      <li><strong>Tuition</strong> — ${esc(r.tuition.basis === 'published-subject' ? d.uniBySubjectMeta.src : (d.tiers[roiState.tier] || {}).src || '')}</li>
+      <li><strong>Living costs</strong> — PathFinder city data, verified ${esc((r.city && r.city.lastVerified) || d.verified)}</li>
+      <li><strong>Wages</strong> — adult minimum wage NZ$${PF_CONFIG.minWageHourly}/hr from 1 April 2026 (employment.govt.nz)</li>
+      <li><strong>Tax</strong> — IRD ${esc(d.tax.asOf)} brackets and earner levy</li>
+      <li><strong>Salaries</strong> — ${esc(d.earnings.src)}</li>
+      <li><strong>Work &amp; visa rules</strong> — immigration.govt.nz</li>
+      <li><strong>NZ$ → LKR</strong> — ${d.fx.nzdToLkr} as at ${esc(d.fx.asOf)}; an anchor for reading, not a transfer rate</li>
+    </ul>
+    <p class="muted mt-3" style="font-size:11.5px"><strong>Read this honestly.</strong> The salary figures are published for
+      <em>domestic</em> New Zealand graduates. An international graduate holds a ${r.pswYears}-year work visa and no
+      guarantee of residence, so treat them as an upper reference, not a forecast. Confirm tuition with the provider
+      before you decide anything.</p>
+  </div>`;
+}
+
+function roiBindForm() {
+  const bind = (id, key, cast) => {
+    const el = $('#' + id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      roiState[key] = cast ? cast(el.value) : el.value;
+      roiSave();
+      route();
+    });
+  };
+  bind('roi-subject', 'subjectRoot');
+  bind('roi-tier', 'tier');
+  bind('roi-city', 'city');
+  bind('roi-years', 'years', Number);
+  bind('roi-who', 'who');
+  bind('roi-hours', 'workHours', Number);
+  bind('roi-fee', 'feeOverride', Number);
+  bind('roi-schol', 'scholarshipPct', Number);
+  bind('roi-funds', 'ownFundsNZD', Number);
+}
+
+/* The PhD track's economics run the other way, so this screen tells the
+   truth about that instead of pretending the model applies. */
+function roiPhdNote(main) {
+  const T = trackCfg();
+  main.innerHTML = renderHero({
+    kicker: 'Cost & payback', title: 'On the PhD track, the maths runs the other way',
+    body: 'This tool models the master\'s bill. A doctorate in New Zealand is one of the few in the world that charges international students the domestic rate — and usually pays a stipend on top.',
+    primaryLabel: 'Check my visa funds', primaryHref: '#funds',
+  }) +
+    `<div class="listcard mt-5">
+      <div class="listcard-head"><h2 class="listcard-title">Why there is nothing to model</h2></div>
+      <p>Tuition at the domestic rate is about ${esc(PFRoi.money(PF_CONFIG.phdFeesDomesticPerYear))} a year, and a doctoral
+      scholarship — usually awarded with admission rather than applied for separately — covers fees and adds a stipend of
+      roughly ${esc(PFRoi.money(PF_CONFIG.stipendLo * 12))}–${esc(PFRoi.money(PF_CONFIG.stipendHi * 12))} a year. You also
+      have unlimited work rights. The question that decides a PhD is not cost; it is whether a supervisor says yes.</p>
+      <div class="hero-actions mt-5">
+        <a class="btn btn-quiet" href="#research">Find supervisors and a topic</a>
+        <button type="button" class="btn btn-quiet" id="roi-to-masters">I'm actually looking at a master's</button>
+      </div>
+    </div>`;
+  $('#roi-to-masters').onclick = () => switchTrack('masters');
+}
+
+/* Build the sheet model and hand it to the PDF writer. Deliberately in
+   LKR-first order: the reader is the person paying, not the student. */
+function roiDownloadSheet(r) {
+  const cat = window.PF_CATALOGUE;
+  const subject = cat && cat.taxonomy[roiState.subjectRoot] ? cat.taxonomy[roiState.subjectRoot].n : 'Postgraduate study';
+  const tier = (PF_ROI.tiers[roiState.tier] || {}).label || '';
+  const routes = PFRoi.cheaperRoutes(r, roiState).slice(0, 4);
+  const email = (window.PFCloud && PFCloud.currentEmail && PFCloud.currentEmail()) || '';
+
+  const name = PFInvoice.downloadSheet({
+    ref: 'PathFinder-decision-sheet',
+    date: Date.now(),
+    student: email || 'A PathFinder student',
+    plan: `Master's (NZQF level 9) in ${subject} — ${tier}, ${r.city ? r.city.city : ''}, ${r.years} year${r.years === 1 ? '' : 's'}, starting as ${r.who === 'single' ? 'one person' : r.who === 'couple' ? 'a couple' : 'a family'}.`,
+    years: r.years,
+    lines: r.costLines.map(l => ({ label: l.label, detail: l.detail, nzd: l.amount })),
+    totalNZD: r.totalCost,
+    studyIncomeNZD: r.studyIncomeTotal,
+    netNZD: r.netCost,
+    ownFundsNZD: r.ownFunds,
+    gapNZD: r.gap,
+    band: r.band, bandOk: r.bandCls === 'chip-ok',
+    verdict: r.verdict,
+    afterLines: [
+      ['Likely salary in this field', PFRoi.money(r.grossAfter) + ' a year'],
+      ['After tax and ACC', PFRoi.money(r.netAfter) + ' a year'],
+      ['Left over after living costs', PFRoi.money(r.annualSurplus) + ' a year'],
+      ['Post-study work visa', r.pswYears + ' years, open work rights'],
+      ['Time to earn the cost back', PFRoi.fmtYears(r.paybackYears)],
+    ],
+    alternatives: routes.map(a => ({ title: a.title, tradeoff: a.tradeoff, saving: a.saving })),
+    fx: r.fx,
+    notes: [
+      `Prepared by PathFinder on ${new Date().toLocaleDateString('en-GB')}. Cost data last checked ${PF_ROI.verified}.`,
+      `Tuition from ${r.tuition.label}; living costs from PathFinder city data; wages at the NZ adult minimum of NZ$${PF_CONFIG.minWageHourly}/hr from 1 April 2026; tax at IRD ${PF_ROI.tax.asOf} rates.`,
+      `Salary figures are published for DOMESTIC New Zealand graduates (${PF_ROI.earnings.src}) and are an upper reference, not a forecast: an international graduate holds a ${r.pswYears}-year work visa and no guarantee of residence.`,
+      `Converted at NZ$1 = LKR ${PF_ROI.fx.nzdToLkr} (${PF_ROI.fx.asOf}) for reading only — the real transfer rate will differ.`,
+      `Confirm every fee with the provider in writing before committing money. PathFinder takes no commission from any provider named here.`,
+    ],
+  });
+  toast('Saved ' + name + ' — made to be printed and read on paper.');
+}
 
 /* ── 9d · Pricing (#pricing) — what's free, what's paid ─────────────────
    Freemium model: three plans, side by side — Free, Explorer, Premium.

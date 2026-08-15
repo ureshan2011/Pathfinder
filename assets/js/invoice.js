@@ -494,6 +494,172 @@ const PFInvoice = (() => {
     return true;
   }
 
+  /* ════════════════════════════════════════════════════════════
+     The family decision sheet.
+
+     Everything else this file writes is a record of something that
+     already happened. This is the opposite: a one-page case for a
+     decision that has not been made yet, addressed to the person who
+     will actually make it.
+
+     That person is usually not the student. It is a parent or an uncle
+     who has never been to New Zealand, will never open the app, and is
+     being asked to commit a sum that in Colombo buys a house. So the
+     sheet leads in LKR, keeps NZ$ alongside for anyone checking against
+     a provider's website, states the alternatives that were considered
+     and rejected, and ends by saying plainly which figures are estimates
+     and where they came from. A sheet that oversells is worse than no
+     sheet: this document has to survive being read by a sceptic.
+     ════════════════════════════════════════════════════════════ */
+
+  /* Sign goes in front of the currency, not between it and the digits:
+     "-NZ$52,468", never "NZ$-52,468". The offset lines on the sheet are
+     the only negatives it prints, and they are read by someone checking
+     the arithmetic by hand. */
+  const signed = (v, body) => (v < 0 ? '-' : '') + body(Math.abs(v));
+  const nz = n => signed(Number(n) || 0, v => 'NZ$' + Math.round(v).toLocaleString('en-US'));
+  const lk = (n, rate) => signed(Number(n) || 0,
+    v => 'LKR ' + Math.round(v * (rate || 0)).toLocaleString('en-US'));
+
+  function sheetLayout(s) {
+    const p = painter();
+    const o = org();
+    const M = p.M, R = M + p.CW;
+    const rate = (s.fx && s.fx.nzdToLkr) || 0;
+
+    /* Masthead */
+    p.text('Path', M, p.y, 22, { bold: true });
+    p.text('finder', M + textW('Path', 22, true), p.y, 22, { bold: true, color: ROUTE });
+    p.text('FAMILY DECISION SHEET', R, p.y + 4, 11, { bold: true, color: ROUTE, align: 'right' });
+    p.text(dateOf(s.date || Date.now()), R, p.y + 20, 9.5, { align: 'right' });
+    p.y += 40;
+    p.hr(p.y, INK, 1.4);
+    p.y += 20;
+
+    /* Who and what */
+    p.y += p.para(s.student || 'A PathFinder student', M, p.y, 13, { bold: true });
+    p.y += 2;
+    p.y += p.para(s.plan || '', M, p.y, 10.5, { color: SOFT });
+    p.y += 16;
+
+    /* THE NUMBER — in the currency the reader thinks in. */
+    p.need(96);
+    p.rect(M, p.y, p.CW, 74, WASH);
+    p.text('WHAT THIS WILL COST, ALL IN', M + 14, p.y + 12, 8, { bold: true, color: FAINT });
+    p.text(lk(s.netNZD, rate), M + 14, p.y + 27, 20, { bold: true });
+    p.text(nz(s.netNZD) + '  ' + (s.years || 2) + '-year total, after money earned from part-time work',
+      M + 14, p.y + 54, 9, { color: SOFT });
+    p.y += 90;
+
+    /* Where it goes */
+    p.need(70);
+    p.text('WHERE IT GOES', M, p.y, 8, { bold: true, color: FAINT });
+    p.text('NZ$', R - 110, p.y, 8, { bold: true, color: FAINT, align: 'right' });
+    p.text('LKR', R, p.y, 8, { bold: true, color: FAINT, align: 'right' });
+    p.y += 14;
+    p.hr(p.y, LINE, 0.7);
+    p.y += 9;
+
+    (s.lines || []).forEach(l => {
+      const w = R - 240 - M;
+      const h = p.height(l.label, 10.5, false, w) + (l.detail ? p.height(l.detail, 8.5, false, w) : 0);
+      p.need(h + 14);
+      const top = p.y;
+      let dy = p.para(l.label, M, top, 10.5, { maxW: w });
+      if (l.detail) dy += p.para(l.detail, M, top + dy, 8.5, { color: FAINT, maxW: w });
+      p.text(nz(l.nzd), R - 110, top, 10.5, { align: 'right', color: SOFT });
+      p.text(lk(l.nzd, rate), R, top, 10.5, { align: 'right' });
+      p.y = top + Math.max(dy, 15) + 8;
+      p.hr(p.y, LINE, 0.4);
+      p.y += 8;
+    });
+
+    /* Offsets and the gap — the three lines a parent actually scans for. */
+    const totals = [
+      ['Total cost', s.totalNZD, false],
+      ['Less: earned from part-time work while studying', -Math.abs(s.studyIncomeNZD || 0), false],
+      ['What the family has to find', s.netNZD, true],
+      s.ownFundsNZD ? ['Already arranged', -Math.abs(s.ownFundsNZD), false] : null,
+      s.ownFundsNZD ? ['Still to arrange', s.gapNZD, true] : null,
+    ].filter(Boolean);
+
+    p.need(24 * totals.length + 10);
+    p.y += 4;
+    totals.forEach(([label, val, strong]) => {
+      p.text(label, R - 110 - 12, p.y + (strong ? 2 : 0), strong ? 11 : 10, { bold: strong, align: 'right', color: strong ? INK : SOFT });
+      p.text(nz(val), R - 110, p.y, strong ? 11 : 10, { align: 'right', bold: strong, color: strong ? INK : SOFT });
+      p.text(lk(val, rate), R, p.y, strong ? 12 : 10, { align: 'right', bold: strong });
+      p.y += strong ? 22 : 18;
+    });
+    p.y += 8;
+
+    /* Afterwards */
+    p.need(96);
+    p.hr(p.y, LINE, 0.7);
+    p.y += 16;
+    p.text('AFTER GRADUATION', M, p.y, 8, { bold: true, color: FAINT });
+    p.y += 16;
+    const stampW = textW(ascii(s.band || ''), 9, true) + 20;
+    p.rect(M, p.y, stampW, 20, s.bandOk ? [0.90, 0.94, 0.91] : WASH);
+    p.text(s.band || '', M + 10, p.y + 6, 9, { bold: true, color: s.bandOk ? PINE : SOFT });
+    p.y += 30;
+    (s.afterLines || []).forEach(([k, v]) => {
+      p.text(k, M, p.y, 9.5, { color: SOFT });
+      p.text(v, R, p.y, 9.5, { align: 'right' });
+      p.y += 16;
+    });
+    p.y += 6;
+    if (s.verdict) { p.flow(s.verdict, M, 10, { color: SOFT, lh: 14 }); p.y += 10; }
+
+    /* Alternatives — the part that proves this was a decision, not a wish. */
+    if ((s.alternatives || []).length) {
+      p.need(60);
+      p.hr(p.y, LINE, 0.7);
+      p.y += 16;
+      p.text('CHEAPER ROUTES WE LOOKED AT', M, p.y, 8, { bold: true, color: FAINT });
+      p.y += 16;
+      s.alternatives.forEach(a => {
+        p.need(46);
+        const top = p.y;
+        let dy = p.para(a.title, M, top, 10.5, { bold: true, maxW: p.CW - 150 });
+        if (a.tradeoff) dy += p.para(a.tradeoff, M, top + dy, 8.5, { color: FAINT, maxW: p.CW - 150 });
+        p.text(a.saving > 0 ? 'saves ' + lk(a.saving, rate) : '', R, top, 10, { align: 'right', color: PINE });
+        if (a.saving > 0) p.text(nz(a.saving), R, top + 14, 8.5, { align: 'right', color: FAINT });
+        p.y = top + Math.max(dy, 30) + 10;
+      });
+    }
+
+    /* Footer — sources and honest limits. Printed, not buried. */
+    p.need(76);
+    p.y = Math.max(p.y + 6, PAGE.h - PAGE.m - 72);
+    p.hr(p.y, LINE, 0.7);
+    p.y += 9;
+    const foot = (s.notes || []).join('  ');
+    p.para(foot, M, p.y, 7.5, { color: FAINT, lh: 10.5, maxW: p.CW });
+    return p.pages();
+  }
+
+  function sheetBlob(s) { return toPDF(sheetLayout(s), s.ref || 'decision-sheet'); }
+
+  function downloadSheet(s) {
+    const name = (s.ref || 'PathFinder-decision-sheet') + '.pdf';
+    const url = URL.createObjectURL(sheetBlob(s));
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return name;
+  }
+
+  function openSheet(s) {
+    const url = URL.createObjectURL(sheetBlob(s));
+    setTimeout(() => URL.revokeObjectURL(url), 600000);
+    const w = window.open(url, '_blank');
+    return !!w;
+  }
+
   return { fromSession, fromTx, invoiceNoFor, layout, blobFor, download, open,
+           sheetLayout, sheetBlob, downloadSheet, openSheet,
            money, dateOf, topicLabel, channelLabel };
 })();

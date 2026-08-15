@@ -73,7 +73,7 @@ const PF_TRACK = {
     supervisorFirst: false,     // you apply to a programme, not to a person
     intakeLabel: 'Two intakes a year — February and July',
     englishBar: 'IELTS 6.5 overall, no band below 6.0 (some programmes accept 6.0)',
-    workRights: 'up to 20 hours a week during semester, full-time in breaks',
+    workRights: 'up to 25 hours a week during semester, full-time in breaks',
     postStudy: 'a 3-year open post-study work visa for a level-9 master\'s',
     dependents: 'children pay domestic school fees only if you study level 9 or above',
   },
@@ -391,8 +391,8 @@ const PF_VISA_UPDATES = [
 const PF_VISA_UPDATES_MASTERS = [
   { date:'2026-05', title:'Master’s students pay international tuition', tag:'Fees',
     body:'The domestic-fee concession applies to doctoral candidates only. Budget NZ$32,000–48,000 a year for a master’s, and confirm the exact figure with the provider — it varies more by programme than by university.' },
-  { date:'2026-04', title:'Work rights: 20 hours a week during semester', tag:'Work Rights',
-    body:'Student visa holders in postgraduate study may work up to 20 hours a week during the semester and full-time over scheduled breaks. Partners of level-9 students may qualify for an open work visa.' },
+  { date:'2025-11', title:'Work rights raised to 25 hours a week during semester', tag:'Work Rights',
+    body:'From 3 November 2025 eligible student visa holders may work up to 25 hours a week during the semester, raised from 20, and full-time over scheduled breaks. New visas carry the higher limit automatically; anyone already on a 20-hour condition must apply to vary it. Partners of level-9 students may qualify for an open work visa.' },
   { date:'2026-03', title:'Post-study work visa: 3 years after a level-9 master’s', tag:'Post-Study',
     body:'A completed level-9 master’s qualifies for a 3-year open post-study work visa. A level-8 postgraduate diploma on its own qualifies for less — worth weighing when you choose between the two.' },
   { date:'2026-02', title:'Two intakes a year — February and July', tag:'Intakes',
@@ -1156,12 +1156,12 @@ const PF_VISA_STAGES = [
     summary:'Your eVisa arrives by email. Check every detail on it the day it arrives.',
     where:[
       { name:'Email + INZ portal', detail:'The eVisa letter states your visa conditions: institution, course, work rights (unlimited hours for PhD), and validity dates.',
-        masters_detail:'The eVisa letter states your visa conditions: institution, course, work rights (20 hours a week in semester for a taught master’s), and validity dates.' },
+        masters_detail:'The eVisa letter states your visa conditions: institution, course, work rights (25 hours a week in semester for a taught master’s), and validity dates.' },
     ],
     steps:[
       { id:'vs6a', t:'eVisa received — check name spelling and passport number', note:'Errors must be corrected before travel' },
       { id:'vs6b', t:'Confirm work rights show unlimited hours (PhD)', note:'',
-        masters_t:'Confirm work rights show 20 hours a week during semester',
+        masters_t:'Confirm work rights show 25 hours a week during semester',
         masters_note:'Full-time work is allowed only in scheduled breaks — check the dates on the letter' },
       { id:'vs6c', t:'Confirm validity covers your full first year+', note:'' },
     ]},
@@ -1595,15 +1595,24 @@ const PF_CONFIG = {
        fullAudit  the audit covers CV + SOP + proposal, not just the SOP
        interview  interview preparation is in scope for those sessions
        priority   this student's requests sort to the top of the mentor queue
+       costCompare  the cheaper-route comparison and the family decision
+                  sheet in #cost
 
      Premium includes everything in Explorer, so its numbers are the whole
      entitlement, not a top-up. Buying both stacks (grantsFrom() sums them).
 
      Credits granted here are spent against the student's own requests and
-     the remainder is DERIVED, never stored — see creditsUsed() in app.js. */
+     the remainder is DERIVED, never stored — see creditsUsed() in app.js.
+
+     `costCompare` is Premium-only on purpose: the total-cost verdict on a
+     student's own plan stays free, because telling someone the truth about
+     what they are about to spend should never sit behind a paywall. What
+     Premium buys is what to DO about it — the cheaper routes to the same
+     NZQF level, and the one-page sheet that convinces whoever is paying. */
   planGrants: {
     explorer: { toolkit: true, sessions: 1, audits: 1 },
-    premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true, priority: true },
+    premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true,
+                priority: true, costCompare: true },
   },
 
   // Platform take-rate on paid mentor sessions (mentor keeps the rest).
@@ -1689,7 +1698,7 @@ const PF_CONFIG = {
      and only 17 of the 128 polytechnic rows carry a numeric fee), so real
      per-course fees are shown ONLY on the courses that actually have them.
      VERIFY against university fee schedules — these move every year. */
-  mastersFeesIntlPerYear: { lo: 32000, hi: 48000, mid: 38000 },
+  mastersFeesIntlPerYear: { lo: 33000, hi: 58000, mid: 45000 },
 
   returnAirfareBuffer: 2500,         // INZ wants onward/return-travel evidence (NZ$)
   // Extra living-cost funds INZ expects for accompanying family, on top of
@@ -1708,7 +1717,7 @@ const PF_CONFIG = {
 
   // Indicative LKR per 1 NZD for home-currency anchoring. NOT a live rate —
   // update by hand. Always check a transfer service for the real rate.
-  nzdToLkr: 185,                     // indicative — rates move daily
+  nzdToLkr: 196.7,                   // indicative — rates move daily. See PF_ROI.fx (roi-data.js)
 
   // Stamp shown in the "data last verified" disclaimer across the module.
   dataVerified: 'June 2026',
