@@ -224,6 +224,14 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .tag { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
 .tag .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--route); }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+/* Grid and flex items default to min-width:auto, so a child that refuses to
+   wrap — a <pre>, a long unbroken string — sizes its track to the content
+   instead of the container and pushes the whole page wider than the
+   viewport. Same failure the .hero-row comment below describes. */
+.grid-2 > *, .grid-3 > *, .grid-4 > * { min-width: 0; }
+/* The Starter Kit's template previews are <pre>: without this they hold
+   their longest line at full width and blow out the grid on a phone. */
+.tpl-preview { white-space: pre-wrap; overflow-wrap: anywhere; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 @media (max-width: 980px) { .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
@@ -792,4 +800,167 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 
 @media (max-width: 480px) {
   .shell .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Cost & payback (#cost)
+
+   Written mobile-first, because this screen is read on a phone by a
+   student and printed on paper for a parent, and almost never opened on
+   a desktop. The previous version reused .row / .row-actions, which is a
+   flex pair built for a short label and a chip — given a money column,
+   a currency conversion and a sentence it refused to wrap and pushed the
+   document to 770px inside a 375px viewport.
+
+   Every rule below therefore starts from the narrow case and only widens
+   at a breakpoint, and every text container is min-width:0 so a long
+   unbreakable string shrinks its column instead of the page.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.shell .roi-plan { padding: 0; overflow: hidden; }
+.shell .roi-plan-summary {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 18px 20px; cursor: pointer; list-style: none;
+}
+.shell .roi-plan-summary::-webkit-details-marker { display: none; }
+/* Chevron drawn in CSS rather than set as a Material Symbols ligature:
+   the icon font is a network request, and when it fails the ligature name
+   renders as the literal word "expand_more" next to the heading. A border
+   triangle always draws. */
+.shell .roi-plan-summary::after {
+  content: ''; position: absolute; right: 22px; top: 26px;
+  width: 8px; height: 8px; border-right: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint); transform: rotate(45deg);
+  transition: transform var(--t-bar, .2s) ease;
+}
+.shell details[open] > .roi-plan-summary::after { transform: rotate(-135deg); top: 30px; }
+.shell .roi-plan-summary { position: relative; padding-right: 48px; }
+.shell .roi-plan-summary strong { font-size: 15px; line-height: 1.35; }
+.shell .roi-plan-summary .faint { font-size: 12.5px; }
+
+.shell .roi-fields {
+  display: grid; grid-template-columns: 1fr; gap: 14px;
+  padding: 4px 20px 20px; border-top: 1px solid var(--line);
+}
+.shell .roi-fields label { display: block; min-width: 0; }
+.shell .roi-fields .field { width: 100%; }
+
+.shell .roi-headline { border-color: var(--ochre); }
+.shell .roi-big {
+  font-family: var(--font-mono, inherit); font-weight: 700;
+  font-size: clamp(1.55rem, 8.5vw, 2.4rem); line-height: 1.1;
+  margin-top: 6px; overflow-wrap: anywhere;
+}
+.shell .roi-big-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+.shell .roi-facts {
+  display: grid; grid-template-columns: 1fr; gap: 10px;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.shell .roi-facts > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.shell .roi-facts .faint { font-size: 12.5px; }
+.shell .roi-facts strong { font-size: 14px; white-space: nowrap; }
+
+/* One cost/earnings line. Label block is min-width:0 so it wraps; the
+   money block never wraps and never shrinks. */
+.shell .roi-line {
+  display: flex; gap: 14px; align-items: flex-start; justify-content: space-between;
+  padding: 13px 0; border-bottom: 1px solid var(--line);
+}
+.shell .roi-line:last-of-type { border-bottom: 0; }
+.shell .roi-line-main { min-width: 0; flex: 1 1 auto; }
+.shell .roi-line-label { font-size: 14px; line-height: 1.35; }
+.shell .roi-line-detail { font-size: 12px; color: var(--ink-faint); line-height: 1.45; margin-top: 3px; }
+.shell .roi-line-money {
+  flex: 0 0 auto; text-align: right; display: flex; flex-direction: column; gap: 2px;
+}
+.shell .roi-line-money strong { font-size: 14px; white-space: nowrap; }
+.shell .roi-line-money .faint { font-size: 11.5px; white-space: nowrap; }
+
+.shell .roi-basis { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.shell .roi-basis p { font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 0; }
+.shell .roi-basis .btn { width: 100%; justify-content: center; }
+
+/* A cheaper-route card. Stacks on a phone — the saving is the headline,
+   so it sits under the provider name at full width rather than being
+   squeezed into a right-hand column. */
+.shell .roi-route {
+  padding: 16px 0; border-bottom: 1px solid var(--line);
+}
+.shell .roi-route:last-of-type { border-bottom: 0; }
+.shell .roi-route-head {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;
+}
+.shell .roi-route-kicker {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint);
+}
+.shell .roi-route-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.shell .roi-route-save { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.shell .roi-route-save strong { font-size: 15px; color: var(--ok, var(--route)); white-space: nowrap; }
+.shell .roi-route-save .faint { font-size: 12px; white-space: nowrap; }
+.shell .roi-route-tradeoff { font-size: 12px; color: var(--ink-soft); margin: 8px 0 0; line-height: 1.5; }
+.shell .roi-route-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px;
+}
+.shell .roi-route-foot .faint { font-size: 11.5px; }
+
+.shell .roi-src { list-style: none; padding: 0 20px 4px; margin: 0; }
+.shell .roi-src li {
+  font-size: 12px; color: var(--ink-soft); line-height: 1.5;
+  padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere;
+}
+.shell .roi-src li:last-child { border-bottom: 0; }
+.shell .roi-warn { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; padding: 0 20px 20px; margin: 0; }
+
+/* Wider screens: two money columns side by side, fields in a grid. */
+@media (min-width: 620px) {
+  .shell .roi-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shell .roi-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .shell .roi-facts > div { flex-direction: column; gap: 3px; }
+  .shell .roi-line-money { flex-direction: row; align-items: baseline; gap: 12px; }
+  .shell .roi-line-money .faint { min-width: 118px; }
+  .shell .roi-route-head { flex-direction: row; align-items: flex-start; justify-content: space-between; }
+  .shell .roi-route-save { flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; flex: 0 0 auto; }
+  .shell .roi-basis .btn { width: auto; }
+}
+@media (min-width: 900px) {
+  .shell .roi-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ── Provider quality (#cost) ───────────────────────────────────────
+   NZQA's published record, shown next to the price. Sized so the
+   regulator's finding and the saving are legible in one glance — a
+   comparison that shows only the cheaper number is an argument for the
+   cheapest option, not a decision aid. */
+.shell .roi-qa-concern { border-color: var(--alert, var(--ochre)); }
+.shell .roi-qa-verdict { margin-top: 14px; }
+.shell .roi-qa-verdict p { font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin: 9px 0 0; }
+.shell .roi-qa-note { font-size: 11.5px !important; color: var(--ink-faint) !important; }
+.shell .roi-qa-list { list-style: none; padding: 0; margin: 14px 0 0; }
+.shell .roi-qa-list li {
+  font-size: 12.5px; color: var(--ink-soft); line-height: 1.5;
+  padding: 7px 0; border-bottom: 1px solid var(--line);
+}
+.shell .roi-qa-list li:last-child { border-bottom: 0; }
+.shell .roi-qa-code { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; margin: 14px 0 0; }
+.shell .roi-qa-reports {
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-top: 14px;
+}
+.shell .roi-qa-reports .faint { font-size: 11.5px; }
+.shell .roi-qa-reports a { font-size: 12.5px; }
+.shell .roi-qa-limits { margin: 8px 0 0; padding-left: 18px; }
+.shell .roi-qa-limits li { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 5px; }
+.shell .roi-qa-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.shell .roi-qa-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+.shell .roi-route-qa {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; margin-top: 10px;
+}
+.shell .roi-route-qa a { font-size: 11.5px; }
+.shell .roi-route-warn {
+  font-size: 12px; line-height: 1.5; margin: 10px 0 0; padding: 10px 12px;
+  border-radius: 3px; background: var(--warn-bg, var(--gold-soft));
+  border: 1px dashed var(--line-2);
+}
+@media (min-width: 620px) {
+  .shell .roi-qa-actions .btn { flex: 0 0 auto; }
 }

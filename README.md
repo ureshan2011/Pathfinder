@@ -71,6 +71,7 @@ data/subject_areas.json    NZQA subject-area taxonomy (source input to the sync 
 scripts/
   sync-astra-catalogue.js  rebuilds the catalogue from AstraDB (see below)
   scrape-nz-corpus.js      rebuilds the NZ research corpus from OpenAlex
+  scrape-provider-quality.js  rebuilds provider-quality.js from NZQA organisation pages
   build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
@@ -79,6 +80,8 @@ scripts/
   js/roi-data.js           hand-verified, DATED cost & earnings dataset — tuition by
                            provider tier and subject, wages, tax, graduate salaries
   js/roi.js                PFRoi — pure cost-to-payback model + cheaper-route comparison
+  js/provider-quality.js   GENERATED — NZQA's published record per provider (category,
+                           confidence statements, report links, Code of Practice status)
   js/firebase-config.js    paste your Firebase web config here (null = pure local mode)
   js/firebase.js           optional sync layer (Auth + roles + Firestore mirror + queue + inboxes)
   js/app.js                router + view renderers
@@ -345,7 +348,18 @@ Nobody in that market does this arithmetic honestly, for a structural reason: ev
 1. **Total cost, not the sticker fee.** Tuition is the number providers publish; airfares, the visa, medicals, police certificates, insurance, a rental bond and a first set of furniture are the ones families discover afterwards. Living costs come from the same `PF_CITY_COSTS` the Funds Planner uses, so the two tools can never quote a family two different rents for one city.
 2. **The income side.** Master's students may work **25 hours a week in semester** (raised from 20 on 3 November 2025) and full-time in breaks, at the adult minimum wage — deliberately the floor, not an average. Note the asymmetry the UI keeps repeating: this money reduces what the family spends, but INZ will not count it toward the visa funds requirement.
 3. **Payback against the visa.** Take-home pay after PAYE and the ACC earner levy, less the cost of living in the same city, gives the annual surplus that actually repays the investment — and it is scored against the **3-year post-study work visa**, not an open-ended career. A payback longer than three years is a plan that depends on residence, which is a separate decision and never guaranteed.
-4. **Cheaper routes to the same NZQF level.** The register holds **700 level-9 master's qualifications, and 111 of those offerings are at polytechnics (70) and private colleges (41)** rather than universities — the same level on the same framework, typically at close to half the fee. `cheaperRoutes()` compares the student's plan against a cheaper provider tier, a level 8 diploma first, and a lower-cost city, with the saving on each **and the trade-off stated**. A PGDip deliberately carries **no payback figure at all**: scoring it with the master's earnings premium and the master's visa length would flatter it on exactly the two counts where it is weaker.
+4. **Cheaper routes to the same NZQF level.** The register holds **700 level-9 master's qualifications, and 111 of those offerings are at polytechnics (70) and private colleges (41)** rather than universities — the same level on the same framework, typically at close to half the fee. `cheaperRoutes()` compares the student's plan against **named providers** teaching the same subject at the same level, each with its own published fee and the saving, **and the trade-off stated**. Named beats abstract here: "University of Waikato, saves NZ$21,026" is a claim a family can check; "a polytechnic" is not.
+
+### The provider picker
+
+Tuition is resolved **per provider**, most-specific source first, and every branch reports where its number came from so the screen can always answer the only question that matters when a family is reading it — *where did you get that?*
+
+1. **The fee you were quoted.** Always wins, and the UI pushes for it.
+2. **That provider's published figure for that subject.** Auckland, AUT and Waikato are transcribed per subject from their own 2026 schedules.
+3. **That provider's own published range**, where they set fees per programme rather than publishing one schedule.
+4. **The tier band**, for any of the other 51 register providers — clearly labelled an estimate.
+
+Only three providers are transcribed in full, and that is deliberate rather than lazy: an invented per-subject figure for a provider that does not publish one would look identical to a real one on screen, and a family would act on it. Where the number is not known, it is a band, it says so, and it asks for the real quote.
 
 ### The family decision sheet
 
@@ -359,11 +373,13 @@ The student doesn't hold the money. A parent or an uncle does — someone who ha
 
 | What | Source | As of |
 |---|---|---|
-| University tuition, per subject | University of Auckland published international postgraduate schedule (the most expensive of the eight, so comparisons never flatter the cheap route) | 2026 |
-| Polytechnic / private-college tuition | Published 2026 international schedules (Wintec, Ara, Otago Polytechnic) | 2026 |
+| Tuition — Auckland, AUT, Waikato | Each provider's own published international fee schedule, transcribed per subject | 2026 |
+| Tuition — Massey, Victoria, Canterbury, Lincoln, Otago | Whole-provider range; they publish per programme, so the UI asks for the quoted fee | 2026 |
+| Tuition — polytechnics | Published 2026 international schedules (Wintec, Ara, Otago Polytechnic) | 2026 |
 | Graduate earnings | Education Counts, *What young graduates earn when they leave study* | 2024 |
 | Master's premium | Ministry of Education, *Moving on up* — master's +86% vs bachelor's +53% over the national median wage | — |
 | Minimum wage | employment.govt.nz — NZ$23.95/hr | 1 Apr 2026 |
+| Student visa fee | immigration.govt.nz — Fee Paying Student Visa, "from NZD $850" | 2026 |
 | PAYE + ACC earner levy | ird.govt.nz — brackets unchanged, levy 1.75% | 2026–27 |
 | Work rights, post-study work visa | immigration.govt.nz | 2026 |
 | NZ$ → LKR | mid-market, 196.7 — a reading anchor, never used to decide anything | 2 Aug 2026 |
@@ -371,6 +387,23 @@ The student doesn't hold the money. A parent or an uncle does — someone who ha
 **Re-verify every January, and again each April** when the minimum wage and the ACC levy reset. Bump `PF_ROI.verified` when you finish a pass.
 
 > **The honesty constraint.** The published earnings figures are for **domestic** New Zealand graduates. An international graduate holds a 3-year work visa and no guarantee of residence, so they are not the same population and the numbers are an upper reference, not a forecast. This is stated on the screen that shows them and printed on the sheet. Where a field has no published figure (`PF_ROI_NO_FIELD_EARNINGS`), the model says so and falls back to the all-graduate median rather than inventing one; creative arts is published as the lowest-earning group with no quotable figure, so it is flagged rather than guessed.
+
+### Who you'd be handing the money to
+
+The cheaper-routes comparison is the most dangerous thing on this screen: it is very good at finding a lower number, and a lower number is not the same as a better decision. So the quality evidence sits **before** the savings, and a compressed version of it rides on every comparison row — the regulator's finding and the saving have to be legible in the same glance, or the comparison is just an argument for the cheapest option.
+
+`assets/js/provider-quality.js` (generated by `scripts/scrape-provider-quality.js`) holds **NZQA's own published record for all 51 providers**: provider category, the dated statements of confidence behind it, the external quality assurance report history with direct PDF links, and Code of Practice signatory status. Nothing is scored, ranked or editorialised by PathFinder — we put the regulator's evidence in front of the student with a link and let them read it.
+
+> **The External Evaluation and Review system has ENDED.** The Quality Assurance of Tertiary Education Providers Rules 2026 came into force on **19 January 2026** and revoked the EER Rules 2022. NZQA requires that a quoted provider category is shown **with the year it was received and a statement that the system no longer operates** — `PF_ROI_QA.systemNote` carries that wording and the UI prints it next to every category. Never render a bare "Category 1" badge.
+
+Two things the scraper is careful about, because getting either wrong would be worse than showing nothing:
+
+- **Universities carry no category by design.** They are audited by the Academic Quality Agency and CUAP, not evaluated by NZQA, so a blank is recorded as `naReason` and displayed as an explanation — never as a bad score.
+- **Code of Practice status is `true` or unknown, never `false`.** University pages use a thinner layout with no Code section at all; recording that absence as `false` would print "not a Code of Practice signatory" under the University of Auckland, which is both wrong and damaging.
+
+`qualityDelta()` warns when a cheaper route means accepting a materially worse regulatory record, and returns `null` when either side has no category — comparing a number to a blank would manufacture a warning out of nothing.
+
+**Why there are no Google or Glassdoor ratings.** They are a handful of self-selected reviews, frequently from people who never studied at the provider (and on Glassdoor, from staff rather than students). Republishing them would mean presenting opinion as evidence, and neither platform permits it. For what a place is actually like to study at, the product's answer is to ask someone who did — which is what the mentor network is for. The reasoning lives in `PF_ROI_QA.noReviewsNote` so it survives a redesign.
 
 ### What's free and what isn't
 

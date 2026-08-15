@@ -1374,6 +1374,8 @@ const PF_CONSULT_TOPICS = {
   'masters-intake':    'Choosing a master\'s programme',
   'masters-sop':       'Statement of purpose review',
   'masters-credential':'Credential recognition & entry',
+  'funding-costs':     'Total cost & whether it pays back',
+  'choosing-provider': 'Choosing between providers',
 };
 
 /* ── How a request first reached us ───────────────────────────────────
