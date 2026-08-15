@@ -1648,6 +1648,34 @@ const PF_CONFIG = {
      the same flows switch to PayHere automatically — see assets/js/pay.js. */
   manualPay: {
     enabled: true,
+
+    /* ── LankaQR — the cheapest rail in the country, and the default ────
+       LankaQR is the Central Bank's national QR standard, accepted by
+       20+ banks and wallets, so ONE code is scannable from whichever
+       banking app the student already has. Two reasons it leads here:
+
+       1. It costs nothing to collect. Under the National QR Payment
+          Promotion Programme (CBSL / Ministry of Digital Economy, from
+          6 April 2026) the merchant fee on LankaQR transactions up to
+          Rs 5,000 is ZERO. Both session tiers below (2,500 and 4,000)
+          sit under that cap, so the most common payment on this
+          platform costs 0% to take. Above Rs 5,000 the CBSL-capped
+          merchant discount rate is 1% — still a third of a card fee.
+       2. It is the least work for the student. Open the bank app,
+          scan, confirm. No card number, no typing an account number
+          wrong, no leaving the phone.
+
+       `image` is the QR your own bank issues once you are onboarded as
+       a merchant (a sole trader can get one with NIC + bank account).
+       Drop the file in assets/img/ and point at it. `merchantName` is
+       the name the payer will see in their app when they scan — show it
+       so a student paying a stranger's QR can check it matches. Leave
+       `image` blank and the whole block simply does not render. */
+    lankaQR: {
+      image: '',           // e.g. 'assets/img/lankaqr.png' — from your bank
+      merchantName: '',    // the name shown in the payer's banking app
+    },
+
     bankName: '',        // e.g. 'Commercial Bank'        — TODO before launch
     accountName: '',     // e.g. 'A. B. Perera'           — TODO before launch
     accountNo: '',       // e.g. '8001234567'             — TODO before launch
@@ -1685,6 +1713,7 @@ const PF_CONFIG = {
   org: {
     name: 'PathFinder',
     legalName: '',                       // registered / sole-proprietor name — TODO
+    regNo: '',                           // Business Name Registration no. from the Divisional Secretariat
     email: 'support@pathfinder.app',     // billing contact
     address: '',                         // business address (optional until registered)
     taxId: '',                           // TIN / VAT no. once registered (optional)

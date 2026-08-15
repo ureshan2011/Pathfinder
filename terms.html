@@ -9,7 +9,23 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet" />
+  <!-- Google Fonts is loaded ASYNCHRONOUSLY, on purpose.
+       As a plain stylesheet link this file is render-blocking: the browser
+       paints NOTHING until fonts.googleapis.com answers. Measured on a
+       connection where that host was unreachable, first contentful paint
+       went from 88ms to 12.7 SECONDS — a blank screen, on the exact mobile
+       networks this audience is on. media="print" makes the browser fetch
+       it at low priority without blocking the render, and the onload
+       handler promotes it to "all" the moment it arrives.
+
+       `display=block` (not swap) on Material Symbols is deliberate: these
+       icons are ligatures, so with `swap` the fallback font briefly renders
+       the LITERAL WORDS ("location_on", "check") all over the page. `block`
+       keeps the glyph invisible for up to ~3s instead, then swaps in. Text
+       faces keep `swap`, where a fallback is the right behaviour. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" media="print" onload="this.media='all';this.onload=null" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,0..100,0..1;1,9..144,300..600,0..100,0..1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" /></noscript>
   <link rel="stylesheet" href="assets/css/site.css" />
   <link rel="stylesheet" href="assets/css/legal.css" />
 </head>
@@ -64,7 +80,7 @@
           <li><a href="#accounts">Accounts</a></li>
           <li><a href="#acceptable">Acceptable use</a></li>
           <li><a href="#mentors">Mentorship marketplace</a></li>
-          <li><a href="#payments">Payments &amp; refunds</a></li>
+          <li><a href="#payments">Payments &amp; refunds</a> &middot; <a href="#refunds">cancellation policy</a></li>
           <li><a href="#plans">Plans &amp; credits</a></li>
           <li><a href="#content">Your content</a></li>
           <li><a href="#ip">Intellectual property</a></li>
@@ -172,9 +188,54 @@
         <ul>
           <li>Prices are shown before you pay and are in Sri Lankan Rupees (LKR) unless stated otherwise.</li>
           <li>PathFinder may charge a platform fee on paid sessions; the price you see is the total you pay.</li>
-          <li><strong>Refunds:</strong> if a paid session is not delivered, contact <a href="mailto:support@pathfinder.app">support@pathfinder.app</a> within 14 days and we will review the case in good faith. Refunds for delivered sessions are at our discretion and subject to applicable consumer law.</li>
           <li>You are responsible for any taxes that apply to you.</li>
         </ul>
+
+        <h3 id="refunds">Cancellation &amp; refund policy</h3>
+        <p>
+          We would rather refund you than keep money for something you did not get. In plain terms:
+        </p>
+        <ul>
+          <li>
+            <strong>Cancelling before a session.</strong> Cancel a booked mentor session at least
+            <strong>24 hours</strong> before the agreed time and you get a <strong>full refund</strong>,
+            no questions asked. Inside 24 hours we will still refund in full the first time it happens.
+          </li>
+          <li>
+            <strong>A session that did not happen.</strong> If your mentor does not show up, or the
+            session cannot go ahead for any reason on our side, you get a <strong>full refund</strong> —
+            or a rebooking, whichever you prefer.
+          </li>
+          <li>
+            <strong>Premium unlocks.</strong> A one-time unlock can be refunded in full within
+            <strong>14 days</strong> of purchase, provided you have not yet spent a mentor session or
+            document-audit credit from it. If you have spent some, we refund the unused balance
+            pro rata.
+          </li>
+          <li>
+            <strong>A session that was delivered.</strong> Once a session has been delivered we do not
+            refund it as a matter of course, because the mentor's time has been given. If you believe
+            what you received was not what was described, tell us within 14 days and we will look at it
+            properly — and where we agree with you, we refund.
+          </li>
+          <li>
+            <strong>How to ask.</strong> Email
+            <a href="mailto:support@pathfinder.app">support@pathfinder.app</a> with your invoice number
+            (it is on every receipt, and on your <a href="app.html#billing">Billing</a> page). We reply
+            within <strong>3 working days</strong> and pay approved refunds within
+            <strong>10 working days</strong>, by the same method you paid with wherever possible.
+          </li>
+          <li>
+            <strong>What we do not refund.</strong> Bank charges or currency-conversion differences
+            applied by your bank, wallet or PayPal, which never reach us.
+          </li>
+        </ul>
+        <div class="legal-note">
+          <span class="material-symbols-outlined">balance</span>
+          <span>Nothing in this policy limits your rights under the Consumer Affairs Authority Act
+          or any other applicable Sri Lankan consumer-protection law. Where this policy and that law
+          differ, the law wins.</span>
+        </div>
       </section>
 
       <section id="plans">

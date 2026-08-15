@@ -113,6 +113,23 @@ img, svg { display: block; max-width: 100%; }
   background: transparent; color: var(--ink);
   transition: background .22s, color .22s, border-color .22s, transform .22s;
 }
+/* Icon-font fallback for the LANDING AND LEGAL pages. app.html gets the
+   same guard from brand.css, which those pages never load — and now that
+   Google Fonts is fetched asynchronously everywhere, they need it too:
+   between first paint and the font arriving (or forever, if it is blocked)
+   Material Symbols renders its ligature text literally, printing the word
+   "space_dashboard" where an icon belongs. A fixed box makes that an empty
+   space instead, and stops the layout jumping when the font lands.
+
+   Ligatures are deliberately NOT disabled here — the icons ARE ligatures,
+   so turning them off would break every glyph in the product. */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em; height: 1em;
+  overflow: hidden;
+  vertical-align: -0.15em;
+}
+
 .btn .material-symbols-outlined, .btn svg { transition: transform .25s cubic-bezier(.22,1,.36,1); }
 .btn:hover .material-symbols-outlined, .btn:hover svg { transform: translateX(3px); }
 .btn-primary { background: var(--ink); color: var(--paper); }
@@ -791,8 +808,40 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .hero-actions { flex-direction: column; }
   .shell .hero-actions .btn, .shell .hero-actions .btn-ghost { width: 100%; justify-content: center; }
   .shell .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .shell .row { flex-wrap: wrap; }
-  .shell .row .chip { margin-left: 48px; }
+  /* ── Rows on a phone ──────────────────────────────────────────────
+     `.row` is a desktop three-part strip: [optional icon][.row-main][
+     .row-actions]. `.row-actions` had no rule of its own, so it sized to
+     its max-content — two side-by-side buttons — while `.row-main` (flex:1,
+     min-width:0) obligingly shrank to whatever was left. On a 390px screen
+     that left the text column at SIXTY-NINE PIXELS: a scholarship
+     description wrapping at two words a line down the left third of the
+     card, with the buttons floating in the empty right half, vertically
+     centred against a column of text ten times their height.
+
+     `flex-wrap: wrap` alone never fixed it, because a flex item with
+     min-width:0 shrinks rather than wraps. Giving the ACTIONS a full-width
+     basis is what forces them onto their own line and hands `.row-main`
+     the rest of line one. `.row-main` deliberately keeps a flexible basis
+     rather than 100% — at 100% it pushes a leading icon onto a line of its
+     own, which is how the Visa Hub's "where to go" rows look wrong. */
+  .shell .row { flex-wrap: wrap; align-items: flex-start; gap: 10px 12px; }
+  .shell .row-main { flex: 1 1 auto; min-width: 0; }
+  .shell .row-actions {
+    flex: 0 0 100%; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .shell .row-actions .btn { flex: 1 1 auto; justify-content: center; }
+  /* Leading icons keep their own column and never stretch. */
+  .shell .row > .material-symbols-outlined,
+  .shell .row > .stat-icon { flex: 0 0 auto; margin-top: 2px; }
+
+  /* Body copy in a row was 12px with a 1.4 line-height — the size you use
+     for a caption, carrying the actual content of this screen. */
+  .shell .row-title { font-size: 15px; line-height: 1.35; }
+  .shell .row-sub { font-size: 13.5px; line-height: 1.55; margin-top: 4px; }
+  /* 9.5px uppercase mono is unreadable at arm's length on a phone. */
+  .shell .chip { font-size: 10.5px; padding: 4px 10px; letter-spacing: .07em; }
+  /* Chip groups need room to breathe once they wrap. */
+  .shell .row-main .mt-3 { display: flex; flex-wrap: wrap; gap: 6px; }
   .shell .segs { overflow-x: auto; scroll-snap-type: x proximity; margin: 30px -4px 0; padding: 0 4px 4px; scrollbar-width: none; }
   .shell .segs::-webkit-scrollbar { display: none; }
   .shell .seg { flex: 0 0 30%; scroll-snap-align: start; }
@@ -1059,3 +1108,13 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .govt-figure strong { font-size: 34px; }
   .shell .govt-td-bar { display: none; }
 }
+
+/* Result-list pager (#courses). The catalogue can match 1,716 rows; the
+   list renders a page at a time so the DOM stays under ~700 nodes instead
+   of 18,000, which is the difference between a smooth scroll and a stalled
+   one on the mid-range Android this audience actually browses on. */
+.shell .crs-more {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.shell .crs-more .faint { font-size: 12.5px; }

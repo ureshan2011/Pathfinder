@@ -59,12 +59,88 @@ const PFPay = (() => {
     return 'PF-' + base + '-' + String(suffix || '').toUpperCase();
   }
 
+  /* Ordered cheapest-and-easiest first, which is also the order the panel
+     above presents them in, so the dropdown never contradicts the page. */
   function methodOptions() {
     const m = cfg().manualPay || {};
-    const opts = ['Bank transfer'];
+    const opts = [];
+    if (lankaQROn()) opts.push('LankaQR');
+    opts.push('Bank transfer');
     (m.wallets || []).forEach(w => { if (w.number) opts.push(w.name); });
     if (payPalOn()) opts.push('PayPal');
     return opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  }
+
+  function lankaQROn() {
+    const q = (cfg().manualPay || {}).lankaQR || {};
+    return !!q.image;
+  }
+
+  /* ── LankaQR panel ────────────────────────────────────────────────────
+     Leads the modal because it is both the cheapest rail for the business
+     (no merchant fee at all under Rs 5,000 — which covers both session
+     tiers) and the shortest path for the student: open any bank app,
+     scan, confirm. Nothing to type means nothing to mistype.
+
+     The amount is shown beside the code rather than encoded in it: a
+     static merchant QR carries the merchant, not the sum, so the payer
+     keys the amount in their own app and we must tell them what it is. */
+  function lankaQRHTML(amountLKR, reference) {
+    if (!lankaQROn()) return '';
+    const q = (cfg().manualPay || {}).lankaQR || {};
+    const free = Number(amountLKR) <= 5000;
+    return `<div class="pay-qr">
+      <div class="pay-qr-head">
+        <strong>Scan with any bank app</strong>
+        <span class="chip chip-ok">Fastest</span>
+      </div>
+      <img class="pay-qr-img" src="${esc(q.image)}" alt="LankaQR code for ${esc(q.merchantName || 'PathFinder')}" loading="lazy" width="200" height="200">
+      <div class="pay-qr-side">
+        ${q.merchantName ? `<p class="pay-qr-name">Pays to <strong>${esc(q.merchantName)}</strong> — check this matches before you confirm.</p>` : ''}
+        <p class="pay-qr-name">A static merchant code carries no amount, so type <strong>${money(amountLKR)}</strong> into your app yourself.</p>
+        <p class="muted" style="font-size:11.5px;margin:0">Works from any Sri Lankan banking app or wallet.${
+          free ? ' Under Rs 5,000, neither of us pays a fee.' : ''}</p>
+      </div>
+    </div>`;
+  }
+
+  /* Account numbers and payment references get typed into a banking app by
+     hand, and a single wrong digit means the money lands somewhere else or
+     arrives unmatchable. One tap to copy removes the whole class of error —
+     which matters more here than anywhere else in the product. */
+  function copyBtn(value, label) {
+    if (!value) return '';
+    return `<button type="button" class="pay-copy" data-copy="${esc(value)}"
+      aria-label="Copy ${esc(label)}" title="Copy ${esc(label)}">
+      <span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>`;
+  }
+
+  function bindCopy(root) {
+    root.querySelectorAll('.pay-copy').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const v = btn.dataset.copy;
+        try {
+          await navigator.clipboard.writeText(v);
+        } catch {
+          // Clipboard API needs a secure context and permission; fall back
+          // to the old execCommand path so this still works on http and in
+          // the in-app browsers a lot of this audience arrives through.
+          const t = document.createElement('textarea');
+          t.value = v; t.setAttribute('readonly', '');
+          t.style.cssText = 'position:absolute;left:-9999px';
+          document.body.appendChild(t); t.select();
+          try { document.execCommand('copy'); } catch {}
+          t.remove();
+        }
+        btn.classList.add('is-copied');
+        const icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = 'check';
+        setTimeout(() => {
+          btn.classList.remove('is-copied');
+          if (icon) icon.textContent = 'content_copy';
+        }, 1600);
+      });
+    });
   }
 
   /* "Pay with PayPal" button (international rail). Opens PayPal's hosted
@@ -100,21 +176,36 @@ const PFPay = (() => {
   function instructionsHTML(amountLKR, reference) {
     const m = cfg().manualPay || {};
     const wallets = (m.wallets || []).filter(w => w.number);
-    const row = (label, val, mono) => val
-      ? `<div class="pay-row"><span>${esc(label)}</span><strong class="${mono ? 'mono' : ''}">${esc(val)}</strong></div>` : '';
-    const anyDetails = m.bankName || m.accountNo || wallets.length;
+    // `copy` marks the fields a person actually retypes into a banking app.
+    const row = (label, val, copy) => val
+      ? `<div class="pay-row"><span>${esc(label)}</span>
+           <strong class="${copy ? 'mono' : ''}">${esc(val)}${copy ? copyBtn(val, label) : ''}</strong>
+         </div>` : '';
+    const anyDetails = m.bankName || m.accountNo || wallets.length || lankaQROn();
+    const qr = lankaQRHTML(amountLKR, reference);
+
+    // The amount leads and is stated ONCE. Repeating it beside every rail
+    // reads as two different charges to someone scanning quickly, which is
+    // the last impression a payment screen should give.
     return `
-      <p style="font-size:14.5px;margin:0 0 14px">Amount to pay: <strong>${money(amountLKR)}</strong></p>
+      <div class="pay-amt pay-amt-lead">
+        <span>Amount to pay</span>
+        <strong>${money(amountLKR)}</strong>
+        ${copyBtn(String(amountLKR), 'amount')}
+      </div>
+      ${qr}
+      ${qr ? '<p class="pay-or"><span>or transfer it</span></p>' : ''}
       <div class="pay-box">
         ${row('Bank', m.bankName)}
         ${row('Account name', m.accountName)}
         ${row('Account no.', m.accountNo, true)}
         ${row('Branch', m.branch)}
         ${wallets.map(w => row(w.name, w.number, true)).join('')}
-        <div class="pay-row"><span>Reference</span><strong class="mono">${esc(reference)}</strong></div>
+        <div class="pay-row"><span>Reference</span><strong class="mono">${esc(reference)}${copyBtn(reference, 'reference')}</strong></div>
       </div>
       ${anyDetails ? '' : `<p class="muted" style="font-size:12.5px;margin:12px 0 0;color:var(--route)">Payment details aren’t configured yet — set <code>PF_CONFIG.manualPay</code> in <code>assets/js/data.js</code>.</p>`}
-      <p class="muted" style="font-size:12.5px;margin:12px 0 0">${esc(m.instructions || 'Transfer the amount, quote the reference, then tap “I’ve paid”. We confirm within 24 hours.')}</p>`;
+      <p class="pay-ref-why">Put the reference <strong class="mono">${esc(reference)}</strong> in the payment note. It is how we match your payment to your account — without it, confirming takes days instead of hours.</p>
+      <p class="muted" style="font-size:12.5px;margin:10px 0 0">${esc(m.instructions || 'Transfer the amount, quote the reference, then tap “I’ve paid”. We confirm within 24 hours.')}</p>`;
   }
 
   function reportFormHTML(cta) {
@@ -144,6 +235,7 @@ const PFPay = (() => {
     const m = modal('Pay for your session',
       instructionsHTML(amount, reference) + paypalButtonHTML(amount) + reportFormHTML('I’ve paid — notify my mentor'));
     bindPayPal(m.el, request.id);
+    bindCopy(m.el);
 
     m.el.querySelector('.pay-report').addEventListener('submit', async e => {
       e.preventDefault();
@@ -180,6 +272,7 @@ const PFPay = (() => {
       `<p class="muted" style="font-size:13.5px;margin:0 0 14px">One-time payment — unlocks ${esc(meta.label)} on your account for good.</p>` +
       instructionsHTML(meta.amount, reference) + paypalButtonHTML(meta.amount) + reportFormHTML('I’ve paid — unlock my account'));
     bindPayPal(m.el, 'order:' + itemKey);
+    bindCopy(m.el);
 
     m.el.querySelector('.pay-report').addEventListener('submit', async e => {
       e.preventDefault();
@@ -198,5 +291,5 @@ const PFPay = (() => {
     });
   }
 
-  return { isPayHereLive, payPalOn, paypalAmountFor, items, money, startSession, startOrder };
+  return { isPayHereLive, payPalOn, lankaQROn, paypalAmountFor, items, money, startSession, startOrder };
 })();
