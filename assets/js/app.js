@@ -878,8 +878,8 @@ function viewHead(icon, kicker, title, sub) {
    (uni, lab) omit them and are resolved from the static dataset as before. */
 function saveBtn(kind, id, label, sub) {
   const saved = PFStore.isSaved(kind, id);
-  // .btn-quiet, not .btn-quiet: this renders on light .card/.listcard
-  // surfaces everywhere it's used, and .btn-quiet is built for dark
+  // .btn-quiet, not .btn-ghost: this renders on light .card/.listcard
+  // surfaces everywhere it's used, and .btn-ghost is built for dark
   // chrome/hero panels — on a light card its border/text tokens
   // (--chrome-line/--on-chrome) are nearly invisible.
   return `<button class="btn btn-quiet btn-sm save-btn ${saved ? 'saved' : ''}" data-kind="${kind}" data-id="${esc(id)}"
@@ -914,7 +914,49 @@ function asmQuestions() {
   }));
 }
 
+/* First-time visitor: nothing has explicitly chosen a track yet. Left
+   alone, PFStore.getTrack() silently defaults to 'phd' — meaning a
+   master's applicant who arrives with no ?track= link (a bookmark, a
+   share, anything other than the two track-specific landing buttons)
+   gets asked PhD questions with no chance to say otherwise. Ask here,
+   as the assessment's own first step, rather than leaving the choice to
+   the track switch tucked in the overflow menu — that stays as the way
+   to change tracks later, not the way to make this first choice. */
+function needsTrackChoice() {
+  return PFStore.get('track', null) === null && !asmState.trackConfirmed;
+}
+
+function renderTrackChoice(main) {
+  const feeLine = t => t.feeMode === 'domestic'
+    ? `~NZ$${t.feeLo.toLocaleString()}–${t.feeHi.toLocaleString()}/yr, domestic rate`
+    : `~NZ$${t.feeLo.toLocaleString()}–${t.feeHi.toLocaleString()}/yr, international rate`;
+  const card = t => `<div class="listcard">
+    <div class="listcard-head"><h2 class="listcard-title">${esc(t.label)}</h2></div>
+    <p>Entry from ${esc(t.entryFrom)}.</p>
+    <div class="mt-4">
+      <div class="row-sub">Duration — ${esc(t.durationLabel)}</div>
+      <div class="row-sub mt-3">Fees — ${feeLine(t)}</div>
+      <div class="row-sub mt-3">Intake — ${esc(t.intakeLabel)}</div>
+    </div>
+    <button type="button" class="btn btn-quiet mt-5 track-choice-btn" data-track="${t.id}">Choose ${esc(t.label)}</button>
+  </div>`;
+
+  main.innerHTML = renderHero({
+    kicker: 'Pathway Assessment', title: 'PhD or master’s — which one are you aiming for?',
+    body: 'This shapes every question, course match and deadline from here on. Change it anytime later.',
+  }) +
+    `<div class="choice-grid">${card(PF_TRACK.phd)}${card(PF_TRACK.masters)}</div>`;
+
+  $$('.track-choice-btn', main).forEach(b => b.onclick = () => {
+    PFStore.setTrack(b.dataset.track);
+    asmState.trackConfirmed = true;
+    paintTrackSwitch();
+    route();
+  });
+}
+
 function renderAssessment(main) {
+  if (needsTrackChoice()) return renderTrackChoice(main);
   const T = trackCfg();
   const done = PFStore.getAssessment();
   if (done && asmState.step === 0 && !asmState.retake) {
