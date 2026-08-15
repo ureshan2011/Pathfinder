@@ -40,7 +40,7 @@ Getting the first row wrong understates a master's applicant's visa-funds requir
 - `#explore` — the 8 NZ universities with their 12 flagship research labs and named supervisors (PhD track), plus the other **43 providers** from the catalogue — polytechnics and private colleges — with live per-provider qualification counts and contact details, ranked by how much postgraduate study each teaches
 - `#cost` — **Cost & payback**: the master's track's own high-stakes screen — what a New Zealand master's *actually* costs a Sri Lankan family, end to end, and how long it takes to earn back. See *Cost & payback* below.
 - `#funding` — **281 real scholarships** from the provider register, filtered to the active track's study levels, with an international-students-only filter and domestic-only awards excluded; falls back to the 8 curated doctoral awards in `PF_SCHOLARSHIPS` if the shard fails to load. Plus track-appropriate immigration/visa updates
-- `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar
+- `#visa` — **Visa Hub**: the 7-stage NZ student-visa process with Sri Lanka-specific "where to go" guidance and a persistent checklist + progress bar — led by **What happens to Sri Lankan applications**, Immigration New Zealand's own decision record: the approval rate for Sri Lankan student visa applicants, the decline count beside it, and the ten-year trend. Free. Premium adds the breakdown by application criteria and the comparison against five peer nationalities. See *Government data* below.
 - `#settlement` — **Settle In**: first 48 hours, banking/IRD, transport, flat-hunting, family & schools, apps — plus a three-tool **Settlement & Cost-of-Living** module: a 90-day **First-months simulator** (stepper + draining balance gauge), an editable **Funds planner** (monthly living cost, total pre-departure funds to arrange, INZ-minimum and doctoral-stipend benchmarks, partner-income scenario, weekly/monthly toggle, saved scenarios), and a **"What can NZ$20 buy?"** purchasing-power explorer. The planner/simulator visualisations use Three.js (lazy-loaded via importmap) with a guaranteed 2D table/bar fallback for reduced-motion and low-end devices.
 - `#mentors` — **Mentors**: the public, two-tab marketplace view — **Ask a mentor** (one general request form, aggregate mentor stats) and **My requests** (the student's own requests with live status + payment chips). No named individual mentors are listed; requests join a shared claim queue. A student holding a paid plan sees their **remaining credits** on the form and can spend one on the request they're about to send (see *Plans, credits and what they actually unlock*); with no plan, or no balance left, the form is exactly as it was. **Connecting with a mentor requires a free account** — explorers can browse the network and read everything, but the "Ask a mentor" form (and the inline "Stuck at this step?" hooks everywhere) is account-gated, so each request is tied to a real, signed-in person and trackable across devices; anonymous device sessions are nudged to `#account` first. Likewise **every purchase requires an account** (`PFPay.startSession` / `startOrder` both gate on `PFCloud.isSignedIn()`). There is **no public "become a mentor" CTA** — mentoring is invite-only (see `#mentor`). Topic pre-fill via `#mentors?topic=<slug>`
 - `#mentor` — **Mentor Dashboard** (invite code → sign-up → pending review → admin-approved): the open-requests queue with first-come-first-served **claim**, your claimed requests, a **Session log**, a **People** client book, an at-a-glance insights strip (open / active / delivered / earned / invoiced-unpaid), the 15-min-free → paid lifecycle, and **Generate payment link** (PayHere). The **Session log** records every session you actually deliver — including the many that arrive over **WhatsApp or a phone call** and never touch the request queue — with who, when, how long, over which channel, what you covered, private notes, agreed next steps, the fee and its payment state; each record generates a **PDF invoice or receipt** in one click ("Save & invoice" issues it as you write the record up). Claimed requests get a **Log session** button that pre-fills the form from the request. Becoming a mentor is **invite-only**: a vetted person must enter the mentor invite code (`PF_ROLE_CODES.mentor`) before they can create a mentor account, and the account stays pending until an admin approves it. Sidebar link appears only for approved mentors.
@@ -72,6 +72,7 @@ scripts/
   sync-astra-catalogue.js  rebuilds the catalogue from AstraDB (see below)
   scrape-nz-corpus.js      rebuilds the NZ research corpus from OpenAlex
   scrape-provider-quality.js  rebuilds provider-quality.js from NZQA organisation pages
+  sync-govt-data.js        rebuilds govt-data.js from Immigration NZ and MBIE
   build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
@@ -82,6 +83,8 @@ scripts/
   js/roi.js                PFRoi — pure cost-to-payback model + cheaper-route comparison
   js/provider-quality.js   GENERATED — NZQA's published record per provider (category,
                            confidence statements, report links, Code of Practice status)
+  js/govt-data.js          GENERATED — Immigration NZ visa decisions + MBIE rent medians,
+                           each block carrying its own attribution and licence
   js/firebase-config.js    paste your Firebase web config here (null = pure local mode)
   js/firebase.js           optional sync layer (Auth + roles + Firestore mirror + queue + inboxes)
   js/app.js                router + view renderers
@@ -131,6 +134,57 @@ Loading is lazy and mirrors `ensureCorpusIndex()` / `ensureField()`: `ensureCata
 - `employmentPathway` is **dropped**: all 1,716 postgraduate rows carry the same CareersNZ boilerplate sentence and nothing else, so rendering it would show a heading with no content. Placeholder values (`.`, `null`, `Not available`) are stripped everywhere else.
 
 Joins are clean — `offering_org` → providers resolves 100%, as does `scholarships.offeringOrg`. `programmes.qualificationID` matches a qualification only ~40% of the time, so programme rows (the only source of real fee figures) attach opportunistically and are never a required join. Fees are sparse by nature: universities publish no programme-level rows at all, and only 17 of the 132 programme rows carry a numeric international fee — so `PF_CONFIG.mastersFeesIntlPerYear` supplies the hand-maintained band, and real per-course fees show only where they genuinely exist.
+
+## Government data (Immigration NZ · MBIE)
+
+Three published New Zealand government datasets are generated into `assets/js/govt-data.js` (~17 KB) and committed, the same way the catalogue and the research corpus are. They are lazy-loaded — `#visa`, `#cost` and the Settle In housing tab pull them; nothing else does, and the dashboard's first paint fetches none of them.
+
+```bash
+node scripts/sync-govt-data.js     # no key, no token, no account
+```
+
+| Dataset | Publisher | What PathFinder shows |
+|---|---|---|
+| Student visa applications decided | Immigration New Zealand | Approvals and declines for Sri Lankan applicants over ten financial years, plus the same by application criteria and for five peer nationalities |
+| Work visa applications decided | Immigration New Zealand | The **Post-study — Open** series — the visa the payback model on `#cost` is scored against |
+| Rental bond data by territorial authority | MBIE / Tenancy Services | Median and quartile weekly rent for the six PathFinder cities, refreshed monthly |
+
+### Why only these three
+
+Ten government datasets were reviewed. The most valuable ones after these — **Education Counts** (graduate earnings by field of study; international enrolments by country of citizenship) and the **TEC Educational Performance Indicators** (per-provider completion and retention) — are free, but **unreachable from a server**: `educationcounts.govt.nz` and `catalogue.data.govt.nz` both sit behind bot protection that returns **403 to any datacentre IP**, regardless of user agent. A browser downloads them fine. So those become a *download once a year by hand, commit the file, parse the committed file* pipeline — the pattern `data/subject_areas.json` already follows — rather than anything this script can do. The **Tahatū occupations API** (TEC, 800+ occupations with IRD-derived pay data) needs a key requested by email. None of that is implemented; it is written down so the next person does not re-derive it.
+
+### Parsing PDFs safely
+
+Immigration NZ publishes tables, not data — 50-page PDFs — so extraction is positional, and positional parsing of a document that can be re-laid-out at any time is exactly how a wrong number reaches a family deciding whether to spend LKR 25 million. Three defences, all in `sync-govt-data.js`:
+
+- **A wide table splits across pages.** One row's ten years arrive as nine triples in one place and the tenth somewhere later. The parser walks every occurrence of a row label in document order and keeps filling years until the row is complete.
+- **Every table is rendered twice**, the second time with zero cells collapsed to blanks, which would parse into garbage. The parser stops as soon as a row is full, which is always inside the first copy.
+- **The publisher prints a grand total on every row.** That is a checksum handed over for free: if our ten yearly totals do not sum to their printed total, our column alignment is wrong. It is *required* to match. Any failure drops the row, reports it, and **exits non-zero without writing a file** — a missing panel is recoverable, a confidently wrong percentage is not.
+
+### Licence and attribution
+
+Both publishers permit reuse **on condition of attribution**, and neither permits implying endorsement:
+
+- **Tenancy Services** states **CC BY 3.0 NZ** on its rental bond page and requires credit to *"The Ministry of Business, Innovation and Employment"*.
+- **Immigration NZ** statistics are Crown copyright released under **NZGOAL**, which defaults to CC BY.
+
+So attribution is treated as a licence term rather than a footnote. Every block in `govt-data.js` carries `src`, `srcUrl`, `attribution` and `licence`; `govtSourceLine()` in `app.js` prints them directly beneath the figures on every panel, together with the date the source file was prepared; and `disclaimer.html` §05 carries the full attribution list and an explicit no-endorsement statement. **Do not strip those fields** — the generated file is not licence-compliant without them.
+
+We reduce, we do not restate: only the rows PathFinder displays are kept, values are copied unchanged, and the one derived number — the approval percentage — is computed in the browser from the published approved/declined pair.
+
+### Where the paywall falls, and why
+
+The **headline figures are free**. What share of Sri Lankan student visa applications were approved last year, with the decline count next to it, sits on `#visa` for anyone — signed in or not, paying or not. That is the same line `#cost` already draws for the total-cost verdict: a family deciding whether to spend their savings should not have to pay to read a public statistic about their own odds, and charging for one would be a poor reading of a CC BY licence besides.
+
+`officialData` (Premium, in `PF_CONFIG.planGrants`) buys the **analysis built on top**: which application route declines most, how Sri Lanka sits against the five nationalities an agent will have name-dropped, and the decade of post-study work visa decisions the `#cost` payback model quietly depends on.
+
+### The rent figures are not a drop-in replacement
+
+A bond is lodged against a **whole tenancy**, so MBIE's median is what an entire house or flat costs. `PF_CITY_COSTS` budgets **a room in a shared one**. Substituting the first for the second would roughly double every living-cost figure in the app and break the funds planner, the 90-day simulator and the payback model at once. So the bond median is shown *beside* the app's figure as a market reference, with the difference stated in words — on `#cost` and in Settle In → *Finding a home* — and never written into `PF_CITY_COSTS`.
+
+### Keeping it current
+
+Immigration NZ regenerates its files roughly monthly and Tenancy Services releases monthly. Re-run the script and commit; every panel prints the source date, so a stale dataset says so on screen rather than quietly misleading someone.
 
 ## Firebase (free Spark plan) — setup
 
@@ -430,9 +484,12 @@ The soft prompt is deliberately **not** on the assessment result screen — a mo
 ```js
 planGrants: {
   explorer: { toolkit: true, sessions: 1, audits: 1 },
-  premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true, priority: true },
+  premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true,
+              priority: true, costCompare: true, officialData: true },
 }
 ```
+
+Two of those flags gate analysis rather than credits, and both draw the same line: the **fact** stays free, the **analysis** is paid. `costCompare` — the total cost of a student's own plan is free; the cheaper routes to the same NZQF level and the family decision sheet are Premium. `officialData` — the headline government figures are free on `#visa`; the by-route and by-nationality breakdowns, and the post-study work visa record on `#cost`, are Premium. See *Government data* above.
 
 Both the **sales copy** (`#pricing` generates its paid feature rows from this table) and the **redemption flow** read it, so what a student is sold and what lands in their account cannot drift apart. `#kit`'s locked-template card reads it too.
 

@@ -964,3 +964,98 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 @media (min-width: 620px) {
   .shell .roi-qa-actions .btn { flex: 0 0 auto; }
 }
+
+/* ══ Government data panels (#visa, #cost, #settlement) ═══════════════
+   Immigration NZ decision figures and MBIE rent medians. These carry an
+   authority the rest of the app's numbers do not — they are the state's
+   own record, not PathFinder's estimate — so they get one restrained
+   visual signal (the pine rule) and otherwise sit inside the existing
+   card, chip and ledger vocabulary rather than inventing a second one. */
+.shell .govt-card { border-top: 2px solid var(--pine); }
+
+.shell .govt-headline {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px 28px; margin-top: 16px;
+}
+.shell .govt-figure { display: flex; flex-direction: column; gap: 2px; }
+.shell .govt-figure strong {
+  font-family: var(--font-display); font-size: 40px; line-height: 1;
+  letter-spacing: -.02em; color: var(--pine); font-variant-numeric: tabular-nums;
+}
+.shell .govt-figure span { font-size: 12.5px; color: var(--ink-soft); }
+
+.shell .govt-split { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.shell .govt-split > div { display: flex; flex-direction: column; gap: 1px; }
+.shell .govt-n {
+  font-family: var(--font-mono); font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.shell .govt-l {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint);
+}
+
+/* Ten years, ten bars. Deliberately not a chart: the figure that matters
+   is printed above, and these only carry the shape of the decade. */
+/* Tall enough for ten values to separate, and capped in width — stretched
+   across a full-width card the columns turn into a wall of blocks and the
+   trend stops being legible. */
+.shell .govt-bars {
+  display: flex; align-items: flex-end; gap: 4px; height: 76px;
+  margin-top: 18px; max-width: 460px;
+}
+/* No track behind the column. A full-height tint on every bar makes the
+   low years read as tall grey blocks, which is the opposite of what a
+   trend is for — the shape has to come from the filled height alone. */
+.shell .govt-bar {
+  flex: 1 1 0; height: 100%; display: flex; align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+}
+.shell .govt-bar > span {
+  display: block; width: 100%; background: var(--pine); opacity: .38; border-radius: 2px 2px 0 0;
+}
+.shell .govt-bar.is-now > span { opacity: 1; }
+.shell .govt-bars-axis {
+  display: flex; justify-content: space-between; margin-top: 6px; max-width: 460px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+}
+
+/* Attribution. A licence condition, not a footnote — CC BY on the MBIE
+   data and NZGOAL on the INZ files both require the credit to travel
+   with the figures, so it renders next to them and never collapses. */
+.shell .govt-src {
+  font-size: 11px; line-height: 1.5; color: var(--ink-faint); margin: 10px 0 0;
+}
+.shell .govt-src a { color: var(--ink-soft); }
+.shell .govt-inline {
+  font-size: 12.5px; line-height: 1.55; color: var(--ink-soft);
+  margin: 12px 0 0; padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.shell .govt-inline .govt-src { margin-top: 6px; }
+
+.shell .govt-locked {
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line);
+}
+.shell .govt-locked p { font-size: 13px; line-height: 1.55; color: var(--ink-soft); }
+
+.shell .govt-detail { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.shell .govt-h3 { font-size: 14px; margin: 0 0 4px; }
+.shell .govt-detail .govt-h3:not(:first-child) { margin-top: 26px; }
+.shell .govt-note { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 6px; }
+
+.shell .govt-table td { padding: 11px 12px 11px 0; font-size: 13px; vertical-align: middle; }
+.shell .govt-table tr:last-child td { border-bottom: 0; }
+.shell .govt-table tr.is-mine td { font-weight: 600; }
+.shell .govt-td-n {
+  font-family: var(--font-mono); font-size: 12.5px; text-align: right;
+  white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%;
+}
+.shell .govt-faint { color: var(--ink-faint); font-size: 11px; }
+.shell .govt-td-bar { width: 40%; min-width: 90px; }
+.shell .govt-rate {
+  display: block; height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden;
+}
+.shell .govt-rate-fill { display: block; height: 100%; background: var(--sea); opacity: .55; border-radius: 3px; }
+.shell .govt-rate-fill.is-mine { background: var(--pine); opacity: 1; }
+
+@media (max-width: 560px) {
+  .shell .govt-figure strong { font-size: 34px; }
+  .shell .govt-td-bar { display: none; }
+}

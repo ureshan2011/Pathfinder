@@ -1599,6 +1599,9 @@ const PF_CONFIG = {
        priority   this student's requests sort to the top of the mentor queue
        costCompare  the cheaper-route comparison and the family decision
                   sheet in #cost
+       officialData the Immigration NZ decision analysis — the by-route and
+                  by-nationality breakdowns on #visa, and the post-study
+                  work visa record on #cost
 
      Premium includes everything in Explorer, so its numbers are the whole
      entitlement, not a top-up. Buying both stacks (grantsFrom() sums them).
@@ -1610,11 +1613,22 @@ const PF_CONFIG = {
      student's own plan stays free, because telling someone the truth about
      what they are about to spend should never sit behind a paywall. What
      Premium buys is what to DO about it — the cheaper routes to the same
-     NZQF level, and the one-page sheet that convinces whoever is paying. */
+     NZQF level, and the one-page sheet that convinces whoever is paying.
+
+     `officialData` follows the same line. The headline government figure —
+     what share of Sri Lankan student visa applications were approved last
+     year, with the decline count beside it — is FREE on #visa, because a
+     family deciding whether to spend their savings should not have to pay
+     to read a public statistic about their own odds. Premium buys the
+     analysis built on top: which application route declines most, how Sri
+     Lanka sits against the countries an agent will have name-dropped, and
+     the decade of post-study work visa decisions the payback model rests
+     on. Republishing the raw number free is also the honest reading of the
+     CC BY licences these datasets carry. */
   planGrants: {
     explorer: { toolkit: true, sessions: 1, audits: 1 },
     premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true,
-                priority: true, costCompare: true },
+                priority: true, costCompare: true, officialData: true },
   },
 
   // Platform take-rate on paid mentor sessions (mentor keeps the rest).
