@@ -1,7 +1,14 @@
 # Deviations from the Ink & Brass handoff
 
 Tracking anything implemented differently from the literal spec, and why.
-Updated as the port continues (currently through step 5 — dashboard).
+
+**Status:** every view but Research Studio has been ported to the Ink &
+Brass hero/listcard/row/chip system (some fully, some as a "shell ported,
+inner cards still old-shaped" partial port — each one is called out below,
+not left unstated). Settle In and Research Studio's own inner content are
+untouched. The Funds Check/Settle In → Visa Hub and Explore/Research
+Studio → Courses tab mergers the handoff asks for are deferred — every
+view still lives at its current hash route.
 
 ## Implementation strategy
 
@@ -142,3 +149,25 @@ work, not a quick swap like the other auth/loading-state screens were.
 - Track switch, sign-in controls, and legal links now live inside the
   overflow popover rather than a dedicated location the handoff didn't
   specify. Flagging in case a different placement is preferred.
+- **Research Studio is untouched** — still `viewHead()` + `.card`
+  throughout, across all four sub-stages (landing, intake, discover,
+  proposal). It's the largest single remaining piece of work.
+- **Settle In** (`renderSettlement`) is untouched for the same reason as
+  above — its 3D scene / funds planner / buying-power / first-months tools
+  need care a same-session restyle risked breaking.
+- **Partial ports** (shell done, inner cards still old-shaped): Mentor
+  Dashboard's request/person/session cards, Admin's per-section bodies,
+  Explore's `uniCard`/`polytechCards`, Billing's order/session cards.
+- **Accessibility pass is inline, not a dedicated sweep.** Every view
+  built or touched this session got `aria-hidden` on decorative icons,
+  `role="tab"`/`aria-selected` on tab rows, `aria-current="page"` on nav,
+  and 44px-minimum touch targets on interactive rows/buttons as it was
+  written — `:focus-visible` and `prefers-reduced-motion` are global
+  rules, not per-view. What hasn't happened is a dedicated keyboard-only
+  walkthrough of the whole app, or a contrast check beyond the token
+  table's own pre-verified pairings.
+- **Responsive verification** covered the views built this session at
+  1280/1000ish/390px via screenshots (see the shell's own breakpoints:
+  ≥1200, 900–1199, <900). Views not yet ported (Research Studio, Settle
+  In) inherit the shell's responsive behaviour but haven't been
+  individually checked at each breakpoint.
