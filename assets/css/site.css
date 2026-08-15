@@ -621,6 +621,8 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .shell .phase-link { margin-top: 16px; }
 .shell .phase-head-left { display: flex; align-items: center; gap: 12px; }
 .shell .roadmap-phase { margin-bottom: 16px; }
+.shell .vh-head { min-height: 44px; }
+.shell .vh-stage.done .listcard-title { color: var(--ink-dim); }
 .shell .ck-box .material-symbols-outlined { font-size: 12px; }
 .shell .listcard .ck-list { margin-top: 4px; }
 

@@ -3492,71 +3492,68 @@ function visaProgress() {
 function renderVisa(main) {
   const { done, total } = visaProgress();
   const firstOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
-
   const T = trackCfg();
-  main.innerHTML = viewHead('flight_takeoff', 'NZ Student Visa Hub', 'The visa, stage by stage',
-    'Every stage of the Fee Paying Student Visa — where to go in Sri Lanka, who to talk to, what it costs, and a checklist that remembers where you got to.') +
-    // The stages are the same for everyone; the conditions attached to the
-    // visa are not, and getting them wrong is expensive. State them up front.
-    `<div class="card" style="max-width:760px;margin-bottom:22px">
-      <div class="crs-lbl">Your visa as ${T.article} student</div>
-      <div class="vh-facts">
-        <div><span>Tuition</span><strong>${T.feeMode === 'domestic'
-          ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
-          : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</strong></div>
-        <div><span>Living-costs evidence</span><strong>${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</strong></div>
-        <div><span>Work rights</span><strong>${esc(T.workRights)}</strong></div>
-        <div><span>After you finish</span><strong>${esc(T.postStudy)}</strong></div>
-      </div>
-    </div>
-    <div class="card" style="max-width:760px;margin-bottom:32px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
-        <strong>Your visa progress</strong>
-        <span class="mono" id="visa-pct">${done} / ${total} steps</span>
-      </div>
-      <div class="bar" style="margin-top:12px"><span id="visa-bar" style="width:${total ? Math.round(done / total * 100) : 0}%"></span></div>
-    </div>
-    <div class="timeline">${PF_VISA_STAGES.map((s, i) => {
-      const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
-      const open = firstOpen && firstOpen.id === s.id;
-      return `
-      <div class="tl-phase">
-        <div class="tl-node tl-${s.color}"><span>${i + 1}</span></div>
-        <div class="card tl-card vh-stage ${sDone === s.steps.length ? 'done' : ''} ${open ? 'open' : ''}" data-stage="${s.id}">
-          <button class="vh-head" data-vh-toggle="${s.id}" aria-expanded="${open}">
-            <h3>${s.title}</h3>
-            <span class="chip chip-${s.color}">${s.dur}</span>
-            <span class="chip chip-dim">${s.cost}</span>
-            <span class="mono vh-count">${sDone}/${s.steps.length}</span>
-            <span class="material-symbols-outlined vh-caret">expand_more</span>
-          </button>
-          <p class="muted" style="font-size:13.5px;margin-top:10px">${s.summary}</p>
-          <div class="vh-body ${open ? '' : 'hidden'}">
+
+  main.innerHTML = renderHero({
+    kicker: 'NZ Student Visa Hub', title: 'The visa, stage by stage',
+    body: 'Where to go in Sri Lanka, who to talk to, and a checklist that remembers where you got to.',
+    figure: total ? Math.round(done / total * 100) : 0, figureSuffix: '%', figureCaption: `${done}/${total} steps done`,
+  }) +
+    `<div class="viewgrid">
+      <div>${PF_VISA_STAGES.map((s, i) => {
+        const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
+        const stageDone = sDone === s.steps.length;
+        const open = firstOpen && firstOpen.id === s.id;
+        const bodyHtml = `
             ${s.where.map(w => `
-              <div class="visa-row" style="padding:14px 0">
-                <span class="material-symbols-outlined" style="font-size:18px;color:var(--sea);flex-shrink:0;margin-top:2px">location_on</span>
-                <div><strong style="font-size:13.5px">${esc(w.name)}</strong>
-                  <p class="muted" style="font-size:13px;margin-top:3px">${esc(tv(w, 'detail'))}</p></div>
+              <div class="row">
+                <span class="material-symbols-outlined stat-icon" aria-hidden="true">location_on</span>
+                <div class="row-main"><div class="row-title">${esc(w.name)}</div>
+                  <div class="row-sub">${esc(tv(w, 'detail'))}</div></div>
               </div>`).join('')}
             <ul class="ck-list">${s.steps.map(st => {
               const c = PFStore.isChecked('visa', st.id);
               return `<li class="ck-item ${c ? 'done' : ''}">
                 <label><input type="checkbox" data-ck="visa" data-id="${st.id}" ${c ? 'checked' : ''}>
-                  <span class="ck-box"><span class="material-symbols-outlined" style="font-size:13px">check</span></span>
+                  <span class="ck-box"><span class="material-symbols-outlined" aria-hidden="true">check</span></span>
                   <span class="ck-t">${esc(tv(st, 't'))}${tv(st, 'note') ? `<em>${esc(tv(st, 'note'))}</em>` : ''}</span></label>
               </li>`;
             }).join('')}</ul>
             ${s.id === 'vs7' ? partnerRow('insurance') + partnerRow('flights') : ''}
             ${s.id === 'vs2' ? fundsStageCTA() : ''}
-            ${consultCTA(s.consult)}
+            ${consultNudge(s.consult)}`;
+        return `<div class="listcard roadmap-phase vh-stage ${stageDone ? 'done' : ''} ${open ? 'open' : ''}" data-stage="${s.id}">
+          <div class="listcard-head">
+            <div class="phase-head-left">
+              <span class="phase-num ${stageDone ? 'is-done' : ''}">${stageDone ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : i + 1}</span>
+              <button type="button" class="vh-head" data-vh-toggle="${s.id}" aria-expanded="${open}">
+                <h2 class="listcard-title">${s.title}</h2>
+              </button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="chip chip-neutral">${s.dur}</span>
+              <span class="chip chip-neutral">${s.cost}</span>
+              <span class="tab-n mono vh-count">${sDone}/${s.steps.length}</span>
+            </div>
           </div>
+          <p class="mt-3">${s.summary}</p>
+          <div class="vh-body mt-4 ${open ? '' : 'hidden'}">${bodyHtml}</div>
+        </div>`;
+      }).join('')}
+      </div>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Your visa as ${esc(T.article)} student</span>
+          <p><strong>Tuition</strong> — ${T.feeMode === 'domestic'
+            ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
+            : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</p>
+          <p><strong>Living-costs evidence</strong> — ${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</p>
+          <p><strong>Work rights</strong> — ${esc(T.workRights)}</p>
+          <p><strong>After you finish</strong> — ${esc(T.postStudy)}</p>
         </div>
-      </div>`;
-    }).join('')}
+      </div>
     </div>
-    <p class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:8px">
-      Figures are estimates — verify with immigration.govt.nz before relying on them.
-    </p>`;
+    <p class="row-sub mt-6">Figures are estimates — verify with immigration.govt.nz before relying on them.</p>`;
 }
 
 /* checklist + stage toggle — delegated once; progress updates IN PLACE so the
@@ -3572,10 +3569,16 @@ document.addEventListener('change', e => {
     const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
     stage.querySelector('.vh-count').textContent = `${sDone}/${s.steps.length}`;
     stage.classList.toggle('done', sDone === s.steps.length);
+    // Update the hero's own figure in place — same reason as the stage
+    // count above: a full route() re-render would collapse the open stage.
+    // renderHero() renders the figure twice (desktop .hero-right and the
+    // <900px .hero-figure-mobile copy) so both need the update.
     const { done, total } = visaProgress();
-    const pct = $('#visa-pct'), bar = $('#visa-bar');
-    if (pct) pct.textContent = `${done} / ${total} steps`;
-    if (bar) bar.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    const hero = document.querySelector('.hero');
+    if (hero) {
+      $$('.hero-figure', hero).forEach(fig => { fig.firstChild.textContent = String(total ? Math.round(done / total * 100) : 0); });
+      $$('.hero-caption', hero).forEach(cap => { cap.textContent = `${done}/${total} steps done`; });
+    }
   }
 });
 document.addEventListener('click', e => {
