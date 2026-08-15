@@ -1582,6 +1582,30 @@ const PF_CONFIG = {
     auditFull: 10000,   // full CV + SOP + proposal audit, bought separately from a mentor
   },
 
+  /* ── What each plan actually grants ──────────────────────────────────
+     The pricing copy above sells mentor time and document audits, not just
+     templates, so this is the machine-readable version of that promise —
+     one table both #pricing and the redemption flow read, so what a student
+     is sold and what they can spend can't drift apart.
+
+       toolkit    unlocks premiumTemplateIds in the Starter Kit
+       sessions   mentor sessions included — spent on #mentors, one per
+                  request raised against a credit
+       audits     document reviews (SOP / proposal) included, same rail
+       fullAudit  the audit covers CV + SOP + proposal, not just the SOP
+       interview  interview preparation is in scope for those sessions
+       priority   this student's requests sort to the top of the mentor queue
+
+     Premium includes everything in Explorer, so its numbers are the whole
+     entitlement, not a top-up. Buying both stacks (grantsFrom() sums them).
+
+     Credits granted here are spent against the student's own requests and
+     the remainder is DERIVED, never stored — see creditsUsed() in app.js. */
+  planGrants: {
+    explorer: { toolkit: true, sessions: 1, audits: 1 },
+    premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true, priority: true },
+  },
+
   // Platform take-rate on paid mentor sessions (mentor keeps the rest).
   // Used by the admin Accounting tab to split gross into platform earnings.
   // Premium unlocks (orders) are sold by the platform, so they count 100%.

@@ -113,6 +113,68 @@ function requireAccount(reason, opts = {}) {
   return false;
 }
 
+/* ── The soft account prompt ─────────────────────────────────────────
+   requireAccount() above is the hard gate: it stops an action until there
+   is a real account behind it. This is its opposite — it never stops
+   anything. It appears the moment a student has just MADE something worth
+   keeping (a roadmap, a shortlist, a tracked application, a proposal
+   draft) and offers to keep it on every device. Declining works, is
+   remembered, and leaves the work exactly where it was.
+
+   Why the ask lives here and not at the front door: every visitor is
+   already signed in anonymously and already syncing to Firestore
+   (firebase.js), and signing up later LINKS that anonymous account in
+   place rather than orphaning it — so a wall at the landing page would
+   protect nothing a student can feel, while costing the assessment funnel
+   the whole product runs on. What an account actually buys them is the
+   second device, and that is only worth explaining once they own
+   something that would be stranded on the first one.
+
+   Each moment fires at most once, ever. The record lives in `__softGate`
+   — a `__`-prefixed key the sync layer skips (firebase.js:162) — so
+   remembering a dismissal costs no Firestore write. */
+function softAccountPrompt(opts) {
+  const o = opts || {};
+  if (!cloudOn() || !o.key) return;
+  // PFCloud arrives as a deferred module; with no accounts layer loaded
+  // there is nothing to offer and no way to tell who is already signed in.
+  if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.signInGoogle)) return;
+  if (PFCloud.isSignedIn()) return;
+  const seen = PFStore.get('__softGate', {}) || {};
+  if (seen[o.key]) return;
+  seen[o.key] = Date.now();
+  PFStore.set('__softGate', seen);
+
+  const m = modal(o.title || 'Keep this on every device', `
+    <p style="font-size:14.5px;margin:0">${esc(o.body || '')}</p>
+    <p class="muted" style="font-size:12.5px;margin:10px 0 0">Free, one tap, and nothing you've done so far is lost either way — it's already saved on this device.</p>
+    <div class="hero-actions mt-5" style="flex-wrap:wrap">
+      <button type="button" class="btn sg-google">
+        <span class="material-symbols-outlined" aria-hidden="true">login</span> Continue with Google</button>
+      <button type="button" class="btn btn-quiet sg-email">Use an email instead</button>
+    </div>
+    <p style="margin:16px 0 0">
+      <button type="button" class="sg-skip" style="background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--ink-faint);text-decoration:underline;cursor:pointer">Not now — keep working without an account</button>
+    </p>
+    <p class="faint sg-msg" style="font-size:12.5px;min-height:16px;margin:6px 0 0"></p>`);
+
+  m.el.querySelector('.sg-skip').onclick = () => m.close();
+  m.el.querySelector('.sg-email').onclick = () => {
+    m.close();
+    location.hash = accountHref(o.next || location.hash.slice(1));
+  };
+  m.el.querySelector('.sg-google').onclick = async () => {
+    const msg = m.el.querySelector('.sg-msg');
+    msg.textContent = 'Opening Google…';
+    try {
+      await PFCloud.signInGoogle();
+      m.close();
+      toast('Signed in — your work now follows you to any device');
+      route();
+    } catch (err) { msg.textContent = humanAuthError(err); }
+  };
+}
+
 /* '#account?next=<encoded target hash>' — read back by resumeAfterAuth()
    once sign-up/sign-in succeeds. */
 function accountHref(next) {
@@ -159,27 +221,77 @@ function modal(title, bodyHTML) {
 /* ── Entitlements (one-time premium plans) ───────────────────────────────
    Derived once per session from the signed-in user's paid `orders`, cached
    in a JS variable so gating reads (renderKit etc.) cost zero Firestore
-   reads on navigation. Premium includes everything in Explorer, and both
-   plans unlock the premium templates (the `toolkit` flag). */
-let entState = { loaded: false, items: {} };
+   reads on navigation.
+
+   A plan grants more than the template toolkit: mentor sessions and
+   document audits are credits spent on #mentors, and Premium adds queue
+   priority. What each plan gives lives in PF_CONFIG.planGrants (data.js),
+   which #pricing also generates its copy from; what is left is granted
+   minus spent, derived on read by the two functions below. */
+let entState = { loaded: false, items: emptyEntitlements() };
 function entitlements() { return entState.items; }
 function cloudOn() { return !!(window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey); }
+
+function emptyEntitlements() {
+  return { plans: [], toolkit: false, priority: false, fullAudit: false, interview: false,
+           sessions: 0, audits: 0, sessionsGranted: 0, auditsGranted: 0 };
+}
+
+/* Everything the student's PAID orders grant, summed. An order only reaches
+   `paid` when the admin marks it so — a visitor may create one, but
+   firestore.rules lets nobody but the admin flip that field — which is what
+   makes this derivation a real entitlement rather than a client-side claim. */
+function grantsFrom(orders) {
+  const table = PF_CONFIG.planGrants || {};
+  const out = { plans: [], toolkit: false, priority: false, fullAudit: false,
+                interview: false, sessions: 0, audits: 0 };
+  (orders || []).filter(o => o.status === 'paid').forEach(o => {
+    const g = table[o.item];
+    if (!g) return;
+    out.plans.push(o.item);
+    Object.keys(g).forEach(k => {
+      if (typeof g[k] === 'number') out[k] = (out[k] || 0) + g[k];
+      else if (g[k]) out[k] = true;
+    });
+  });
+  return out;
+}
+
+/* Credits already spent, derived from the student's own mentor requests —
+   the same principle as the Accounting ledger and the client book: no
+   `credits` document, no second query, nothing to secure, and no way for a
+   balance to drift out of step with the requests it counts. A request
+   raised against a credit carries `redeem:'session'|'audit'`; a cancelled
+   one gives the credit back. */
+function creditsUsed(requests) {
+  const used = { sessions: 0, audits: 0 };
+  (requests || []).forEach(r => {
+    if (!r || !r.redeem || r.status === 'cancelled') return;
+    if (r.redeem === 'session') used.sessions++;
+    else if (r.redeem === 'audit') used.audits++;
+  });
+  return used;
+}
+
 function loadEntitlements(cb) {
   if (!(cloudOn() && window.PFCloud && PFCloud.hasUser && PFCloud.hasUser())) {
-    entState = { loaded: true, items: {} };
+    entState = { loaded: true, items: emptyEntitlements() };
     if (cb) cb();
     return;
   }
   PFCloud.fetchMyOrders().then(orders => {
-    const items = {};
-    (orders || []).filter(o => o.status === 'paid').forEach(o => {
-      items[o.item] = true;
-      if (o.item === 'premium') items.explorer = true;  // Premium includes Explorer
-      if (o.item === 'explorer' || o.item === 'premium') items.toolkit = true;
-    });
-    entState = { loaded: true, items };
+    const g = grantsFrom(orders);
+    const used = creditsUsed(PFStore.getMentorRequests());
+    entState = { loaded: true, items: {
+      plans: g.plans,
+      toolkit: g.toolkit, priority: g.priority,
+      fullAudit: g.fullAudit, interview: g.interview,
+      sessionsGranted: g.sessions, auditsGranted: g.audits,
+      sessions: Math.max(0, g.sessions - used.sessions),
+      audits: Math.max(0, g.audits - used.audits),
+    } };
     if (cb) cb();
-  }).catch(() => { entState = { loaded: true, items: {} }; if (cb) cb(); });
+  }).catch(() => { entState = { loaded: true, items: emptyEntitlements() }; if (cb) cb(); });
 }
 
 /* ── Router ─────────────────────────────────────────────── */
@@ -212,8 +324,12 @@ const norm = s => String(s || '').trim().toUpperCase();
 
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
-  const fn = ROUTES[view] || renderDashboard;
-  if (ROUTES[view]) markSeen(view);
+  // The track question stands in front of every study view (see
+  // needsTrackChoice). The hash is left alone, so answering it drops the
+  // student straight onto the view they actually asked for.
+  const gated = needsTrackChoice(view);
+  const fn = gated ? renderTrackChoice : (ROUTES[view] || renderDashboard);
+  if (ROUTES[view] && !gated) markSeen(view);
   $$('[data-view]').forEach(a => {
     if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -492,7 +608,7 @@ function highestPriorityIncompleteStep() {
   const J = journeyModel();
 
   if (!a) {
-    return { kicker: 'Get started', title: 'Take the 3-minute assessment',
+    return { kicker: 'Get started', title: 'Take the 5-minute assessment',
       body: 'Seven quick questions build your whole plan — pathway, courses and funding.',
       primaryLabel: 'Start the assessment', primaryHref: '#assessment', consultTopic: '' };
   }
@@ -896,6 +1012,15 @@ document.addEventListener('click', e => {
   b.classList.toggle('saved', nowSaved);
   b.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
   toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
+  // A shortlist is the first thing a student builds that is genuinely
+  // theirs — and the first thing they'd lose moving from a phone to a
+  // borrowed laptop. Offer once, at the third save, when it's a shortlist
+  // rather than a stray tap.
+  if (nowSaved && PFStore.getSaved().length >= 3) softAccountPrompt({
+    key: 'saved',
+    title: 'Keep your shortlist',
+    body: `You've saved ${PFStore.getSaved().length} things worth coming back to. An account keeps them when you switch to a laptop, or lose this phone.`,
+  });
 });
 
 /* ── 1 · Assessment ─────────────────────────────────────── */
@@ -914,16 +1039,30 @@ function asmQuestions() {
   }));
 }
 
-/* First-time visitor: nothing has explicitly chosen a track yet. Left
-   alone, PFStore.getTrack() silently defaults to 'phd' — meaning a
-   master's applicant who arrives with no ?track= link (a bookmark, a
-   share, anything other than the two track-specific landing buttons)
-   gets asked PhD questions with no chance to say otherwise. Ask here,
-   as the assessment's own first step, rather than leaving the choice to
-   the track switch tucked in the overflow menu — that stays as the way
-   to change tracks later, not the way to make this first choice. */
-function needsTrackChoice() {
-  return PFStore.get('track', null) === null && !asmState.trackConfirmed;
+/* ── The track gate ──────────────────────────────────────────────────
+   `PFStore.getTrack()` degrades an unset track to PhD, which is the right
+   thing to do with a stored value we can't parse — and the wrong thing to
+   apply to a student who was never asked. A master's applicant shown the
+   PhD track sees domestic fees, a doctoral stipend and unlimited work
+   rights, and `computeFunds()` understates the money INZ wants to see by
+   tens of thousands of dollars a year. That is the most expensive fact in
+   the product to guess at.
+
+   So the choice is asked once, before the FIRST view of any kind — not
+   only before the assessment. index.html links directly into #dashboard,
+   #courses, #funding, #visa, #kit and eleven subject tiles; every one of
+   those entry points used to skip the question and silently pick PhD.
+
+   Exempt: the role/system views, where a study track is meaningless (a
+   mentor signing in should never be asked which degree they're applying
+   for), and any session that already IS a mentor or an admin. */
+const TRACK_FREE_VIEWS = ['account', 'admin', 'mentor', 'billing', 'pricing'];
+
+function needsTrackChoice(view) {
+  if (PFStore.get('track', null) !== null || asmState.trackConfirmed) return false;
+  if (view && TRACK_FREE_VIEWS.includes(view)) return false;
+  const role = (window.PFCloud && PFCloud.role && PFCloud.role()) || 'anon';
+  return role !== 'admin' && role !== 'mentor' && role !== 'mentor_pending';
 }
 
 function renderTrackChoice(main) {
@@ -942,10 +1081,11 @@ function renderTrackChoice(main) {
   </div>`;
 
   main.innerHTML = renderHero({
-    kicker: 'Pathway Assessment', title: 'PhD or master’s — which one are you aiming for?',
-    body: 'This shapes every question, course match and deadline from here on. Change it anytime later.',
+    kicker: 'Welcome to PathFinder', title: 'PhD or master’s — which one are you aiming for?',
+    body: 'One question before anything else: the two routes differ on fees, funding and how much money your visa needs to show. Change it anytime from the menu.',
   }) +
-    `<div class="choice-grid">${card(PF_TRACK.phd)}${card(PF_TRACK.masters)}</div>`;
+    `<div class="choice-grid">${card(PF_TRACK.phd)}${card(PF_TRACK.masters)}</div>
+     <p class="row-sub mt-6" style="max-width:620px">Not sure yet? Pick the one you're leaning towards — the 5-minute assessment will tell you which you're actually ready for, and switching keeps your answers.</p>`;
 
   $$('.track-choice-btn', main).forEach(b => b.onclick = () => {
     PFStore.setTrack(b.dataset.track);
@@ -956,7 +1096,8 @@ function renderTrackChoice(main) {
 }
 
 function renderAssessment(main) {
-  if (needsTrackChoice()) return renderTrackChoice(main);
+  // The track choice is asked by route() now, in front of every view — not
+  // just this one. See needsTrackChoice().
   const T = trackCfg();
   const done = PFStore.getAssessment();
   if (done && asmState.step === 0 && !asmState.retake) {
@@ -1310,6 +1451,17 @@ function renderRoadmap(main) {
         : `<div class="phase-body" data-body="${pi}">${body}</div>`}
       </div>`;
     }).join('');
+
+  // The strongest moment to ask: they finished the assessment, and this
+  // screen is the thing it produced — a plan with their field, their
+  // pathway and their timeline in it. Deliberately NOT on the result
+  // screen itself, where a modal would cover the result they just earned
+  // before they had a chance to read it.
+  if (r) softAccountPrompt({
+    key: 'roadmap',
+    title: 'Keep your roadmap',
+    body: `This plan is built from your answers — ${esc(r.pathway)}, ${esc(r.field)}. An account keeps it, and every box you tick on it, on any device you sign into.`,
+  });
 }
 
 /* Delegated on document (not on #view) so the handler is registered once,
@@ -2364,6 +2516,14 @@ document.addEventListener('click', e => {
   a.click();
   URL.revokeObjectURL(a.href);
   toast('Proposal downloaded (.' + fmt + ')');
+  // The single biggest thing the app produces for a student. It is already
+  // auto-saved to their account — which is only worth saying to someone
+  // whose account is an anonymous device session.
+  softAccountPrompt({
+    key: 'proposal',
+    title: 'Keep your proposal draft',
+    body: 'Your draft is saved, but only to this browser. An account keeps it — and lets you send it to a mentor for review from anywhere.',
+  });
 });
 
 /* ── 2c · Courses (the NZQA postgraduate catalogue) ──────────
@@ -3361,6 +3521,80 @@ function advisoryNudge(vp) {
   </a>`;
 }
 
+/* ── The dashboard before there is anything to put on it ──────────────
+   #dashboard is the app's default route AND the landing page's "Open the
+   dashboard" CTA, so it is the first screen a large share of visitors
+   ever see. Rendered in full on a cold start it is four zeroes, a "—%"
+   readiness figure and an empty application tracker wrapped around the
+   one action that actually starts the journey — five pieces of evidence
+   that the product is empty, competing with the invitation.
+
+   Until there is a result to put on it, the dashboard IS the invitation:
+   one action, an honest account of what the next five minutes produce,
+   and a way back in for someone who has been here before. Everything
+   below returns as soon as an assessment exists. */
+function renderFirstRun(main) {
+  const T = trackCfg();
+  const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  const steps = [
+    ['quiz', 'Answer seven questions',
+      'Your background, your subject, your English score and your budget. About five minutes, no account needed.'],
+    ['route', 'Get the route that fits you',
+      isMasters()
+        ? 'Direct entry, a postgraduate diploma, or a bridging qualification first — named, with how ready you are for it.'
+        : 'Whether you go straight to a doctorate or strengthen your research profile first — named, with how ready you are for it.'],
+    [isMasters() ? 'school' : 'science',
+      isMasters() ? 'See the qualifications you can actually apply for' : 'See the labs and supervisors worth writing to',
+      isMasters()
+        ? 'Your answers filter the NZQA postgraduate register down to real qualifications at real providers, with entry requirements and fees.'
+        : 'Matched research groups with named supervisors, plus the scholarships your field is eligible for.'],
+  ];
+
+  main.innerHTML = renderHero({
+    kicker: 'Start here',
+    title: `Let’s find your ${T.label.toLowerCase()} route into New Zealand`,
+    body: 'Nothing here is filled in yet — the assessment is what builds your roadmap, your course matches and your funding list. It takes about five minutes.',
+    primaryLabel: 'Start the assessment', primaryIcon: 'arrow_forward', primaryHref: '#assessment',
+    secondaryLabel: isMasters() ? 'Browse the catalogue first' : 'Look around first',
+    secondaryHref: isMasters() ? '#courses' : '#explore',
+  }) +
+    `<div class="viewgrid mt-6">
+      <div>
+        <div class="listcard">
+          <div class="listcard-head"><h2 class="listcard-title">What the next five minutes give you</h2></div>
+          ${steps.map(([icon, title, body], i) => `<div class="row">
+            <div class="row-main">
+              <div class="row-title"><span class="material-symbols-outlined" aria-hidden="true"
+                style="font-size:17px;vertical-align:-3px;margin-right:8px;color:var(--route)">${icon}</span>${esc(title)}</div>
+              <div class="row-sub">${esc(body)}</div>
+            </div>
+            <div class="row-actions"><span class="chip chip-neutral">${i + 1}</span></div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Your track</span>
+          <p>You’re on the <strong>${esc(T.label)}</strong> track — fees, funding, visa money and deadlines all follow from it.</p>
+          <button type="button" class="btn btn-quiet mt-4" id="fr-switch">Switch to ${esc(PF_TRACK[isMasters() ? 'phd' : 'masters'].label)}</button>
+        </div>
+        ${cloudOn() && !signedIn ? `<div class="sidecard">
+          <span class="sidecard-kicker">Been here before?</span>
+          <p>Sign in and your assessment, roadmap and saved shortlist come back on this device.</p>
+          <a class="btn btn-quiet mt-4" href="${accountHref('dashboard')}">
+            <span class="material-symbols-outlined" aria-hidden="true">login</span> Sign in</a>
+        </div>` : ''}
+        <div class="sidecard">
+          <span class="sidecard-kicker">Rather ask a person?</span>
+          <p>Mentors are Sri Lankan postgrads already studying in New Zealand. The first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>
+          <a class="btn btn-quiet mt-4" href="#mentors">See the mentor network</a>
+        </div>
+      </div>
+    </div>`;
+
+  $('#fr-switch').onclick = () => switchTrack(isMasters() ? 'phd' : 'masters');
+}
+
 function renderDashboard(main) {
   const apps = PFStore.getApps();
   const ST = PFStore.APP_STATUSES;
@@ -3370,6 +3604,15 @@ function renderDashboard(main) {
   const saved = PFStore.getSaved();
   const R = currentResult();
   const T = trackCfg();
+
+  // Cold start — nothing saved anywhere, so every metric below would render
+  // as a zero and the tracker as an empty form. Show the invitation instead.
+  // A student who skipped the assessment but has already shortlisted a
+  // course or started the visa checklist has real state here, so they get
+  // the real dashboard: the test is "is there anything to show?", not
+  // "did they take the assessment?".
+  if (!R && !apps.length && !saved.length && !vp.done && !reqs.length) return renderFirstRun(main);
+
   const next = highestPriorityIncompleteStep();
 
   main.innerHTML = renderHero({
@@ -3460,6 +3703,15 @@ function renderDashboard(main) {
     PFStore.upsertApp({ uni, supervisor: $('#app-sup').value.trim(), status: $('#app-status').value });
     toast('Application added');
     route();
+    // After the re-render, so the prompt sits over the updated list rather
+    // than the form they just submitted. A real application, with a real
+    // deadline behind it, is the point at which losing this device stops
+    // being an inconvenience.
+    softAccountPrompt({
+      key: 'application',
+      title: 'Don’t track this on one device',
+      body: 'You’re tracking a live application now. An account means it — and its status — survives a lost phone, a reinstalled browser, or a switch to a laptop.',
+    });
   };
   $('#app-list').addEventListener('change', e => {
     const sel = e.target.closest('.app-status-sel');
@@ -3489,6 +3741,13 @@ function renderKit(main) {
   const gate = cloudOn() && premiumIds.length > 0;
   const unlocked = !gate || entitlements().toolkit === true;
   const price = (PF_CONFIG.pricing && PF_CONFIG.pricing.explorer) || 0;
+  // What else Explorer includes, read from the one grants table rather than
+  // restated here — so a change to the plan can't leave this card lying.
+  const eg = (PF_CONFIG.planGrants && PF_CONFIG.planGrants.explorer) || {};
+  const explorerExtras = [
+    eg.sessions ? `${eg.sessions} mentor session${eg.sessions === 1 ? '' : 's'}` : '',
+    eg.audits ? (eg.fullAudit ? 'a full CV/SOP/proposal audit' : 'an SOP/proposal audit') : '',
+  ].filter(Boolean).join(' and ');
 
   const freeCard = t => `<div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
@@ -3516,7 +3775,7 @@ function renderKit(main) {
         <div><strong style="font-size:14.5px">${t.name}</strong>
           <div class="faint" style="font-size:12px">${t.type}</div></div>
       </div>
-      <p class="muted" style="font-size:13px;margin:0 0 14px">Part of the <strong>Explorer</strong> plan — unlock all ${premiumIds.length} advanced templates plus a mentor session and SOP audit.</p>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">Part of the <strong>Explorer</strong> plan — unlock all ${premiumIds.length} advanced templates${explorerExtras ? ' plus ' + explorerExtras : ''}.</p>
       <button class="btn btn-primary btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">
         <span class="material-symbols-outlined" style="font-size:15px">lock_open</span> Unlock with Explorer · LKR ${price.toLocaleString()}</button>
     </div>`;
@@ -3810,6 +4069,34 @@ function renderMentors(main) {
 
   function paintAsk() {
     const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+    const ent = entitlements();
+
+    // What a paid plan actually buys, spendable right here. Rendered only
+    // when there is a balance left, so a free student's form is unchanged.
+    const redeemOpts = [];
+    if (ent.sessions > 0) redeemOpts.push(['session',
+      `Use 1 of my included mentor sessions (${ent.sessions} left)`]);
+    if (ent.audits > 0) redeemOpts.push(['audit',
+      ent.fullAudit
+        ? `Use my included full audit — CV, SOP and proposal (${ent.audits} left)`
+        : `Use my included SOP / proposal audit (${ent.audits} left)`]);
+
+    const redeemField = redeemOpts.length ? `
+          <div>
+            <span class="field-label">Your plan</span>
+            <select class="field" id="ask-redeem">
+              <option value="">Free ${PF_CONFIG.freeIntroMinutes}-minute intro — keep my credits</option>
+              ${redeemOpts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}
+            </select>
+          </div>` : '';
+
+    const planStrip = (ent.plans && ent.plans.length) ? `
+        <div class="chip-row mt-3">
+          ${ent.priority ? '<span class="chip chip-gold">Priority queue</span>' : ''}
+          <span class="chip chip-ok">${ent.sessions} session${ent.sessions === 1 ? '' : 's'} left</span>
+          <span class="chip chip-ok">${ent.audits} audit${ent.audits === 1 ? '' : 's'} left</span>
+          ${ent.interview ? '<span class="chip chip-neutral">Interview prep included</span>' : ''}
+        </div>` : '';
 
     // Connecting with a mentor is account-gated: the explorer browses the
     // mentor network freely, but to actually ask one they create/sign into a
@@ -3817,13 +4104,15 @@ function renderMentors(main) {
     const askCard = signedIn ? `
       <div class="listcard">
         <div class="listcard-head"><h2 class="listcard-title">Ask a mentor</h2></div>
-        <p>Your request joins a shared queue — the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: ${esc(topicLabel)}.` : ''}</p>
+        <p>Your request joins a shared queue — the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: ${esc(topicLabel)}.` : ''}${ent.priority ? ' Your plan puts it at the top of that queue.' : ''}</p>
+        ${planStrip}
         <form id="ask-form" class="mt-4" style="display:flex;flex-direction:column;gap:12px">
           <select class="field" id="ask-topic">
             <option value="">General guidance</option>
             ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
               `<option value="${slug}" ${slug === topic ? 'selected' : ''}>${lbl}</option>`).join('')}
           </select>
+          ${redeemField}
           <input class="field" id="ask-name" placeholder="Your name" autocomplete="name">
           <input class="field" id="ask-contact" placeholder="Email or WhatsApp — how a mentor reaches you">
           <textarea class="field" id="ask-note" rows="3" placeholder="What do you want to ask? (a line or two)"></textarea>
@@ -3854,10 +4143,25 @@ function renderMentors(main) {
       const name = $('#ask-name').value.trim();
       const contact = $('#ask-contact').value.trim();
       if (!name || !contact) return toast('Add your name and a way to reach you');
-      PFStore.addMentorRequest({ topic: $('#ask-topic').value, note: $('#ask-note').value.trim(), name, contact });
-      toast('Request sent — a mentor will pick this up. Track it under “My requests”.');
-      mentorsTab = 'mine';
-      route();
+      const redeemEl = $('#ask-redeem');
+      const redeem = redeemEl ? redeemEl.value : '';
+      // Re-read the balance at submit time rather than trusting the closure
+      // this form painted with — entitlements resolve asynchronously, and a
+      // credit may have been spent in another tab since then.
+      const live = entitlements();
+      const affordable = redeem === 'session' ? live.sessions > 0
+                       : redeem === 'audit' ? live.audits > 0 : true;
+      if (!affordable) { loadEntitlements(() => route()); return toast('That credit is already used — refreshing your plan.'); }
+      PFStore.addMentorRequest({
+        topic: $('#ask-topic').value, note: $('#ask-note').value.trim(), name, contact,
+        redeem: redeem || null, priority: !!live.priority,
+      });
+      toast(redeem
+        ? 'Request sent, and your included ' + (redeem === 'audit' ? 'audit' : 'session') + ' is booked against it.'
+        : 'Request sent — a mentor will pick this up. Track it under “My requests”.');
+      // The spend is derived from the requests, so the balance only moves
+      // once the new request is in the list — recompute before repainting.
+      loadEntitlements(() => { mentorsTab = 'mine'; route(); });
     });
   }
 
@@ -3890,6 +4194,13 @@ function renderMentors(main) {
     paint();
   });
   paint();
+
+  // What the student's plan includes has to be known before the ask form
+  // can offer it. Resolved once per session (one Firestore read), then
+  // repaint — same pattern as the Starter Kit's toolkit gate.
+  if (cloudOn() && !entState.loaded) loadEntitlements(() => {
+    if (location.hash.slice(1).split('?')[0] === 'mentors') paint();
+  });
 }
 
 /* a student-facing request card: status + payment + (when due) a Pay button */
@@ -3939,12 +4250,27 @@ function renderPricing(main) {
 
   // Same feature list on every card; each plan lights up more of it than
   // the last, so comparing plans is a glance, not a puzzle.
+  //
+  // The paid rows are GENERATED from PF_CONFIG.planGrants — the same table
+  // the redemption flow spends against — so what a student is promised on
+  // this page and what lands in their account can't drift apart. Editing
+  // the grants edits the sales copy.
+  const G = PF_CONFIG.planGrants || {};
+  const ex = G.explorer || {}, pr = G.premium || {};
+  const nTpl = (PF_CONFIG.premiumTemplateIds || []).length;
+  const nFree = PF_TEMPLATES.length - nTpl;
+  const credits = (g) => [
+    g.sessions ? `${g.sessions} mentor session${g.sessions === 1 ? '' : 's'}` : '',
+    g.audits ? `${g.fullAudit ? 'full CV/SOP/proposal audit' : 'SOP/proposal audit'}` : '',
+    g.interview ? 'interview prep' : '',
+  ].filter(Boolean).join(' + ');
+
   const rows = [
     'Eligibility assessment, roadmap &amp; university/supervisor explorer',
-    'Scholarships &amp; visa hub, Research Studio, 12 starter templates',
-    'Free 15-min mentor intro call',
-    'All 7 premium templates + 1 mentor session + SOP/proposal audit',
-    '3 mentor sessions + full CV/SOP/proposal audit + interview prep',
+    `Scholarships &amp; visa hub, Research Studio, ${nFree} starter templates`,
+    `Free ${PF_CONFIG.freeIntroMinutes}-min mentor intro call`,
+    `All ${nTpl} premium templates + ${credits(ex)}`,
+    credits(pr),
     'Priority mentor matching + a final review before you submit',
   ];
 
@@ -3952,16 +4278,24 @@ function renderPricing(main) {
   // ("Free" chip sitting right above a "FREE" heading, etc.) just repeats
   // itself. The other two cards reserve the same slot height so all three
   // icons still line up in a row.
+  // A one-time unlock is easy to buy twice. Where the student already owns
+  // a plan, the buy button becomes a link to what they still have left.
+  const owned = entitlements().plans || [];
+  const buyCta = (item, label, cls) => owned.includes(item)
+    ? `<a class="btn btn-quiet btn-sm" href="#billing" style="width:100%;justify-content:center">
+         <span class="material-symbols-outlined" aria-hidden="true">check_circle</span> You have this — see what's left</a>`
+    : `<button class="${cls} pf-buy" data-item="${item}" style="width:100%;justify-content:center">${label}</button>`;
+
   const plans = [
     { accent: 'teal', icon: 'lightbulb', name: 'Free', included: 3,
       price: 'LKR 0', unit: '', sub: 'No account needed — your work saves on this device.',
       cta: `<a class="btn btn-quiet btn-sm" href="#assessment" style="width:100%;justify-content:center">Start free</a>` },
     { accent: 'gold', icon: 'travel_explore', name: 'Explorer', included: 4,
       price: money(p.explorer), unit: 'one-time', sub: 'For students ready to start writing their application.',
-      cta: `<button class="btn btn-quiet btn-sm pf-buy" data-item="explorer" style="width:100%;justify-content:center">Get Explorer · ${money(p.explorer)}</button>` },
+      cta: buyCta('explorer', `Get Explorer · ${money(p.explorer)}`, 'btn btn-quiet btn-sm') },
     { accent: 'rose', best: true, chip: 'Best value', icon: 'workspace_premium', name: 'Premium', included: 6,
       price: money(p.premium), unit: 'one-time', sub: 'For students who want someone alongside them from first draft to submission.',
-      cta: `<button class="btn btn-sm pf-buy" data-item="premium" style="width:100%;justify-content:center">Get Premium · ${money(p.premium)}</button>` },
+      cta: buyCta('premium', `Get Premium · ${money(p.premium)}`, 'btn btn-sm') },
   ];
 
   const card = pl => `<div class="price-tier price-tier-${pl.accent}${pl.best ? ' price-tier-best' : ''}">
@@ -3983,6 +4317,12 @@ function renderPricing(main) {
   }) +
     `<div class="price-tiers">${plans.map(card).join('')}</div>
     <p class="row-sub mt-6" style="max-width:640px">Extra mentor sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you. ${cloudOn() ? `<a href="#billing">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+
+  // Resolve what they already own, then repaint — so a returning customer
+  // isn't sold a plan they're still holding credits from.
+  if (cloudOn() && !entState.loaded) loadEntitlements(() => {
+    if (location.hash.slice(1).split('?')[0] === 'pricing') route();
+  });
 }
 
 /* ── 9e · Billing (#billing) — your purchases & unlocks ───────────────── */
@@ -4031,9 +4371,10 @@ function renderBilling(main) {
       body.innerHTML = `<div class="card" style="border-color:var(--alert)"><p class="muted" style="font-size:13.5px">Couldn’t load your purchases. Please try again.</p></div>`;
       return;
     }
-    body.innerHTML = (orders.length
-      ? orders.map(orderCard).join('')
-      : `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to get Explorer or Premium.</p></div>`)
+    body.innerHTML = planBalanceCard(orders)
+      + (orders.length
+        ? orders.map(orderCard).join('')
+        : `<div class="card"><p class="muted" style="font-size:14px">No purchases yet. Browse <a href="#pricing" class="route-link" style="color:var(--route)">Plans</a> to get Explorer or Premium.</p></div>`)
       + sessionSection();
 
     body.addEventListener('click', e => sessionCardAction(e, {
@@ -4042,6 +4383,45 @@ function renderBilling(main) {
       repaint: () => {},
     }));
   });
+}
+
+/* What a paid plan still has left in it. A one-time unlock is easy to buy
+   and then forget — an order row saying "Premium · LKR 24,990 · Paid"
+   doesn't tell a student they still have two mentor sessions and an audit
+   waiting. This does, and links to where they're spent.
+
+   Computed from the same orders the page already fetched, against the
+   student's own requests, so it costs no extra read. */
+function planBalanceCard(orders) {
+  const g = grantsFrom(orders);
+  if (!g.plans.length) return '';
+  const used = creditsUsed(PFStore.getMentorRequests());
+  const sessions = Math.max(0, g.sessions - used.sessions);
+  const audits = Math.max(0, g.audits - used.audits);
+  const line = (n, one, many, granted) => `<div class="row">
+      <div class="row-main">
+        <div class="row-title">${n} ${n === 1 ? one : many} left</div>
+        <div class="row-sub">${granted - n} of ${granted} used</div>
+      </div>
+      <div class="row-actions">${n > 0
+        ? `<a class="btn btn-quiet btn-sm" href="#mentors">Use ${n === 1 ? 'it' : 'one'}</a>`
+        : '<span class="chip chip-neutral">All used</span>'}</div>
+    </div>`;
+
+  return `<div class="listcard" style="margin-bottom:16px">
+    <div class="listcard-head">
+      <h2 class="listcard-title">Included in your plan</h2>
+      <span class="listcard-summary">${g.plans.map(p => (PFPay.items()[p] && PFPay.items()[p].label) || p).join(' + ')}</span>
+    </div>
+    ${g.sessions ? line(sessions, 'mentor session', 'mentor sessions', g.sessions) : ''}
+    ${g.audits ? line(audits, g.fullAudit ? 'full document audit' : 'document audit',
+                      g.fullAudit ? 'full document audits' : 'document audits', g.audits) : ''}
+    <div class="chip-row mt-4">
+      ${g.toolkit ? '<span class="chip chip-ok">All premium templates unlocked</span>' : ''}
+      ${g.priority ? '<span class="chip chip-gold">Priority mentor matching</span>' : ''}
+      ${g.interview ? '<span class="chip chip-neutral">Interview prep included</span>' : ''}
+    </div>
+  </div>`;
 }
 
 /* ── 9c · Account (#account) — unified front door for all roles ──
@@ -4096,7 +4476,7 @@ function accountStatus(main, role) {
 function accountAuth(main) {
   main.innerHTML = renderHero({
     kicker: 'Account', title: 'Sign in or create an account',
-    body: 'Signing in is optional — your data is already saved on this device.',
+    body: 'Optional, and free. Your work is already saved — an account is what makes it follow you to another device, and what a mentor request is tied to.',
   }) +
     `<div class="viewgrid">
       <div class="listcard">
@@ -5171,12 +5551,29 @@ function openReqCard(r) {
         <div class="faint" style="font-size:12.5px">${r.at ? new Date(r.at).toLocaleDateString() : ''}${phoned ? ' · ' + esc(PF_REQUEST_SOURCES[r.source] || r.source) : ''}</div>
         ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
         ${r.callback ? `<div class="faint" style="font-size:12.5px;margin-top:6px">Call back: ${esc(r.callback)}</div>` : ''}
+        ${redeemNote(r)}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${r.priority ? `<span class="chip chip-gold">Priority</span>` : ''}
         ${phoned ? `<span class="chip chip-violet">Rang us</span>` : ''}
+        ${r.redeem ? `<span class="chip chip-ok">${r.redeem === 'audit' ? 'Audit included' : 'Session included'}</span>` : ''}
         <button class="btn btn-primary btn-sm mt-claim" data-req="${r.id}">Claim</button>
       </div>
     </div>
+  </div>`;
+}
+
+/* A request raised against a plan credit is already paid for — the student
+   bought the plan from the platform, not from the mentor. Saying so on the
+   card is what stops a mentor quoting a fee for work the student has
+   already been promised, which is the one way a credit can go wrong. */
+function redeemNote(r) {
+  if (!r || !r.redeem) return '';
+  const what = r.redeem === 'audit'
+    ? 'a document audit (SOP / proposal) included in their plan'
+    : 'a mentor session included in their plan';
+  return `<div class="muted" style="font-size:12.5px;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--teal-soft)">
+    Prepaid — this is ${what}. Deliver it as a normal session and log it; don't ask them to pay again.
   </div>`;
 }
 
@@ -5307,11 +5704,14 @@ async function mentorCardAction(e) {
   if (window.PFCloud && window.PFCloud.onMentorState) {
     window.PFCloud.onMentorState(() => {
       paintMentorSidebarLink();
-      entState.loaded = false;   // re-derive premium unlocks for the new session
+      // Re-derive the plan entitlements for the new session, and clear the
+      // old ones outright — a balance from the previous account must never
+      // paint on this one while the refetch is in flight.
+      entState = { loaded: false, items: emptyEntitlements() };
       const v = (location.hash || '').slice(1).split('?')[0];
       if (v === 'mentor') { mentorState.loaded = false; route(); }
       else if (v === 'account') route();
-      else if (v === 'kit' || v === 'billing') route();
+      else if (v === 'kit' || v === 'billing' || v === 'mentors') route();
     });
   } else if (tries < 40 && (window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_CONFIG.apiKey)) {
     setTimeout(() => hookMentorAuth(tries + 1), 100);
