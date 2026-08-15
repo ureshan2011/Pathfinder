@@ -5317,17 +5317,16 @@ function adminDashboard(main) {
     users: adminState.users ? adminState.users.length : '·',
   };
 
-  main.innerHTML = viewHead('admin_panel_settings', 'Admin', 'Platform admin',
-    'Live data from Firestore. Visible only to the admin account — ordinary visitors are blocked by security rules.') +
-    `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
-      <span class="material-symbols-outlined" style="color:var(--route)">phone_in_talk</span>
-      <p class="muted" style="flex:1;min-width:220px;font-size:13px;margin:0">
-        Someone rang and they’re not on the system? Write them down here — it goes into the same queue as a request from the site, and you can hand it to a mentor straight away.</p>
-      <button class="btn btn-primary btn-sm" id="adm-intake">Someone called</button>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="adm-tabs">
-      ${TABS.map(([id, lbl]) => `<button class="chip-filter ${adminState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="mono" style="opacity:.6">${counts[id]}</span>` : ''}</button>`).join('')}
-      <button class="chip-filter" id="adm-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
+  const actionN = adminState.loaded ? admActionCount() : '·';
+  main.innerHTML = renderHero({
+    kicker: 'Admin', title: 'Platform admin',
+    body: 'Live data from Firestore, visible only to the admin account.',
+    figure: actionN, figureCaption: 'Need action',
+    primaryId: 'adm-intake', primaryLabel: 'Someone called', primaryIcon: 'phone_in_talk',
+  }) +
+    `<div class="tab-row" id="adm-tabs" role="tablist" aria-label="Admin sections">
+      ${TABS.map(([id, lbl]) => `<button type="button" class="tab" role="tab" aria-selected="${adminState.tab === id}" data-tab="${id}">${lbl}${counts[id] !== undefined ? ` <span class="tab-n">${counts[id]}</span>` : ''}</button>`).join('')}
+      <button type="button" class="tab tab-row-end" id="adm-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refresh</button>
     </div>
     <div id="adm-body"></div>`;
 
@@ -5353,9 +5352,9 @@ function adminDashboard(main) {
     },
   });
 
-  $$('#adm-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
+  $$('#adm-tabs .tab[data-tab]').forEach(b => b.onclick = () => {
     adminState.tab = b.dataset.tab;
-    $$('#adm-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#adm-tabs .tab[data-tab]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   $('#adm-refresh').onclick = async () => {
@@ -5501,7 +5500,7 @@ function admAction(body) {
 
   $$('a[data-jump]', body).forEach(a => a.onclick = e => {
     e.preventDefault();
-    $(`#adm-tabs .chip-filter[data-tab="${a.dataset.jump}"]`)?.click();
+    $(`#adm-tabs .tab[data-tab="${a.dataset.jump}"]`)?.click();
   });
 }
 
