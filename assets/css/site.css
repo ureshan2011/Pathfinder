@@ -479,7 +479,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   box-shadow: var(--shadow-hero); margin-bottom: 24px;
 }
 .shell .hero-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
-.shell .hero-left { max-width: 520px; }
+.shell .hero-left { max-width: 520px; min-width: 0; }
 .shell .hero-kicker {
   font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .20em; text-transform: uppercase;
   color: var(--accent);
@@ -517,7 +517,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 /* ── Stat tile ── */
 .shell .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .shell .stat {
-  display: block; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-sm);
+  display: block; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-sm);
   padding: 18px; box-shadow: var(--shadow-card); transition: border-color var(--t-fast);
 }
 .shell .stat:hover { border-color: var(--line-strong); }
@@ -689,6 +689,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 
 /* ── Course Catalogue / result grids: 3-up cards, expanded one spans full width ── */
 .shell .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.shell .card-grid > .listcard { min-width: 0; }
 .shell .card-grid > .listcard.is-open { grid-column: 1 / -1; }
 @media (max-width: 1199px) { .shell .card-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 899px) { .shell .card-grid { grid-template-columns: 1fr; } }
@@ -717,6 +718,12 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 
 /* ── Main layout grid ── */
 .shell .viewgrid { display: grid; grid-template-columns: 1fr var(--aside-w); gap: var(--gap-main); align-items: start; }
+/* grid items default to min-width:auto, which lets long unbroken content
+   (a long course/application title, a wide row) grow a column past its
+   track instead of wrapping — the same failure mode as the mobile hero
+   bug above. min-width:0 on every direct grid/flex child in this file
+   keeps that content inside its column. */
+.shell .viewgrid > * { min-width: 0; }
 .shell .aside { display: flex; flex-direction: column; gap: 16px; }
 
 @media (max-width: 1199px) {
@@ -736,7 +743,14 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .aside { grid-template-columns: 1fr; }
   .shell .hero { padding: 24px 22px; }
   .shell .hero-title { font-size: 1.75rem; }
-  .shell .hero-row { flex-direction: column; }
+  /* align-items:flex-start (set for the desktop side-by-side row) makes a
+     column-direction flex child size toward its own max-width instead of
+     the actual (narrower) container — .hero-left would sit at ~520px
+     regardless of viewport, and since flex/grid items default to
+     min-width:auto, that oversized child then blows out .hero, .main and
+     .shell instead of wrapping, giving the whole page a horizontal
+     scrollbar. stretch forces it back to the real container width. */
+  .shell .hero-row { flex-direction: column; align-items: stretch; }
   .shell .hero-right { display: none; }
   .shell .hero-figure-mobile { display: block; margin-bottom: 22px; }
   .shell .hero-figure-mobile .hero-figure { font-size: 2.6rem; }
