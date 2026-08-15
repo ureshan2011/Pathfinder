@@ -660,6 +660,9 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .shell .tab:hover { border-color: var(--line-strong); }
 .shell .tab[aria-selected="true"] { background: var(--chrome); color: var(--on-chrome); border-color: var(--chrome); }
 .shell .tab-n { opacity: .6; margin-left: 4px; }
+.shell .tab-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.shell .tab-row-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.shell .tab .material-symbols-outlined { font-size: 14px; vertical-align: -2px; }
 
 /* ── Icon tile ── */
 .shell .icontile {

@@ -71,6 +71,19 @@ Updated as the port continues (currently through step 5 — dashboard).
   source of the actual pct/done/complete data; only the segment strip's
   copy uses the shorter, buildRoadmap-style names the handoff asked for.
 
+## Mentor Dashboard (and, coming next, Admin) — partial port
+
+The Mentor Dashboard's shell (hero, 4 stats, `.tab` row with real
+`role="tab"`/`aria-selected`) is fully ported. The request/person/session
+*cards* inside each tab (`openReqCard`, `personCard`, `sessionCard`,
+`claimedReqCard`) are still the old `.card`-based shapes — they're shared
+with Admin (same functions, `adm*` helpers), deeply nested, and load-bearing
+for a lot of payment/session logic. Restructuring them into `.row`/`.chip`
+is real remaining work, tracked as a follow-up rather than done silently
+as "finished." The mentor stat row also drops "Invoiced, not yet paid"
+(a 5th metric) to stay at the spec's 4-max — it's still visible inside the
+Session log tab itself.
+
 ## Still open
 
 - The sidebar's persistent "your mentor" identity/quote (see above) needs

@@ -343,11 +343,23 @@ function journeyBlurb(J) {
    viewHead() as views migrate. */
 function renderHero(opts) {
   const o = opts || {};
-  const primary = o.primaryHref
-    ? `<a class="btn" href="${o.primaryHref}">${esc(o.primaryLabel || 'Continue')}${o.primaryIcon ? `<span class="material-symbols-outlined" aria-hidden="true">${o.primaryIcon}</span>` : ''}</a>`
+  // Most hero actions navigate (href); a few (Mentor Dashboard's "Someone
+  // called", pause/resume) are JS actions instead — given an id with no
+  // href, render a <button id="..."> for the caller to wire up rather than
+  // forcing every action through the router.
+  const primary = o.primaryHref || o.primaryId
+    ? (o.primaryHref
+        ? `<a class="btn" href="${o.primaryHref}">`
+        : `<button type="button" class="btn" id="${o.primaryId}">`) +
+      `${esc(o.primaryLabel || 'Continue')}${o.primaryIcon ? `<span class="material-symbols-outlined" aria-hidden="true">${o.primaryIcon}</span>` : ''}` +
+      (o.primaryHref ? '</a>' : '</button>')
     : '';
-  const secondary = o.secondaryHref
-    ? `<a class="btn btn-ghost" href="${o.secondaryHref}">${esc(o.secondaryLabel || 'Ask a mentor')}</a>`
+  const secondary = o.secondaryHref || o.secondaryId
+    ? (o.secondaryHref
+        ? `<a class="btn btn-ghost" href="${o.secondaryHref}">`
+        : `<button type="button" class="btn btn-ghost" id="${o.secondaryId}">`) +
+      esc(o.secondaryLabel || 'Ask a mentor') +
+      (o.secondaryHref ? '</a>' : '</button>')
     : '';
   const figureInner = o.figure != null
     ? `<div class="hero-figure">${esc(String(o.figure))}${o.figureSuffix ? `<span class="suf">${esc(o.figureSuffix)}</span>` : ''}</div>
@@ -4842,37 +4854,6 @@ async function mentorLoad() {
   mentorState.loaded = true;
 }
 
-/* At-a-glance insights strip for the mentor dashboard, derived from the
-   already-loaded queue + claimed lists (no extra Firestore reads). */
-function mentorInsights() {
-  const open = mentorState.open || [];
-  const claimed = mentorState.claimed || [];
-  const sessions = mentorState.sessions || [];
-  const active = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  // Sessions logged in the session log are the record of delivered work;
-  // claimed requests completed without a log still count once.
-  const loggedFromReq = new Set(sessions.map(s => s.requestId).filter(Boolean));
-  const completed = sessions.length +
-    claimed.filter(r => r.status === 'completed' && !loggedFromReq.has(r.id)).length;
-  // Earnings = paid session records + paid requests that have no session
-  // record behind them (so a logged session never double-counts).
-  const earned = sessions.filter(s => s.paymentStatus === 'paid')
-      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0)
-    + claimed.filter(r => r.payment && r.payment.paymentStatus === 'paid' && !loggedFromReq.has(r.id))
-      .reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
-  const owed = sessions.filter(s => s.paymentStatus === 'unpaid' || s.paymentStatus === 'reported')
-      .reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0);
-  const n = v => (mentorState.loaded ? v : '·');
-  const lkr = v => (mentorState.loaded ? 'LKR ' + v.toLocaleString() : '·');
-  return `<div class="grid-4" style="margin-bottom:24px">
-    ${admMetric('hourglass_top', n(open.length), 'Open in queue')}
-    ${admMetric('assignment_ind', n(active), 'Active with you')}
-    ${admMetric('task_alt', n(completed), 'Sessions delivered')}
-    ${admMetric('payments', lkr(earned), 'Earned (paid)')}
-    ${owed ? admMetric('pending_actions', lkr(owed), 'Invoiced, not yet paid') : ''}
-  </div>`;
-}
-
 /* The mentor's own client book, folded out of the two lists the dashboard
    already loaded. Zero extra reads. */
 function mentorPeople() {
@@ -4894,20 +4875,45 @@ function mentorDashboard(main) {
     people: mentorState.loaded ? people.length : '·',
   };
 
-  main.innerHTML = viewHead('support_agent', 'Mentor Dashboard', `Welcome, ${esc(p.displayName || 'mentor')}`,
-    'Claim a request from the queue, run the free intro, and if the student wants more, send them a payment link. Sessions that came to you on WhatsApp or by phone go in the session log — write down what you covered and send the invoice from there.') +
-    `<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
-      <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Available for requests' : 'Not taking requests'}</span>
-      <p class="muted" style="flex:1;min-width:200px;font-size:13px;margin:0">${active ? 'You appear in the active mentor count and can claim from the queue.' : 'You’re paused — turn this back on when you have time.'}</p>
-      <button class="btn btn-primary btn-sm" id="mt-intake">
-        <span class="material-symbols-outlined" style="font-size:15px">phone_in_talk</span> Someone called</button>
-      <button class="btn btn-ghost btn-sm" id="mt-toggle">${active ? 'Pause requests' : 'Resume requests'}</button>
-      <button class="btn btn-ghost btn-sm" id="mt-out">Sign out</button>
+  // 4 stats max — "Invoiced, not yet paid" drops from the row (see
+  // DEVIATIONS.md); it still surfaces inside the Session log tab itself.
+  const claimed = mentorState.claimed || [];
+  const sessions = mentorState.sessions || [];
+  const activeReqs = claimed.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const loggedFromReq = new Set(sessions.map(s => s.requestId).filter(Boolean));
+  const completed = sessions.length + claimed.filter(r => r.status === 'completed' && !loggedFromReq.has(r.id)).length;
+  const earned = sessions.filter(s => s.paymentStatus === 'paid').reduce((sum, s) => sum + (Number(s.amountLKR) || 0), 0)
+    + claimed.filter(r => r.payment && r.payment.paymentStatus === 'paid' && !loggedFromReq.has(r.id)).reduce((sum, r) => sum + (Number(r.payment.amountLKR) || 0), 0);
+  const n = v => (mentorState.loaded ? v : '·');
+
+  main.innerHTML = renderHero({
+    kicker: 'Mentor Dashboard', title: `Welcome, ${p.displayName || 'mentor'}`,
+    body: 'Claim a request, run the free intro, and log sessions that come to you off-platform.',
+    figure: active ? 'On' : 'Off', figureCaption: active ? 'Taking requests' : 'Not taking requests',
+    primaryId: 'mt-intake', primaryLabel: 'Someone called', primaryIcon: 'phone_in_talk',
+    secondaryId: 'mt-toggle', secondaryLabel: active ? 'Pause requests' : 'Resume requests',
+  }) +
+    `<div class="stat-grid" style="margin:24px 0">
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">hourglass_top</span>
+        <div class="stat-figure">${n(mentorState.open ? mentorState.open.length : '·')}</div>
+        <div class="stat-label">Open in queue</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">assignment_ind</span>
+        <div class="stat-figure">${n(activeReqs)}</div>
+        <div class="stat-label">Active with you</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">task_alt</span>
+        <div class="stat-figure">${n(completed)}</div>
+        <div class="stat-label">Sessions delivered</div></div>
+      <div class="stat"><span class="material-symbols-outlined stat-icon" aria-hidden="true">payments</span>
+        <div class="stat-figure">${mentorState.loaded ? 'LKR ' + earned.toLocaleString() : '·'}</div>
+        <div class="stat-label">Earned (paid)</div></div>
     </div>
-    ${mentorInsights()}
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px" id="mtd-tabs">
-      ${TABS.map(([id, lbl]) => `<button class="chip-filter ${mentorState.tab === id ? 'active' : ''}" data-tab="${id}">${lbl} <span class="mono" style="opacity:.6">${counts[id]}</span></button>`).join('')}
-      <button class="chip-filter" id="mtd-refresh" style="margin-left:auto"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">refresh</span> Refresh</button>
+
+    <div class="tab-row" id="mtd-tabs" role="tablist" aria-label="Mentor dashboard sections">
+      ${TABS.map(([id, lbl]) => `<button type="button" class="tab" role="tab" aria-selected="${mentorState.tab === id}" data-tab="${id}">${lbl} <span class="tab-n">${counts[id]}</span></button>`).join('')}
+      <div class="tab-row-end">
+        <button type="button" class="tab" id="mtd-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refresh</button>
+        <button type="button" class="btn-quiet" id="mt-out">Sign out</button>
+      </div>
     </div>
     <div id="mtd-body"></div>`;
 
@@ -4997,9 +5003,9 @@ function mentorDashboard(main) {
       : `<div class="card"><p class="muted" style="font-size:14px">No open requests right now. New ones show up here — tap Refresh.</p></div>`;
   }
 
-  $$('#mtd-tabs .chip-filter[data-tab]').forEach(b => b.onclick = () => {
+  $$('#mtd-tabs .tab[data-tab]').forEach(b => b.onclick = () => {
     mentorState.tab = b.dataset.tab;
-    $$('#mtd-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#mtd-tabs .tab[data-tab]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   $('#mtd-refresh').onclick = async () => {
