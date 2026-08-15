@@ -214,12 +214,16 @@ function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   const fn = ROUTES[view] || renderDashboard;
   if (ROUTES[view]) markSeen(view);
-  $$('.side-link').forEach(a => a.classList.toggle('active', a.dataset.view === view));
-  $('.side-link.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  $$('[data-view]').forEach(a => {
+    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  closeNavPop();
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
-  updateJourneyMeter();
+  updateNavChrome();
+  animateBars(main);
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
   window.scrollTo(0, 0);
@@ -323,9 +327,6 @@ function journeyModel() {
   return { phases, overall, doneSteps, totalSteps, current, nextStep };
 }
 
-/* where a phase chip jumps to: the next unfinished milestone, else its home view */
-function journeyJump(p) { return p.nextStep ? p.nextStep[2] : '#' + p.view; }
-
 function journeyBlurb(J) {
   if (J.overall === 0) return 'Five stages from your first question to enrolment in New Zealand. It starts with a 5-minute assessment.';
   if (J.overall >= 100) return 'Every milestone done — you’re ready. Keep a mentor close for the final stretch.';
@@ -333,56 +334,231 @@ function journeyBlurb(J) {
   return `You’re in <strong>${J.current.label}</strong>. ${J.current.blurb}${left <= 35 ? ' Almost there.' : ''}`;
 }
 
-/* The dashboard hero: a visual, clickable map of the whole journey. */
-function renderJourneyMap() {
-  const J = journeyModel();
-  const synced = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
-  const hasData = !!PFStore.getAssessment() || PFStore.getApps().length > 0 || PFStore.getSaved().length > 0;
-  const cont = J.nextStep;
-
-  const cards = J.phases.map((p, idx) => {
-    const isCur = p.id === J.current.id && !p.complete;
-    const badge = p.complete
-      ? '<span class="material-symbols-outlined" style="font-size:17px">check</span>'
-      : (idx + 1);
-    return `<a class="jp ${p.complete ? 'jp-done' : ''} ${isCur ? 'jp-cur' : ''}" href="${journeyJump(p)}" data-phase="${p.id}">
-      <div class="jp-top">
-        <span class="jp-num">${badge}</span>
-        <span class="material-symbols-outlined jp-ic">${p.icon}</span>
+/* ── The hero ──────────────────────────────────────────────────────
+   Every view opens with the same inverted panel: kicker, title, one
+   sentence, ≤2 buttons, an optional right-slot figure, and — on the
+   dashboard — the five journey segments. renderHero() is pure markup;
+   what goes in it is computed by the caller (highestPriorityIncomplete-
+   Step() for the dashboard, per-view logic elsewhere). Replaces
+   viewHead() as views migrate. */
+function renderHero(opts) {
+  const o = opts || {};
+  const primary = o.primaryHref
+    ? `<a class="btn" href="${o.primaryHref}">${esc(o.primaryLabel || 'Continue')}${o.primaryIcon ? `<span class="material-symbols-outlined" aria-hidden="true">${o.primaryIcon}</span>` : ''}</a>`
+    : '';
+  const secondary = o.secondaryHref
+    ? `<a class="btn btn-ghost" href="${o.secondaryHref}">${esc(o.secondaryLabel || 'Ask a mentor')}</a>`
+    : '';
+  const figureInner = o.figure != null
+    ? `<div class="hero-figure">${esc(String(o.figure))}${o.figureSuffix ? `<span class="suf">${esc(o.figureSuffix)}</span>` : ''}</div>
+       ${o.figureCaption ? `<div class="hero-caption">${esc(o.figureCaption)}</div>` : ''}`
+    : '';
+  // rendered twice, on purpose: side-by-side with the title on desktop
+  // (.hero-right), between the body and the buttons on mobile
+  // (.hero-figure-mobile) — the two breakpoints put it in a different
+  // reading position, not just a different size, so one flex `order`
+  // can't cover both; each copy is display:none at the other's breakpoint.
+  const figureDesktop = o.figure != null ? `<div class="hero-right">${figureInner}</div>` : '';
+  const figureMobile = o.figure != null ? `<div class="hero-figure-mobile">${figureInner}</div>` : '';
+  return `<section class="hero">
+    <div class="hero-row">
+      <div class="hero-left">
+        <div class="hero-kicker">${esc(o.kicker || '')}</div>
+        <h1 class="hero-title">${esc(o.title || '')}</h1>
+        <p class="hero-body">${esc(o.body || '')}</p>
+        ${figureMobile}
+        <div class="hero-actions">${primary}${secondary}</div>
       </div>
-      <div class="jp-name">${p.label}</div>
-      <div class="jp-bar"><span style="width:${p.pct}%"></span></div>
-      <div class="jp-meta">${isCur ? 'You’re here · ' : ''}${p.done}/${p.total}</div>
-    </a>`;
-  }).join('');
-
-  return `<section class="journey" aria-label="Your journey to a PhD in New Zealand">
-    <div class="journey-head">
-      <div style="min-width:240px">
-        <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">map</span>Your journey to ${trackCfg().article} in NZ</span>
-        <h2 class="journey-pct">${J.overall}<small>% complete</small></h2>
-        <p class="muted" style="font-size:13.5px;margin:4px 0 0;max-width:460px">${journeyBlurb(J)}</p>
-      </div>
-      ${cont
-        ? `<a class="btn btn-primary journey-cta" href="${cont[2]}"><span class="material-symbols-outlined" style="font-size:17px">bolt</span>${cont[0]}</a>`
-        : `<a class="btn btn-primary journey-cta" href="#mentors"><span class="material-symbols-outlined" style="font-size:17px">support_agent</span>Pressure-test with a mentor</a>`}
+      ${figureDesktop}
     </div>
-    <div class="journey-track">${cards}</div>
-    ${!synced && hasData
-      ? `<a class="journey-nudge" href="#account"><span class="material-symbols-outlined" style="font-size:17px">cloud_sync</span><span>You’ve built real progress — <strong>create a free account</strong> to keep it safe across devices.</span><span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span></a>`
-      : ''}
+    ${o.segments ? heroSegsHtml(o.segments) : ''}
   </section>`;
 }
 
-/* keep the sidebar journey meter in sync after every route */
-function updateJourneyMeter() {
-  const el = document.getElementById('journey-meter');
-  if (!el) return;
-  const J = journeyModel();
-  const bar = el.querySelector('.jm-bar span'); if (bar) bar.style.width = J.overall + '%';
-  const pct = el.querySelector('.jm-pct'); if (pct) pct.textContent = J.overall + '%';
-  const lbl = el.querySelector('.jm-lbl'); if (lbl) lbl.textContent = J.overall >= 100 ? 'Journey complete' : 'In ' + J.current.label;
+/* Short segment labels for the hero's journey strip — deliberately
+   different (shorter) than journeyModel()'s own phase labels, which
+   stay unchanged for the nav context text and journeyBlurb(). PhD
+   labels are buildPhdRoadmap()'s own phase titles verbatim. */
+const HERO_SEG_LABELS = {
+  masters: ['Choose', 'Credentials', 'Apply & fund', 'Offer & visa', 'Arrive'],
+  phd: ['Foundation', 'Supervisor Discovery', 'Proposal & Application', 'Offer & Visa', 'Arrival & Enrollment'],
+};
+function heroSegLabels() { return HERO_SEG_LABELS[PFStore.getTrack()] || HERO_SEG_LABELS.phd; }
+
+/* J.phases (journeyModel) already carries real pct/done/complete per
+   phase — heroSegments() just re-labels those five phases with the
+   shorter copy above, in the same order, so the strip and the "Phase
+   N of 5" kicker always agree with the Journey Map / nav context. */
+function heroSegments(J) {
+  const labels = heroSegLabels();
+  return J.phases.map((p, i) => ({
+    label: labels[i] || p.label,
+    pct: p.pct,
+    current: p.id === J.current.id && !p.complete,
+  }));
 }
+function heroSegsHtml(segs) {
+  return `<div class="segs">${segs.map(s => `
+    <div class="seg${s.pct <= 0 ? ' is-empty' : ''}${s.current ? ' is-current' : ''}">
+      <div class="seg-track"><span data-pct="${s.pct > 0 ? s.pct : 100}"></span></div>
+      <div class="seg-label">${esc(s.label)}</div>
+    </div>`).join('')}</div>`;
+}
+
+/* a .bar on canvas — pct is clamped and set via data-pct so the fill can
+   animate on first paint (see animateBars) instead of the width arriving
+   inline in the markup */
+function barHtml(pct, extraAttrs) {
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  return `<div class="bar"><span data-pct="${p}"${extraAttrs || ''}></span></div>`;
+}
+
+/* Progress fills animate width on first paint of a view, once — never on
+   re-renders mid-view. Rendering at width:0 and setting the real width a
+   frame later lets the CSS transition (var(--t-bar)) do the animating;
+   prefers-reduced-motion is already handled globally (site.css collapses
+   all transition-duration to ~0). Called once per route() after the view
+   has painted. */
+function animateBars(root) {
+  requestAnimationFrame(() => {
+    $$('[data-pct]', root).forEach(el => { el.style.width = el.dataset.pct + '%'; });
+  });
+}
+
+function truncate(s, n) {
+  s = String(s || '').trim();
+  return s.length > n ? s.slice(0, n - 1).trim() + '…' : s;
+}
+
+/* friendly names for the hero's secondary "Open X" phrasing — not a
+   fabricated fact, just a nicer label for a real, already-computed href */
+const HERO_HREF_LABEL = {
+  '#assessment': 'the assessment', '#courses': 'Courses', '#explore': 'Explore',
+  '#research': 'Research Studio', '#roadmap': 'your roadmap', '#kit': 'Templates',
+  '#funding': 'Funding', '#dashboard': 'your dashboard', '#visa': 'the Visa Hub',
+  '#mentors': 'Mentors', '#funds': 'the Funds Check', '#settlement': 'Settle In',
+};
+
+/* ── The next best action — computed, never hardcoded ────────────────
+   Ranking (hard deadline soonest → blocks another step → cheapest to
+   finish): the visa checklist is the one place in the data model with a
+   genuinely ordered, blocking sequence (each stage gates the next), so an
+   open visa stage outranks the generic next milestone once the student has
+   reached that phase. Applications carry no deadline field and
+   PF_SCHOLARSHIPS.deadline is prose ("1 Mar / 1 Jul / 1 Nov", "Rolling"),
+   not a date — so neither is a sortable "hard deadline" candidate; adding
+   one would mean inventing a date. Everything else falls through to
+   journeyModel()'s own next incomplete milestone, the same engine behind
+   the nav context label. Title ≤42 chars, body ≤120 chars, body never
+   restates the title. */
+function highestPriorityIncompleteStep() {
+  const a = PFStore.getAssessment();
+  const J = journeyModel();
+
+  if (!a) {
+    return { kicker: 'Get started', title: 'Take the 3-minute assessment',
+      body: 'Seven quick questions build your whole plan — pathway, courses and funding.',
+      primaryLabel: 'Start the assessment', primaryHref: '#assessment', consultTopic: '' };
+  }
+  if (J.overall >= 100) {
+    return { kicker: 'Journey complete', title: 'You’re ready to fly',
+      body: 'Every milestone is done — Settle In has your first-weeks checklist.',
+      primaryLabel: 'Open Settle In', primaryHref: '#settlement', consultTopic: 'settle-arrival' };
+  }
+
+  const visaIdx = J.phases.findIndex(p => p.id === 'visa');
+  const visaOpen = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
+  if (visaOpen && (J.current.id === 'visa' || visaProgress().done > 0)) {
+    const step = visaOpen.steps.find(st => !PFStore.isChecked('visa', st.id));
+    return {
+      kicker: `Phase ${visaIdx + 1} of ${J.phases.length} · ${heroSegLabels()[visaIdx]}`,
+      title: truncate(step.t, 42),
+      body: truncate(step.note || visaOpen.summary, 120),
+      primaryLabel: 'Open the Visa Hub', primaryHref: '#visa', consultTopic: visaOpen.consult,
+    };
+  }
+
+  const cur = J.current;
+  const idx = J.phases.findIndex(p => p.id === cur.id);
+  if (J.nextStep) {
+    return {
+      kicker: `Phase ${idx + 1} of ${J.phases.length} · ${heroSegLabels()[idx]}`,
+      title: truncate(J.nextStep[0], 42),
+      body: truncate(cur.blurb, 120),
+      primaryLabel: `Open ${HERO_HREF_LABEL[J.nextStep[2]] || 'this step'}`, primaryHref: J.nextStep[2], consultTopic: '',
+    };
+  }
+
+  return { kicker: 'Almost there', title: 'Ask a mentor to pressure-test your plan',
+    body: 'Nothing outstanding here — a second pair of eyes catches what a checklist can’t.',
+    primaryLabel: 'Ask a mentor', primaryHref: '#mentors', consultTopic: '' };
+}
+
+/* keep the top-nav context label + avatar in sync after every route.
+   Replaces the old sidebar journey meter, which the hero + segments
+   (renderHero) now supersede as the always-visible progress signal. */
+function updateNavChrome() {
+  const ctx = document.getElementById('nav-context');
+  if (ctx) {
+    const R = currentResult();
+    ctx.textContent = trackCfg().label + (R && R.field ? ' · ' + R.field : '');
+  }
+  const av = document.getElementById('nav-avatar');
+  if (av) {
+    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+    const email = signedIn && PFCloud.currentEmail && PFCloud.currentEmail();
+    av.textContent = email ? email.slice(0, 2).toUpperCase() : '·';
+  }
+}
+
+/* ── Overflow popover (top-nav "more" menu) ──────────────────────────
+   A .listcard-styled panel anchored under the avatar, holding the
+   fourteen views that don't fit the six-item top nav, plus the track
+   switch and account controls that used to live in the sidebar. Traps
+   Tab, closes on Escape / outside click / picking a link. */
+function closeNavPop() {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('keydown', navPopKey);
+  document.removeEventListener('click', navPopOutside, true);
+}
+function openNavPop() {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || !btn) return;
+  pop.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  document.addEventListener('keydown', navPopKey);
+  document.addEventListener('click', navPopOutside, true);
+  const first = pop.querySelector('a, button, input');
+  if (first) first.focus();
+}
+function navPopKey(e) {
+  const pop = document.getElementById('nav-pop');
+  if (!pop) return;
+  if (e.key === 'Escape') { closeNavPop(); document.getElementById('nav-more-btn')?.focus(); return; }
+  if (e.key !== 'Tab') return;
+  const items = $$('a, button, input', pop).filter(el => !el.disabled && el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+function navPopOutside(e) {
+  const pop = document.getElementById('nav-pop');
+  const btn = document.getElementById('nav-more-btn');
+  if (!pop || pop.contains(e.target) || e.target === btn || (btn && btn.contains(e.target))) return;
+  closeNavPop();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('nav-more-btn');
+  const pop = document.getElementById('nav-pop');
+  if (!btn || !pop) return;
+  btn.addEventListener('click', () => (pop.hidden ? openNavPop() : closeNavPop()));
+});
 
 /* ── Briefing: live immigration + PhD/postgrad news ─────────────────
    Fetches ONLY on-topic news from free, no-key Google News RSS search
@@ -502,21 +678,6 @@ function newsItemRow(x, compact) {
     </div>
     <span class="material-symbols-outlined news-go">north_east</span>
   </a>`;
-}
-
-/* compact 3-item strip for the dashboard (a high-traffic, "good for
-   students" surface). Filled async by loadNews after first paint. */
-function newsStrip() {
-  const items = (newsState.items || []).slice(0, 3);
-  const inner = items.length ? items.map(x => newsItemRow(x, true)).join('')
-    : `<p class="muted" style="font-size:13.5px;margin:0">Loading the latest immigration & PhD news…</p>`;
-  return `<section class="card" style="margin-bottom:40px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <h2 style="font-size:1.15rem;margin:0"><span class="material-symbols-outlined" style="font-size:19px;color:var(--route);vertical-align:-4px">newspaper</span> Latest briefing</h2>
-      <a href="#news" class="route-link" style="color:var(--route);font-size:13px">All news →</a>
-    </div>
-    <div id="dash-news" class="news-list">${inner}</div>
-  </section>`;
 }
 
 function renderNews(main) {
@@ -2970,145 +3131,167 @@ function fundsResultCard(r) {
 }
 
 /* ── 5 · Dashboard (saved + tracker) ────────────────────── */
+function appStatusChipClass(status) {
+  if (status === 'Offer' || status === 'Enrolled') return 'chip-ok';
+  if (status === 'Researching') return 'chip-neutral';
+  return 'chip-info';
+}
+
+/* Funds evidence side card — real figures only, from the student's own
+   completed Funds Readiness Check (computeFunds()). No check yet → a
+   prompt, never a placeholder number. */
+function fundsSidecard() {
+  const fc = PFStore.get('fundsCheck', null);
+  if (fc && fc.result) {
+    const r = fc.result;
+    return `<a class="sidecard" href="#funds">
+      <span class="sidecard-kicker">Funds evidence</span>
+      <div class="sidecard-figure">${fundsMoney(r.counted)}</div>
+      <p>${esc(trackCfg().label)} pathway — ${fundsMoney(r.livingReq)} living costs required.</p>
+      ${barHtml(r.score)}
+      <div class="bar-caption">${r.score}% evidenced</div>
+    </a>`;
+  }
+  return `<div class="sidecard">
+    <span class="sidecard-kicker">Funds evidence</span>
+    <p>See how your money compares to what Immigration New Zealand expects to see.</p>
+    <a class="btn btn-quiet" href="#funds">Run the funds check</a>
+  </div>`;
+}
+
+/* Mentor side card. The app doesn't sync a claiming mentor's name or a
+   personal note back to the student's device (mentor_requests only carries
+   a mentorId uid on claim — see firebase.js claimRequest) so this shows the
+   real state of the student's own most recent request instead of a
+   fabricated mentor identity/quote. */
+function mentorSidecard(reqs) {
+  const active = reqs.find(r => !['completed', 'cancelled'].includes(r.status)) || reqs[0];
+  if (!active) {
+    return `<div class="sidecard">
+      <span class="sidecard-kicker">Mentors</span>
+      <p>Stuck on a step? Ask someone who has already done it — your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>
+      <a class="btn btn-quiet" href="#mentors">Ask a mentor</a>
+    </div>`;
+  }
+  const cls = { open: 'chip-warn', claimed: 'chip-info', intro_done: 'chip-info',
+    awaiting_payment: 'chip-warn', paid: 'chip-ok', completed: 'chip-ok', cancelled: 'chip-neutral' };
+  const lbl = { open: 'Open', claimed: 'Claimed', intro_done: 'Intro done',
+    awaiting_payment: 'Awaiting payment', paid: 'Paid', completed: 'Completed', cancelled: 'Cancelled' };
+  return `<a class="sidecard" href="#mentors?tab=mine">
+    <span class="sidecard-kicker">Your mentor request</span>
+    <div class="sidecard-name">${esc(PF_CONSULT_TOPICS[active.topic] || 'General guidance')}</div>
+    <p>${active.note ? esc(active.note) : 'Track replies and next steps in Mentors → My requests.'}</p>
+    <span class="chip ${cls[active.status] || 'chip-neutral'}">${lbl[active.status] || active.status}</span>
+  </a>`;
+}
+
+/* Advisory panel — the visa checklist's next open step when one exists
+   (a real blocking, ordered sequence), else a generic mentor hook. */
+function advisoryNudge(vp) {
+  const stage = PF_VISA_STAGES.find(s => s.steps.some(st => !PFStore.isChecked('visa', st.id)));
+  if (vp.done > 0 && stage) {
+    const step = stage.steps.find(st => !PFStore.isChecked('visa', st.id));
+    return `<a class="nudge" href="#visa">
+      <span class="material-symbols-outlined nudge-icon" aria-hidden="true">flight_takeoff</span>
+      <p class="nudge-body">Visa ${vp.done} of ${vp.total} steps. ${esc(step.t)}${step.note ? ' — ' + esc(step.note) : '.'}</p>
+    </a>`;
+  }
+  return `<a class="nudge" href="#mentors">
+    <span class="material-symbols-outlined nudge-icon" aria-hidden="true">support_agent</span>
+    <p class="nudge-body">Stuck on your next step? A mentor's first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>
+  </a>`;
+}
+
 function renderDashboard(main) {
-  const a = PFStore.getAssessment();
-  const saved = PFStore.getSaved();
   const apps = PFStore.getApps();
   const ST = PFStore.APP_STATUSES;
   const vp = visaProgress();
   const reqs = PFStore.getMentorRequests().slice().reverse();
-
-  // ── Derived insights (client/student dashboard) ──
-  const inProg = apps.filter(x => ['Contacted Supervisor', 'Preparing Documents', 'Applied', 'Interview'].includes(x.status)).length;
   const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
-  const activeReqs = reqs.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
-  // single source of truth — same engine that drives the Journey Map + meter
-  const J = journeyModel();
-  const nextAction = J.nextStep
-    ? [J.current.icon, J.nextStep[0], J.nextStep[2]]
-    : ['support_agent', 'Nothing outstanding here — a mentor can pressure-test the plan', '#mentors'];
-  const synced = window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn();
-
-  const SAVED_KIND = { uni:'University', lab:'Research lab', scholarship:'Scholarship',
-                       course:'Qualification', provider:'Provider' };
-  const SAVED_HREF = { uni:'#explore', lab:'#explore', scholarship:'#funding',
-                       course:'#courses', provider:'#explore' };
-  const savedHtml = saved.length ? saved.map(s => {
-    // Catalogue items carry their own label (see toggleSaved) so the dashboard
-    // never has to pull a shard down; curated items resolve from the dataset.
-    let title = s.label || '', sub = s.sub || '';
-    if (!title && s.kind === 'uni') { const u = uniById(s.id); if (!u) return ''; title = u.name; sub = u.city; }
-    if (!title && s.kind === 'lab') { const l = PF_LABS.find(x => x.id === s.id); if (!l) return ''; title = l.name; sub = uniById(l.uni).name; }
-    if (!title && s.kind === 'scholarship') { const sc = PF_SCHOLARSHIPS.find(x => x.id === s.id); if (!sc) return ''; title = sc.name; sub = sc.value; }
-    if (!title) return '';
-    return `<div class="lab-row">
-      <div style="flex:1"><strong style="font-size:14px">${esc(title)}</strong>
-        <div class="faint" style="font-size:12.5px">${SAVED_KIND[s.kind] || 'Saved'}${sub ? ' · ' + esc(sub) : ''}</div></div>
-      <a class="btn btn-ghost btn-sm" href="${SAVED_HREF[s.kind] || '#explore'}">View</a>
-      ${saveBtn(s.kind, s.id, s.label, s.sub)}
-    </div>`;
-  }).join('') : `<p class="muted" style="font-size:14px">Nothing saved yet — bookmark qualifications in the <a href="#courses" style="color:var(--route)">Course Catalogue</a> or scholarships in <a href="#funding" style="color:var(--route)">Funding</a>.</p>`;
-
+  const saved = PFStore.getSaved();
   const R = currentResult();
-  main.innerHTML = viewHead('space_dashboard', 'Your Dashboard', R ? `Welcome back — ${R.readiness}% ${trackCfg().label}-ready` : 'Welcome to PathFinder',
-    R ? `Pathway: <strong>${esc(R.pathway)}</strong> in ${esc(R.field)}.`
-      : 'Start with the <a href="#assessment" style="color:var(--route)">5-minute assessment</a> — it builds the rest of your plan.') +
+  const T = trackCfg();
+  const next = highestPriorityIncompleteStep();
 
-    renderJourneyMap() +
+  main.innerHTML = renderHero({
+    kicker: next.kicker, title: next.title, body: next.body,
+    figure: R ? R.readiness : '—', figureSuffix: R ? '%' : '', figureCaption: T.label + '-ready',
+    primaryLabel: next.primaryLabel, primaryHref: next.primaryHref,
+    secondaryLabel: 'Ask a mentor', secondaryHref: next.consultTopic ? `#mentors?topic=${next.consultTopic}` : '#mentors',
+    segments: heroSegments(journeyModel()),
+  }) +
 
-    `<div class="grid-4" style="margin:40px 0">
-      ${[['quiz', R ? R.readiness + '%' : '—', 'Readiness score', '#assessment'],
-         ['bookmark', saved.length, 'Saved opportunities', isMasters() ? '#courses' : '#explore'],
-         ['folder_managed', apps.length, 'Applications tracked', '#dashboard'],
-         ['workspace_premium', apps.filter(x => ['Offer','Enrolled'].includes(x.status)).length, 'Offers received', '#dashboard'],
-         ['flight_takeoff', vp.done + '/' + vp.total, 'Visa steps done', '#visa'],
-         ['support_agent', reqs.length, 'Mentor requests', '#mentors?tab=mine']]
-        .map(([ic, n, l, href]) => `<a class="card" href="${href}" style="display:block">
-          <span class="material-symbols-outlined" style="color:var(--route);font-size:22px">${ic}</span>
-          <div style="font-size:1.7rem;font-weight:700;margin-top:8px">${n}</div>
-          <div class="faint" style="font-size:12.5px">${l}</div></a>`).join('')}
+    `<div class="stat-grid" style="margin:24px 0">
+      <a class="stat" href="${isMasters() ? '#courses' : '#explore'}">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">bookmark</span>
+        <div class="stat-figure">${saved.length}</div>
+        <div class="stat-label">Saved</div>
+      </a>
+      <a class="stat" href="#dashboard">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">folder_managed</span>
+        <div class="stat-figure">${apps.length}</div>
+        <div class="stat-label">Applications</div>
+      </a>
+      <a class="stat" href="#dashboard">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">workspace_premium</span>
+        <div class="stat-figure">${offers}</div>
+        <div class="stat-label">Offer${offers === 1 ? '' : 's'}</div>
+      </a>
+      <a class="stat" href="#visa">
+        <span class="material-symbols-outlined stat-icon" aria-hidden="true">flight_takeoff</span>
+        <div class="stat-figure">${vp.done}/${vp.total}</div>
+        <div class="stat-label">Visa steps</div>
+      </a>
     </div>
 
-    <div class="card" style="margin-bottom:40px">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px">
-        <h2 style="font-size:1.15rem;margin:0">Your insights</h2>
-        <span class="chip ${synced ? 'chip-teal' : 'chip-dim'}">${synced ? 'Synced across devices' : 'Saved on this device'}</span>
-      </div>
-      <p class="muted" style="font-size:13.5px;margin:0 0 12px">${R
-        ? `You’re <strong>${R.readiness}% ${esc(trackCfg().label)}-ready</strong> on the <strong>${esc(R.pathway)}</strong> pathway in ${esc(R.field)}.`
-        : `Complete the <a href="#assessment" style="color:var(--route)">assessment</a> to see personalised insights.`}${synced ? '' : ` <a href="#account" style="color:var(--route)">Create a free account</a> to sync.`}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <span class="chip chip-dim">${apps.length} tracked</span>
-        <span class="chip chip-violet">${inProg} in progress</span>
-        <span class="chip chip-teal">${offers} offer${offers === 1 ? '' : 's'}</span>
-        <span class="chip chip-gold">${activeReqs} active mentor request${activeReqs === 1 ? '' : 's'}</span>
-        <span class="chip chip-dim">visa ${vp.done}/${vp.total}</span>
-      </div>
-      <div class="consult-hook" style="margin-top:12px">
-        <span class="material-symbols-outlined" style="font-size:15px">${nextAction[0]}</span>
-        Next step: <a href="${nextAction[2]}" style="color:var(--route)">${nextAction[1]}</a>
-      </div>
-    </div>
-
-    ${newsStrip()}
-
-    <h2 style="font-size:1.3rem;margin-bottom:16px">Application tracker</h2>
-    <div class="card" style="margin-bottom:18px">
-      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:10px;align-items:end" class="app-form">
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">University / Program</label>
-          <input class="field" id="app-uni" placeholder="e.g. UoA — PhD Computer Science" style="margin-top:5px"></div>
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Supervisor</label>
-          <input class="field" id="app-sup" placeholder="Prof. ..." style="margin-top:5px"></div>
-        <div><label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Status</label>
-          <select class="field" id="app-status" style="margin-top:5px">${ST.map(s => `<option>${s}</option>`).join('')}</select></div>
-        <button class="btn btn-primary" id="app-add">Add</button>
-      </div>
-    </div>
-    <div id="app-list">${apps.length ? apps.map(appRow).join('') :
-      '<p class="muted" style="font-size:14px">No applications yet. Add your first one above — every supervisor email counts as “Contacted Supervisor”.</p>'}</div>
-
-    <h2 style="font-size:1.3rem;margin:48px 0 16px">Your mentor requests</h2>
-    <div id="con-list">${reqs.length ? reqs.map(conRow).join('') :
-      `<p class="muted" style="font-size:14px">No requests yet — when a step gets confusing, <a href="#mentors" style="color:var(--route)">ask a mentor who has done it</a>. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>`}</div>
-
-    <h2 style="font-size:1.3rem;margin:48px 0 16px">Saved opportunities</h2>
-    <div class="card">${savedHtml}</div>`;
-
-  // read-only summary row — status is mentor-driven; students track here and
-  // can pay / see full detail under Mentors → My requests.
-  function conRow(c) {
-    return `<div class="card" style="margin-bottom:12px" data-con="${c.id}">
-      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
-        <div style="flex:1;min-width:200px">
-          <strong style="font-size:14.5px">${PF_CONSULT_TOPICS[c.topic] || 'General guidance'}</strong>
-          <div class="faint" style="font-size:12.5px">${c.at ? new Date(c.at).toLocaleDateString() : ''}</div>
-          ${c.note ? `<div class="muted" style="font-size:13px;margin-top:4px">${esc(c.note)}</div>` : ''}
+    <div class="viewgrid">
+      <div>
+        <div class="listcard" style="margin-bottom:16px">
+          <div class="listcard-head"><h2 class="listcard-title">Track a new application</h2></div>
+          <div class="form-row">
+            <div><span class="field-label">University / programme</span>
+              <input class="field" id="app-uni" placeholder="e.g. UoA — ${isMasters() ? 'MDataSci' : 'PhD Computer Science'}"></div>
+            <div><span class="field-label">Supervisor</span>
+              <input class="field" id="app-sup" placeholder="Prof. ..."></div>
+            <div><span class="field-label">Status</span>
+              <select class="field" id="app-status">${ST.map(s => `<option>${s}</option>`).join('')}</select></div>
+            <button type="button" class="btn btn-quiet" id="app-add">Add</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-          ${reqStatusChip(c.status)}
-          ${c.payment ? payStatusChip(c.payment) : ''}
-          <a class="btn btn-ghost btn-sm" href="#mentors?tab=mine">Open</a>
-          <button class="btn btn-ghost btn-sm con-del" title="Remove from this device"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+
+        <div class="listcard">
+          <div class="listcard-head">
+            <h2 class="listcard-title">Applications</h2>
+            <span class="listcard-summary">${apps.length} tracked${offers ? ` · ${offers} offer${offers === 1 ? '' : 's'}` : ''}</span>
+          </div>
+          <div id="app-list">${apps.length ? apps.map(appRow).join('') :
+            '<p>No applications yet — add your first one above. Every supervisor email counts as “Contacted Supervisor”.</p>'}</div>
         </div>
+      </div>
+
+      <div class="aside">
+        ${fundsSidecard()}
+        ${mentorSidecard(reqs)}
+        ${advisoryNudge(vp)}
       </div>
     </div>`;
-  }
 
   function appRow(app) {
     const pct = Math.round(((ST.indexOf(app.status) + 1) / ST.length) * 100);
-    return `<div class="card" style="margin-bottom:12px" data-app="${app.id}">
-      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center">
-        <div style="flex:1;min-width:200px">
-          <strong style="font-size:14.5px">${esc(app.uni)}</strong>
-          <div class="faint" style="font-size:12.5px">${esc(app.supervisor || 'No supervisor listed')}</div>
-        </div>
-        <select class="field app-status-sel" style="width:auto;padding:8px 36px 8px 12px;font-size:13px">
+    return `<div class="row" data-app="${app.id}">
+      <div class="row-main">
+        <div class="row-title">${esc(app.uni)}</div>
+        <div class="row-sub">${esc(app.supervisor || 'No supervisor listed')} · ${pct}%</div>
+      </div>
+      <div class="row-actions">
+        <select class="field app-status-sel" aria-label="Status for ${esc(app.uni)}">
           ${ST.map(s => `<option ${s === app.status ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
-        <button class="btn btn-ghost btn-sm app-del" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+        <span class="chip ${appStatusChipClass(app.status)}">${esc(app.status)}</span>
+        <button type="button" class="icon-btn app-del" title="Delete" aria-label="Delete ${esc(app.uni)}">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+        </button>
       </div>
-      <div class="bar" style="margin-top:14px"><span style="width:${pct}%"></span></div>
-      <div class="faint" style="font-size:11.5px;margin-top:6px">${pct}% — ${app.status}</div>
     </div>`;
   }
 
@@ -3136,22 +3319,6 @@ function renderDashboard(main) {
     toast('Application removed');
     route();
   });
-  $('#con-list').addEventListener('click', e => {
-    const d = e.target.closest('.con-del');
-    if (!d) return;
-    PFStore.deleteMentorRequest(d.closest('[data-con]').dataset.con);
-    toast('Removed from this device');
-    route();
-  });
-
-  // fill the briefing strip async (won't block the dashboard render)
-  loadNews(() => {
-    const el = document.getElementById('dash-news');
-    if (!el) return;
-    const items = (newsState.items || []).slice(0, 3);
-    if (items.length) el.innerHTML = items.map(x => newsItemRow(x, true)).join('');
-    else if (!newsState.loading) el.innerHTML = `<p class="muted" style="font-size:13px;margin:0">News sources are unreachable right now — <a href="#news" style="color:var(--route)">open the Briefing</a> to retry.</p>`;
-  }, false);
 }
 
 /* ── 6 · Starter Kit ────────────────────────────────────── */
