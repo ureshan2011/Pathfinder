@@ -4288,6 +4288,11 @@ function renderCost(main) {
   if (!roiState) roiState = roiDefaults();
   const cat = window.PF_CATALOGUE;
   if (!cat) ensureCatalogue().then(() => { if (location.hash.slice(1).split('?')[0] === 'cost') route(); });
+  // NZQA's per-provider record — ~20 KB, and only this view needs it, so
+  // it lazy-loads through the same helper as the catalogue shards.
+  ensureProviderQuality().then(loaded => {
+    if (loaded && location.hash.slice(1).split('?')[0] === 'cost') route();
+  });
 
   // The PhD economics run the opposite way, so say so rather than running
   // a master's model over a doctoral plan and quoting nonsense.
@@ -4317,6 +4322,7 @@ function renderCost(main) {
     roiPlanCard(cat) +
     roiHeadline(r) +
     roiCostCard(r) +
+    roiQualityCard() +
     roiAfterCard(r) +
     roiRoutesCard(r, unlocked) +
     roiSourcesCard(r) +
@@ -4424,6 +4430,82 @@ function roiCostCard(r) {
   </div>`;
 }
 
+/* Lazy-load NZQA's provider record. Resolves false (not true) when the
+   file is absent, so every caller degrades to showing nothing rather than
+   implying a provider is unrated. */
+let _pqPromise = null;
+function ensureProviderQuality() {
+  if (window.PF_PROVIDER_QUALITY) return Promise.resolve(false);
+  if (_pqPromise) return _pqPromise;
+  _pqPromise = _loadScript('assets/js/provider-quality.js')
+    .then(() => !!window.PF_PROVIDER_QUALITY)
+    .catch(() => false);
+  return _pqPromise;
+}
+
+/* ── 3b · Who you'd be handing the money to ─────────────────────────
+   The cheaper-routes comparison is the most dangerous thing on this
+   screen: it is very good at finding a lower number, and a lower number
+   is not the same as a better decision. This is the counterweight — and
+   it is deliberately placed BEFORE the cheaper routes, so a student meets
+   the quality question on the way to the savings rather than after.
+
+   Everything shown is NZQA's own published finding with its date and a
+   link to the report. PathFinder does not rate providers: we put the
+   regulator's evidence in front of the student and let them read it. */
+function roiQualityCard() {
+  if (typeof PF_ROI_QA === 'undefined') return '';
+  const q = PFRoi.qualityFor(roiState.providerId);
+  if (!q) return '';
+  const QA = PF_ROI_QA;
+
+  const catBlock = q.cat ? `
+      <div class="roi-qa-verdict">
+        <span class="chip ${q.cat.tone}">${esc(q.cat.label)}${q.statementYear ? ` · ${q.statementYear}` : ''}</span>
+        <p>${esc(q.cat.meaning)}</p>
+        <p class="roi-qa-note">${esc(QA.systemNote)}</p>
+      </div>`
+    : q.naReason ? `
+      <div class="roi-qa-verdict">
+        <span class="chip chip-neutral">No NZQA category</span>
+        <p>${esc(q.naReason)}</p>
+      </div>`
+    : `<div class="roi-qa-verdict">
+        <span class="chip chip-neutral">Nothing published</span>
+        <p>NZQA's record for this provider carries no category. That is not a bad result — it usually means they have not been through an external evaluation under the old system. Open their NZQA record below and ask the provider directly.</p>
+      </div>`;
+
+  const statements = q.statements.length ? `
+      <ul class="roi-qa-list">${q.statements.map(s => `<li>
+        <strong>${esc(s.confidence)}</strong> in ${s.about === 'self-assessment' ? 'their capability in self-assessment' : 'their educational performance'}
+        <span class="faint">— NZQA, ${esc(s.date)}</span></li>`).join('')}</ul>` : '';
+
+  const reports = q.reports.length ? `
+      <div class="roi-qa-reports">
+        <span class="faint">Read the reports yourself:</span>
+        ${q.reports.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${r.year} report (PDF)</a>`).join('')}
+      </div>` : '';
+
+  return `<div class="listcard roi-qa${q.concern ? ' roi-qa-concern' : ''}">
+    <div class="listcard-head"><h2 class="listcard-title">Who you'd be handing the money to</h2>
+      <span class="listcard-summary">${esc(q.name)}</span></div>
+    <p class="roi-line-detail">Cost is one axis. This is what New Zealand's regulator has published about this provider — the evidence, dated, with the reports so you can read them yourself.</p>
+    ${catBlock}
+    ${statements}
+    ${q.codeSignatory ? `<p class="roi-qa-code"><strong>Signatory to the Code of Practice</strong> for the pastoral care of international students — the legal obligations a provider takes on for students from overseas.</p>` : ''}
+    ${reports}
+    <div class="roi-basis">
+      <p><strong>What this does not tell you.</strong></p>
+      <ul class="roi-qa-limits">${QA.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+      <p class="mt-3">${esc(QA.noReviewsNote)}</p>
+      <div class="roi-qa-actions">
+        <a class="btn btn-quiet btn-sm" href="${esc(q.link)}" target="_blank" rel="noopener">Open the full NZQA record</a>
+        <a class="btn btn-quiet btn-sm" href="#mentors?topic=choosing-provider">Ask someone who studied there</a>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ── 4 · What it earns back ─────────────────────────────────────── */
 function roiAfterCard(r) {
   const e = r.earnings;
@@ -4490,6 +4572,7 @@ function roiRoutesCard(r, unlocked) {
       </div>
       <p class="roi-line-detail">${esc(a.why)}</p>
       <p class="roi-route-tradeoff"><strong>Trade-off:</strong> ${esc(a.tradeoff)}</p>
+      ${roiRouteQuality(a)}
       <div class="roi-route-foot">
         ${a.confidence === 'published' ? '<span class="chip chip-ok">Published fee</span>' : '<span class="chip chip-warn">Provider range</span>'}
         <span class="faint">${a.payback == null ? esc(a.paybackNote || '') : 'pays back in ' + esc(PFRoi.fmtYears(a.payback))}</span>
@@ -4503,6 +4586,35 @@ function roiRoutesCard(r, unlocked) {
         <span class="material-symbols-outlined" aria-hidden="true">description</span> Download the family sheet</button>
     </div>
   </div>`;
+}
+
+/* The quality line on a cheaper-route row. This is the whole reason the
+   quality data exists: a saving of NZ$70,000 and a regulator's finding
+   have to be legible in the same glance, or the comparison is just an
+   argument for the cheapest option. Where the cheaper provider's record
+   is materially worse, the row says so in the same breath as the saving. */
+function roiRouteQuality(a) {
+  if (!a.providerId || typeof PF_ROI_QA === 'undefined') return '';
+  const q = PFRoi.qualityFor(a.providerId);
+  if (!q) return '';
+  const delta = PFRoi.qualityDelta(roiState.providerId, a.providerId);
+
+  const chip = q.cat
+    ? `<span class="chip ${q.cat.tone}">${esc(q.cat.label)}${q.statementYear ? ` · ${q.statementYear}` : ''}</span>`
+    : q.naReason ? `<span class="chip chip-neutral">No category — university</span>` : '';
+
+  const warn = delta ? `<p class="roi-route-warn"><strong>Worth pausing on.</strong>
+      This provider sat at Category ${delta.to} where your current choice is Category ${delta.from}.
+      ${esc((PF_ROI_QA.categories[delta.to] || {}).meaning || '')}</p>` : '';
+
+  const concern = !delta && q.concern ? `<p class="roi-route-warn"><strong>Worth pausing on.</strong>
+      ${esc((q.cat || {}).meaning || '')}</p>` : '';
+
+  return `<div class="roi-route-qa">
+      ${chip}
+      ${q.codeSignatory ? '<span class="chip chip-neutral">Code of Practice signatory</span>' : ''}
+      ${q.reports.length ? `<a class="faint" href="${esc(q.reports[0].url)}" target="_blank" rel="noopener">${q.reports[0].year} NZQA report</a>` : ''}
+    </div>${warn}${concern}`;
 }
 
 /* ── 6 · Sources, last ──────────────────────────────────────────── */
@@ -4589,6 +4701,27 @@ function roiPhdNote(main) {
   $('#roi-to-masters').onclick = () => switchTrack('masters');
 }
 
+/* The regulator's record on the chosen provider, flattened for the sheet.
+   Returns null when nothing is published, so the PDF omits the section
+   rather than printing a heading over an empty space. */
+function roiSheetQuality() {
+  if (typeof PF_ROI_QA === 'undefined') return null;
+  const q = PFRoi.qualityFor(roiState.providerId);
+  if (!q) return null;
+  const lines = q.statements.map(s =>
+    `NZQA was ${s.confidence} in ${s.about === 'self-assessment' ? 'their capability in self-assessment' : 'their educational performance'} (${s.date}).`);
+  if (q.codeSignatory) lines.push('Signatory to the Code of Practice for the pastoral care of international students.');
+  if (q.reports.length) lines.push(`NZQA reports published: ${q.reports.map(r => r.year).join(', ')} — available free at nzqa.govt.nz.`);
+  return {
+    name: q.name,
+    verdict: q.cat ? `${q.cat.label}${q.statementYear ? ` (${q.statementYear})` : ''} — ${q.cat.meaning}`
+                   : (q.naReason || 'NZQA publishes no provider category for this institution.'),
+    lines,
+    note: (q.cat ? PF_ROI_QA.systemNote + ' ' : '') +
+      'A category describes the provider as a whole, not the programme, and says nothing about teaching quality in this subject. Read the NZQA report and talk to a graduate before committing money.',
+  };
+}
+
 /* Build the sheet model and hand it to the PDF writer. Deliberately in
    LKR-first order: the reader is the person paying, not the student. */
 function roiDownloadSheet(r) {
@@ -4621,6 +4754,7 @@ function roiDownloadSheet(r) {
       ['Time to earn the cost back', PFRoi.fmtYears(r.paybackYears)],
     ],
     alternatives: routes.map(a => ({ title: a.title, tradeoff: a.tradeoff, saving: a.saving })),
+    quality: roiSheetQuality(),
     fx: r.fx,
     notes: [
       `Prepared by PathFinder on ${new Date().toLocaleDateString('en-GB')}. Cost data last checked ${PF_ROI.verified}.`,

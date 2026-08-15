@@ -421,6 +421,57 @@ const PFRoi = (() => {
     return out;
   }
 
+  /* ── Quality signals ──────────────────────────────────────────────
+     NZQA's own published record for a provider, shaped for display. This
+     deliberately returns findings and their dates, never a PathFinder
+     score: our job is to put the regulator's evidence in front of the
+     student with a link, not to rate institutions ourselves.
+
+     Returns null when the quality dataset has not been loaded, so every
+     caller degrades to showing nothing rather than showing "unrated". */
+  function qualityFor(providerId) {
+    const Q = typeof window !== 'undefined' && window.PF_PROVIDER_QUALITY;
+    if (!Q || !Q.providers) return null;
+    const rec = Q.providers[providerId];
+    if (!rec) return null;
+    const QA = typeof PF_ROI_QA !== 'undefined' ? PF_ROI_QA : {};
+    const cat = rec.category != null && QA.categories ? QA.categories[rec.category] : null;
+
+    // The year the category was received — NZQA requires it to be shown
+    // alongside, because the system that issued it has ended.
+    const years = (rec.statements || []).map(s => {
+      const m = String(s.date).match(/\b(19|20)\d{2}\b/);
+      return m ? Number(m[0]) : null;
+    }).filter(Boolean);
+    const statementYear = years.length ? Math.max(...years) : (rec.reports && rec.reports[0] && rec.reports[0].year) || null;
+
+    return {
+      id: providerId, name: rec.name, type: rec.type, link: rec.link,
+      category: rec.category, cat, statementYear,
+      statements: rec.statements || [],
+      reports: rec.reports || [],
+      codeSignatory: rec.codeSignatory === true,
+      codeUnknown: rec.codeSignatory == null,
+      naReason: rec.naReason || null,
+      limited: rec.detail === 'limited',
+      scraped: Q.scraped,
+      // A category a student should not skip past on their way to a
+      // lower price. 3 and 4 both carried real regulatory consequences.
+      concern: rec.category === 3 || rec.category === 4,
+    };
+  }
+
+  /* Does moving to this cheaper provider mean accepting a materially
+     worse regulatory record? Returns null when either side is unknown —
+     a university has no category by design, and comparing a number to a
+     blank would manufacture a warning out of nothing. */
+  function qualityDelta(fromId, toId) {
+    const a = qualityFor(fromId), b = qualityFor(toId);
+    if (!a || !b || a.category == null || b.category == null) return null;
+    if (b.category <= a.category) return null;
+    return { from: a.category, to: b.category, worse: b.category - a.category, target: b };
+  }
+
   const money = n => 'NZ$' + Number(n || 0).toLocaleString('en-US');
   const lkr = (nzd) => {
     const r = (D().fx && D().fx.nzdToLkr) || 0;
@@ -429,7 +480,7 @@ const PFRoi = (() => {
 
   return { compute, cheaperRoutes, tuitionPerYear, graduateEarnings, studyIncomePerYear,
            livingPerYear, setupCost, afterTax, levelNineTierCounts, fmtYears, money, lkr,
-           providerChoices, providerOf };
+           providerChoices, providerOf, qualityFor, qualityDelta };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = PFRoi;

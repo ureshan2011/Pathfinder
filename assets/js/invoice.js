@@ -630,6 +630,25 @@ const PFInvoice = (() => {
     p.y += 6;
     if (s.verdict) { p.flow(s.verdict, M, 10, { color: SOFT, lh: 14 }); p.y += 10; }
 
+    /* The regulator's record on the provider. On paper this matters more
+       than on screen: the sheet is what gets read by the person paying,
+       and "it costs less" is a much easier sentence to accept than "it
+       costs less AND here is who says they're any good". */
+    if (s.quality) {
+      const q = s.quality;
+      p.need(78);
+      p.hr(p.y, LINE, 0.7);
+      p.y += 16;
+      p.text('WHO WE\'D BE PAYING', M, p.y, 8, { bold: true, color: FAINT });
+      p.y += 16;
+      p.y += p.para(q.name, M, p.y, 11, { bold: true, maxW: p.CW });
+      p.y += 4;
+      if (q.verdict) p.y += p.para(q.verdict, M, p.y, 9.5, { color: SOFT, maxW: p.CW, lh: 13 });
+      (q.lines || []).forEach(l => { p.need(16); p.y += p.para(l, M, p.y, 9, { color: SOFT, maxW: p.CW, lh: 12.5 }) + 3; });
+      if (q.note) { p.y += 4; p.y += p.para(q.note, M, p.y, 8, { color: FAINT, maxW: p.CW, lh: 11 }); }
+      p.y += 12;
+    }
+
     /* Alternatives — the part that proves this was a decision, not a wish. */
     if ((s.alternatives || []).length) {
       p.need(60);
