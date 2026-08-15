@@ -2719,31 +2719,45 @@ function renderFunding(main) {
   paintFunding(main);
 }
 
+/* A scholarship's deadline chip — real date math when s.closing parses to
+   one (warn inside 30 days, alert once passed), a plain neutral chip with
+   the provider's own text otherwise ("Refer to website" isn't a date). */
+function deadlineChip(closing) {
+  const ts = closing ? Date.parse(closing) : NaN;
+  if (isNaN(ts)) return `<span class="chip chip-neutral">Closes: ${esc(closing || 'Refer to website')}</span>`;
+  const days = Math.ceil((ts - Date.now()) / 86400000);
+  const cls = days < 0 ? 'chip-alert' : days <= 30 ? 'chip-warn' : 'chip-neutral';
+  const label = days < 0 ? 'Closed' : days === 0 ? 'Closes today' : `Closes in ${days}d`;
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
 function paintFunding(main) {
   const T = trackCfg();
   const list = window.PF_CAT_SCHOLARSHIPS || null;
   const masters = isMasters();
+  const savedCount = PFStore.getSaved().filter(s => s.kind === 'scholarship').length;
 
-  main.innerHTML = viewHead('payments', 'Scholarship & Funding Hub', `Fund ${T.possessive}`,
-    masters
-      ? 'Master’s students pay full international tuition and there is no NZ equivalent of the doctoral stipend — so scholarships here mostly discount fees, have hard deadlines, and are not automatic with admission. Apply early and apply widely.'
-      : 'NZ PhD students pay domestic fees (~NZ$7–8k/yr) and most doctoral scholarships cover fees plus a NZ$28–33k living stipend, awarded with admission rather than by separate application.') +
+  main.innerHTML = renderHero({
+    kicker: 'Scholarship & Funding Hub', title: `Fund ${T.possessive}`,
+    body: masters
+      ? 'Master’s scholarships discount fees, have hard deadlines, and are not automatic with admission.'
+      : 'Most doctoral scholarships cover fees plus a living stipend, awarded with admission.',
+    figure: savedCount, figureCaption: 'Saved',
+  }) +
     fundsCheckBanner() +
     (list ? scholarshipBrowser(list) : legacyScholarships()) +
 
-    `<div class="sec-head" style="margin:72px 0 28px">
-      <span class="tag"><span class="material-symbols-outlined" style="font-size:14px">flight_takeoff</span>Immigration & Visa</span>
-      <h2 style="font-size:1.6rem;margin-top:14px">Latest visa updates for ${masters ? 'master’s' : 'PhD'} students</h2>
-    </div>
-    <div>${visaUpdates().map(v => `
-      <div class="visa-row">
-        <span class="chip chip-violet" style="flex-shrink:0">${esc(v.tag)}</span>
-        <div>
-          <strong style="font-size:14.5px">${esc(v.title)}</strong>
-          <span class="faint" style="font-size:12px;margin-left:8px">${esc(v.date)}</span>
-          <p class="muted" style="font-size:13.5px;margin-top:4px">${esc(v.body)}</p>
-        </div>
-      </div>`).join('')}
+    `<div class="listcard mt-7">
+      <div class="listcard-head"><h2 class="listcard-title">Latest visa updates</h2>
+        <span class="listcard-summary">${masters ? 'Master’s' : 'PhD'} students</span></div>
+      ${visaUpdates().map(v => `
+        <div class="row">
+          <span class="chip chip-info">${esc(v.tag)}</span>
+          <div class="row-main">
+            <div class="row-title">${esc(v.title)} <span class="row-sub">· ${esc(v.date)}</span></div>
+            <div class="row-sub">${esc(v.body)}</div>
+          </div>
+        </div>`).join('')}
     </div>`;
 
   const rerender = () => paintFunding(main);
@@ -2777,18 +2791,23 @@ function scholarshipBrowser(list) {
     return true;
   });
 
-  /* Providers publish a lot of catch-all pages — "General Scholarship",
-     "scholarships FAQs" — with no stated value and no closing date. They are
-     real entries, but a student cannot act on them, so anything carrying a
-     dollar figure and a specific level tag sorts above them. */
+  // Sort by deadline: a real, parseable closing date soonest first: then
+  // scholarships with an unparseable closing note ("Refer to website"); a
+  // dollar figure and a specific level tag still break ties within each
+  // group, since providers publish a lot of catch-all pages with neither.
   const actionable = s => {
     let score = 0;
-    if ((s.values || []).some(v => /\d/.test(v.value || ''))) score -= 4;
-    if (!/refer to website|open all year/i.test(s.closing || '')) score -= 2;
+    if ((s.values || []).some(v => /\d/.test(v.value || ''))) score -= 2;
     if ((s.levels || []).some(l => l !== 'General')) score -= 1;
     return score;
   };
-  rows.sort((a, b) => actionable(a) - actionable(b) || a.n.localeCompare(b.n));
+  rows.sort((a, b) => {
+    const da = Date.parse(a.closing), db = Date.parse(b.closing);
+    if (!isNaN(da) && !isNaN(db)) return da - db;
+    if (!isNaN(da)) return -1;
+    if (!isNaN(db)) return 1;
+    return actionable(a) - actionable(b) || a.n.localeCompare(b.n);
+  });
 
   const orgs = [...new Set(list.map(s => s.o))]
     .map(id => [id, cat && cat.providers[id]]).filter(([, p]) => p)
@@ -2806,39 +2825,40 @@ function scholarshipBrowser(list) {
       <label class="fh-check"><input type="checkbox" id="fh-intl" ${fundingState.intlOnly ? 'checked' : ''} />
         Open to international students only</label>
     </div>
-    <p class="faint crs-count">${rows.length} scholarship${rows.length === 1 ? '' : 's'}</p>
-    <div class="grid-2">${rows.map(s => scholarshipCard(s, cat)).join('') ||
-      '<p class="muted">Nothing matches those filters yet — try clearing the provider or level.</p>'}</div>
-    <p class="faint" style="margin-top:22px;font-size:12px">Sourced from provider scholarship pages via the NZQA register.
+    <div class="listcard mt-3">
+      <div class="listcard-head"><h2 class="listcard-title">Scholarships</h2>
+        <span class="listcard-summary">${rows.length} sorted by deadline</span></div>
+      ${rows.length ? rows.map(s => scholarshipRow(s, cat)).join('')
+        : '<p>Nothing matches those filters yet — try clearing the provider or level.</p>'}
+    </div>
+    <p class="row-sub mt-4">Sourced from provider scholarship pages via the NZQA register.
       Values and closing dates change every year — confirm on the provider’s own page before you rely on one.</p>`;
 }
 
-function scholarshipCard(s, cat) {
+function scholarshipRow(s, cat) {
   const provider = cat && cat.providers[s.o];
-  // `values` and `lengths` are condition-keyed: an award can be worth one
-  // thing to a domestic student and another to an international one, so we
-  // show every condition rather than collapsing to a single headline figure.
+  // `values` are condition-keyed: an award can be worth one thing to a
+  // domestic student and another to an international one, so every
+  // condition shows rather than collapsing to a single headline figure.
   const values = (s.values || []).filter(v => v.value);
   const el = s.eligibility || {};
-  return `<div class="card">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <h3 style="font-size:1.02rem;line-height:1.35">${esc(s.n)}</h3>
-      ${saveBtn('scholarship', s.i, s.n, provider ? provider.name : '')}
-    </div>
-    <div style="margin:12px 0 10px;display:flex;gap:8px;flex-wrap:wrap">
-      ${values.map(v => `<span class="chip chip-teal">${esc(v.value)}${
-        v.condition && v.condition !== 'NoCondition' ? ` (${esc(v.condition)})` : ''}</span>`).join('')}
-      <span class="chip chip-gold">Closes: ${esc(s.closing || 'Refer to website')}</span>
-      ${(s.levels || []).map(l => `<span class="chip chip-dim">${esc(l)}</span>`).join('')}
-      ${el.internationalOnly ? '<span class="chip chip-violet">International students</span>' : ''}
-    </div>
-    ${provider ? `<p class="faint" style="font-size:12.5px;margin-bottom:8px">${esc(provider.name)}</p>` : ''}
-    <p class="muted" style="font-size:13.5px">${esc((s.about || '').slice(0, 320))}${(s.about || '').length > 320 ? '…' : ''}</p>
-    ${el.other ? `<p class="muted" style="font-size:13px;margin-top:8px"><strong>Eligibility:</strong> ${esc(el.other)}</p>` : ''}
-    ${s.url ? `<a class="btn btn-quiet btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-top:12px">
-      Provider page <span class="material-symbols-outlined" style="font-size:15px">open_in_new</span></a>` : ''}
-    ${consultCTA(isMasters() ? 'masters-intake' : 'visa-offer')}
-  </div>`;
+  return `<div class="row">
+      <div class="row-main">
+        <div class="row-title">${esc(s.n)}</div>
+        <div class="row-sub">${provider ? esc(provider.name) + ' · ' : ''}${esc((s.about || '').slice(0, 200))}${(s.about || '').length > 200 ? '…' : ''}
+          ${el.other ? ` <strong>Eligibility:</strong> ${esc(el.other)}` : ''}</div>
+        <div class="mt-3">
+          ${values.map(v => `<span class="chip chip-ok">${esc(v.value)}${
+            v.condition && v.condition !== 'NoCondition' ? ` (${esc(v.condition)})` : ''}</span>`).join('')}
+          ${deadlineChip(s.closing)}
+          ${el.internationalOnly ? '<span class="chip chip-info">International students</span>' : ''}
+        </div>
+      </div>
+      <div class="row-actions">
+        ${s.url ? `<a class="btn btn-quiet btn-sm" href="${esc(s.url)}" target="_blank" rel="noopener">Provider page</a>` : ''}
+        ${saveBtn('scholarship', s.i, s.n, provider ? provider.name : '')}
+      </div>
+    </div>`;
 }
 
 /* Fallback when the scholarship shard can't load — the original eight
