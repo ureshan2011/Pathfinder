@@ -750,22 +750,22 @@ function consultCTA(topic) {
 
 /* status chip for a mentor_requests doc — reuses site.css chip tokens */
 function reqStatusChip(status) {
-  const cls = { open:'chip-rose', claimed:'chip-violet', intro_done:'chip-gold',
-    awaiting_payment:'chip-gold', paid:'chip-teal', completed:'chip-teal', cancelled:'chip-dim' };
+  const cls = { open:'chip-warn', claimed:'chip-info', intro_done:'chip-info',
+    awaiting_payment:'chip-warn', paid:'chip-ok', completed:'chip-ok', cancelled:'chip-neutral' };
   const lbl = { open:'Open', claimed:'Claimed', intro_done:'Intro done',
     awaiting_payment:'Awaiting payment', paid:'Paid', completed:'Completed', cancelled:'Cancelled' };
-  return `<span class="chip ${cls[status] || 'chip-dim'}">${lbl[status] || status}</span>`;
+  return `<span class="chip ${cls[status] || 'chip-neutral'}">${lbl[status] || status}</span>`;
 }
 
 /* payment-status chip — works whether paymentStatus was set manually
    (Tier 1) or by the PayHere webhook (Tier 2): both write the same field */
 function payStatusChip(payment) {
   const ps = (payment && payment.paymentStatus) || 'none';
-  const cls = { none:'chip-dim', requested:'chip-gold', reported:'chip-violet', pending:'chip-gold', paid:'chip-teal' };
+  const cls = { none:'chip-neutral', requested:'chip-warn', reported:'chip-info', pending:'chip-warn', paid:'chip-ok' };
   const lbl = { none:'No payment', requested:'Payment requested', reported:'Payment reported', pending:'Awaiting payment', paid:'Paid' };
   const amt = ps !== 'none' && payment && payment.amountLKR
     ? ` · LKR ${Number(payment.amountLKR).toLocaleString()}` : '';
-  return `<span class="chip ${cls[ps] || 'chip-dim'}">${lbl[ps] || ps}${amt}</span>`;
+  return `<span class="chip ${cls[ps] || 'chip-neutral'}">${lbl[ps] || ps}${amt}</span>`;
 }
 
 /* inline "Ask a mentor" hook — expand + submit, no navigation. Gated
@@ -3689,11 +3689,13 @@ function renderMentors(main) {
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
 
-  main.innerHTML = viewHead('support_agent', 'Mentors', 'Ask someone who has been through it',
-    `Ask anything about your move to New Zealand — a Sri Lankan postgrad who has been through it will pick it up. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free; paid follow-on sessions are optional and only if you want to continue.`) +
-    `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px" id="mtr-tabs">
-      <button class="chip-filter ${mentorsTab === 'ask' ? 'active' : ''}" data-mtab="ask">Ask a mentor</button>
-      <button class="chip-filter ${mentorsTab === 'mine' ? 'active' : ''}" data-mtab="mine">My requests</button>
+  main.innerHTML = renderHero({
+    kicker: 'Mentors', title: 'Ask someone who has been through it',
+    body: `Your first ${PF_CONFIG.freeIntroMinutes} minutes are free — paid follow-on sessions are optional.`,
+  }) +
+    `<div class="tab-row" id="mtr-tabs" role="tablist" aria-label="Mentors">
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'ask'}" data-mtab="ask">Ask a mentor</button>
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'mine'}" data-mtab="mine">My requests</button>
     </div>
     <div id="mtr-body"></div>`;
 
@@ -3706,12 +3708,10 @@ function renderMentors(main) {
     // mentor network freely, but to actually ask one they create/sign into a
     // free account first, so the request is tied to them and trackable.
     const askCard = signedIn ? `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
-        <p class="muted" style="font-size:13.5px;margin-bottom:16px">
-          One question, one form. No need to pick a person — your request joins a shared queue and the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: <strong>${topicLabel}</strong>.` : ''}
-        </p>
-        <form id="ask-form" style="display:flex;flex-direction:column;gap:12px">
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Ask a mentor</h2></div>
+        <p>Your request joins a shared queue — the first available mentor in the right area claims it.${topicLabel ? ` Pre-filled topic: ${esc(topicLabel)}.` : ''}</p>
+        <form id="ask-form" class="mt-4" style="display:flex;flex-direction:column;gap:12px">
           <select class="field" id="ask-topic">
             <option value="">General guidance</option>
             ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
@@ -3720,28 +3720,25 @@ function renderMentors(main) {
           <input class="field" id="ask-name" placeholder="Your name" autocomplete="name">
           <input class="field" id="ask-contact" placeholder="Email or WhatsApp — how a mentor reaches you">
           <textarea class="field" id="ask-note" rows="3" placeholder="What do you want to ask? (a line or two)"></textarea>
-          <button class="btn btn-primary" type="submit" style="align-self:flex-start">Ask a mentor</button>
+          <button class="btn" type="submit" style="align-self:flex-start">Ask a mentor</button>
         </form>
       </div>` : `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <h2 style="font-size:1.15rem;margin-bottom:6px">Ask a mentor</h2>
-        <p class="muted" style="font-size:13.5px;margin-bottom:16px">
-          Connecting with a mentor needs a free account, so your request is tied to you and you can follow it across devices. Exploring everything else stays free — no account needed.${topicLabel ? ` We’ll keep your topic: <strong>${topicLabel}</strong>.` : ''}
-        </p>
-        <a class="btn btn-primary" href="${accountHref('mentors' + (topic ? '?topic=' + topic : ''))}" style="align-self:flex-start">
-          <span class="material-symbols-outlined" style="font-size:16px">account_circle</span>
+      <div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">Ask a mentor</h2></div>
+        <p>Connecting with a mentor needs a free account, so your request is tied to you and follows you across devices.${topicLabel ? ` We'll keep your topic: ${esc(topicLabel)}.` : ''}</p>
+        <a class="btn mt-4" href="${accountHref('mentors' + (topic ? '?topic=' + topic : ''))}" style="align-self:flex-start">
+          <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
           Create a free account to ask
         </a>
       </div>`;
 
-    body.innerHTML = askCard + `
-      <div class="card" style="max-width:680px;margin-bottom:24px">
-        <div class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">The mentor network</div>
-        <p style="font-size:14px;margin:0 0 12px"><strong>${st.count} mentor${st.count === 1 ? '' : 's'}</strong> active across <strong>${st.fields.length} field${st.fields.length === 1 ? '' : 's'}</strong> — current PhD students and graduates from Sri Lanka, already in New Zealand.</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${st.fields.map(([f, n]) => `<span class="chip chip-dim">${esc(f)} · ${n}</span>`).join('')}
-        </div>
+    const sidecard = `<div class="sidecard">
+        <span class="sidecard-kicker">The mentor network</span>
+        <p>${st.count} mentor${st.count === 1 ? '' : 's'} active across ${st.fields.length} field${st.fields.length === 1 ? '' : 's'} — postgrads from Sri Lanka, already in New Zealand.</p>
+        <div class="chip-row mt-4">${st.fields.map(([f, n]) => `<span class="chip chip-neutral">${esc(f)} · ${n}</span>`).join('')}</div>
       </div>`;
+
+    body.innerHTML = `<div class="viewgrid"><div style="max-width:680px">${askCard}</div><div class="aside">${sidecard}</div></div>`;
 
     const askForm = $('#ask-form');
     if (askForm) askForm.addEventListener('submit', e => {
@@ -3760,10 +3757,12 @@ function renderMentors(main) {
   function paintMine() {
     const render = (list, live) => {
       cacheReqs(list);
-      body.innerHTML = list.length ? `
-        ${live ? '' : `<p class="faint" style="font-size:12.5px;margin:0 0 14px">Showing requests saved on this device.${window.PFCloud && PFCloud.isSignedIn() ? '' : ' Sign in to track them across devices.'}</p>`}
-        ${list.map(r => studentReqCard(r)).join('')}`
-        : `<div class="card"><p class="muted" style="font-size:14px">No requests yet. Use <a href="#mentors" class="route-link" style="color:var(--route)">Ask a mentor</a> above whenever a step gets confusing — your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p></div>`;
+      body.innerHTML = `<div class="listcard">
+        <div class="listcard-head"><h2 class="listcard-title">My requests</h2>
+          ${!live ? `<span class="listcard-summary">On this device${window.PFCloud && PFCloud.isSignedIn() ? '' : ' — sign in to sync'}</span>` : ''}</div>
+        ${list.length ? list.map(r => studentReqCard(r)).join('')
+          : `<p>No requests yet — ask above whenever a step gets confusing. Your first ${PF_CONFIG.freeIntroMinutes} minutes are free.</p>`}
+      </div>`;
     };
     // Local copy is the synchronous source of truth; if signed in, refresh
     // from Firestore so mentor-side status/payment updates show through.
@@ -3778,9 +3777,9 @@ function renderMentors(main) {
 
   function paint() { (mentorsTab === 'mine' ? paintMine : paintAsk)(); }
 
-  $$('#mtr-tabs .chip-filter').forEach(b => b.onclick = () => {
+  $$('#mtr-tabs .tab').forEach(b => b.onclick = () => {
     mentorsTab = b.dataset.mtab;
-    $$('#mtr-tabs .chip-filter').forEach(x => x.classList.toggle('active', x === b));
+    $$('#mtr-tabs .tab').forEach(x => x.setAttribute('aria-selected', String(x === b)));
     paint();
   });
   paint();
@@ -3792,30 +3791,21 @@ function studentReqCard(r) {
   const payable = r.status === 'awaiting_payment' && ps === 'requested';
   const reported = r.status === 'awaiting_payment' && ps === 'reported';
   const payLabel = PFPay.isPayHereLive()
-    ? 'Pay securely (Cards, HelaPay, eZ Cash, Genie &amp; more)'
+    ? 'Pay securely (Cards, HelaPay, eZ Cash, Genie & more)'
     : 'Pay now (bank transfer / mobile wallet)';
-  return `<div class="card" style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
-      <div style="flex:1;min-width:200px">
-        <strong style="font-size:14.5px">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'}</strong>
-        <div class="faint" style="font-size:12.5px">${r.at ? new Date(r.at).toLocaleDateString() : ''}</div>
-        ${r.note ? `<div class="muted" style="font-size:13px;margin-top:6px">${esc(r.note)}</div>` : ''}
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        ${reqStatusChip(r.status)}
-        ${r.payment ? payStatusChip(r.payment) : ''}
-      </div>
+  return `<div class="row" style="flex-wrap:wrap">
+    <div class="row-main">
+      <div class="row-title">${PF_CONSULT_TOPICS[r.topic] || 'General guidance'}</div>
+      <div class="row-sub">${r.at ? new Date(r.at).toLocaleDateString() : ''}${r.note ? ' · ' + esc(r.note) : ''}</div>
+      ${payable ? `<p class="mt-3">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. Continue with a paid follow-on session for LKR ${Number(r.payment.amountLKR).toLocaleString()}.</p>
+        <button type="button" class="btn btn-sm pay-now mt-3" data-req="${r.id}">
+          <span class="material-symbols-outlined" aria-hidden="true">lock</span>${payLabel}</button>` : ''}
+      ${reported ? `<p class="mt-3">Payment reported — your mentor will confirm receipt and book the session shortly.${r.payment.payerRef ? ` Reference: ${esc(r.payment.payerRef)}.` : ''}</p>` : ''}
     </div>
-    ${payable ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Your free ${PF_CONFIG.freeIntroMinutes}-minute intro is done. To continue with a paid follow-on session (LKR ${Number(r.payment.amountLKR).toLocaleString()}), pay below — then your mentor confirms and books the session.</p>
-      <button class="btn btn-primary btn-sm pay-now" data-req="${r.id}" style="width:100%;justify-content:center">
-        <span class="material-symbols-outlined" style="font-size:16px">lock</span>
-        ${payLabel}
-      </button>
-    </div>` : ''}
-    ${reported ? `<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
-      <p class="muted" style="font-size:13px;margin:0">Payment reported — your mentor will confirm receipt and book the session shortly.${r.payment.payerRef ? ` Reference: <strong class="mono">${esc(r.payment.payerRef)}</strong>.` : ''}</p>
-    </div>` : ''}
+    <div class="row-actions">
+      ${reqStatusChip(r.status)}
+      ${r.payment ? payStatusChip(r.payment) : ''}
+    </div>
   </div>`;
 }
 
