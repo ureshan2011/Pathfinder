@@ -37,11 +37,11 @@
 
     /* 200vh, not 260: the dolly still reads as a walk through the doorway,
        but a visitor reaches the first real section a screen and a half sooner. */
-    .hero-zone { position: relative; height: 200vh; background: #131110; }
+    .hero-zone { position: relative; height: 200vh; background: var(--night); }
     .stage {
       position: sticky; top: 0; height: 100vh; overflow: hidden;
       display: flex; flex-direction: column; isolation: isolate;
-      background: #131110; color: #F0EDE6;
+      background: var(--night); color: #F0EDE6;
     }
     #hero-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 
@@ -49,8 +49,8 @@
     .stage-vignette {
       position: absolute; inset: 0; z-index: 2; pointer-events: none;
       background:
-        linear-gradient(100deg, rgba(15,13,11,.82) 0%, rgba(15,13,11,.46) 38%, transparent 62%),
-        radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(8,7,6,.55) 100%);
+        linear-gradient(100deg, rgba(24,22,16,.84) 0%, rgba(24,22,16,.46) 38%, transparent 62%),
+        radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(10,9,6,.58) 100%);
     }
     .grain {
       position: absolute; inset: -50%; z-index: 3; pointer-events: none; opacity: .28;
@@ -115,22 +115,17 @@
     .stage .tlink:hover { color: #E8763F; }
     .stage .tlink::after { background: #E8763F; }
 
-    .trust {
-      margin-top: 50px;
-      opacity: 0; transform: translateY(14px); animation: rise .8s cubic-bezier(.16,.84,.32,1) .88s forwards;
-    }
-    .trust .lab { margin-bottom: 12px; color: rgba(240,237,230,.4); }
-    .trust .unis { display: flex; gap: 10px 26px; flex-wrap: wrap; font-size: 13.5px; font-weight: 500; color: rgba(240,237,230,.55); }
-    .trust .unis span { transition: color .25s; cursor: default; }
-    .trust .unis span:hover { color: #E8763F; }
     @keyframes rise { to { opacity: 1; transform: translateY(0); } }
 
     /* bottom strip */
     .stage-foot {
       position: absolute; left: 0; right: 0; bottom: 0; z-index: 10;
-      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      display: flex; justify-content: flex-end; align-items: center; gap: 16px;
       padding: 0 clamp(24px, 5vw, 72px) 22px;
     }
+    /* a short laptop window is the case where an absolutely-positioned
+       footer runs into the copy above it — drop it rather than overlap */
+    @media (max-height: 720px) { .stage-foot { display: none; } }
     .stage-foot .mono { color: rgba(240,237,230,.4); }
     .stage-foot .mono .tick { color: #E8763F; }
     .scroll-hint { display: flex; align-items: center; gap: 10px; }
@@ -152,7 +147,7 @@
 
     /* nav over the dark stage */
     .nav.on-dark { background: transparent; border-bottom-color: transparent; }
-    .nav.on-dark.scrolled { background: rgba(19,17,16,.78); backdrop-filter: blur(14px); border-bottom-color: rgba(244,241,234,.07); }
+    .nav.on-dark.scrolled { background: rgba(24,22,16,.80); backdrop-filter: blur(14px); border-bottom-color: rgba(244,241,234,.07); }
     .nav.on-dark .logo .word { color: #F0EDE6; }
     .nav.on-dark .logo .word i { color: #E8763F; }
     .nav.on-dark .logo .mono { color: rgba(240,237,230,.35); }
@@ -166,9 +161,14 @@
       .hero-zone { height: auto; }
       .stage { position: relative; height: auto; min-height: 100svh; }
       .hero-grid { grid-template-columns: 1fr; align-items: end; padding-top: 90px; }
-      .copy { padding-bottom: 80px; max-width: none; }
+      /* the right-hand column holds the doorway's space in the 3D scene, not
+         content — as a second grid row it just pushes the copy off the bottom */
+      .hero-grid > div:last-child { display: none; }
+      .copy { padding-bottom: 72px; max-width: none; }
+      /* the door is behind the copy here rather than beside it, so the scrim
+         carries a flat mid-band as well as the top and bottom falloff */
       .stage-vignette {
-        background: linear-gradient(180deg, rgba(15,13,11,.55) 0%, transparent 30%, transparent 45%, rgba(15,13,11,.86) 78%, rgba(15,13,11,.94) 100%);
+        background: linear-gradient(180deg, rgba(24,22,16,.62) 0%, rgba(24,22,16,.28) 26%, rgba(24,22,16,.34) 52%, rgba(24,22,16,.88) 80%, rgba(24,22,16,.96) 100%);
       }
       .stage-foot { display: none; }
     }
@@ -199,7 +199,13 @@
     .cat-cell .n { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; color: var(--route); }
     .cat-cell .t { font-size: 14.5px; line-height: 1.38; font-weight: 500; color: var(--ink); }
     .cat-stats { display: flex; gap: 44px; flex-wrap: wrap; margin: 30px 0 34px; }
-    .cat-stat .fig { font-family: var(--font-display); font-size: clamp(2rem, 4.4vw, 3.1rem); font-weight: 560; line-height: 1; color: var(--ink); }
+    /* tabular figures so the count-up doesn't wobble digit by digit; the
+       width is pinned in JS to the final string before the count starts */
+    .cat-stat .fig {
+      font-family: var(--font-display); font-size: clamp(2rem, 4.4vw, 3.1rem);
+      font-weight: 560; line-height: 1; color: var(--ink);
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+    }
     .cat-stat .cap { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-top: 8px; }
 
     /* ════════ THE JOURNEY — seven stages on a dashed rail ════════
@@ -383,22 +389,13 @@
           </span>
         </div>
 
-        <div class="trust">
-          <!-- The universities are the names people recognise, but the
-               catalogue is the whole register — say both, or the page
-               promises less than it holds. -->
-          <div class="lab mono">All 51 NZ providers · including</div>
-          <div class="unis">
-            <span>Auckland</span><span>Otago</span><span>Victoria — Wellington</span>
-            <span>Canterbury</span><span>Massey</span><span>Waikato</span>
-          </div>
-        </div>
       </div>
       <div><!-- right column: the rendered doorway sits here in 3D space --></div>
     </div>
 
+    <!-- One line only. Anything else down here collides with the copy on a
+         short laptop screen, and the hero has already said its piece. -->
     <div class="stage-foot">
-      <span class="mono"><span class="tick">●</span>&nbsp; 2027 intake open</span>
       <span class="scroll-hint mono">Scroll to continue<span class="sbar"></span></span>
     </div>
 
@@ -407,7 +404,25 @@
 </section>
 
 <script type="module">
-/* ══════════ The Threshold — real-time 3D doorway ══════════ */
+/* ══════════ The Threshold — real-time 3D doorway ══════════
+   A doorway standing in the dark with light behind it, rendered for real:
+   perspective, a point-lit stone frame, a cool rim to separate it from the
+   ground, a light pool and reflection on the floor, drifting dust, fog.
+   Scroll dollies the camera to the threshold and hands off to the page.
+
+   Two rules hold the piece together:
+
+   · IT IS THE SAME ROOM AS THE REST OF THE SITE. The ground is --night
+     (#181610) — the exact band the People chapter sits on — and the light
+     runs paper-white → #E8763F (the hero accent) → --route (#C2401C). No
+     colour appears here that isn't already in the stylesheet, so scrolling
+     out of the hero is a change of light, not a change of brand.
+
+   · EVERY MOTION IS FRAME-RATE INDEPENDENT. Damping is
+     1 - exp(-lambda * dt), never a fixed per-frame fraction, so the sway,
+     the dolly and the dust move identically at 60, 90 and 144Hz instead of
+     racing on a high-refresh screen. dt is clamped so a backgrounded tab
+     doesn't teleport the camera on its first frame back. */
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 const stage = document.getElementById('stage');
@@ -425,14 +440,24 @@ try {
 }
 
 if (renderer) {
+  /* ── palette, straight off the stylesheet ── */
+  const C = {
+    night:  0x181610,   // --night, the site's dark band
+    stone:  0x4A4238,   // frame, a warm ink-grey
+    ember:  0xE8763F,   // the hero accent
+    route:  0xC2401C,   // --route
+    rim:    0x7C8798,   // cool separation light — the only cold note
+    mote:   0xFFC79B,
+  };
+
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.06;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x131110);
-  scene.fog = new THREE.FogExp2(0x131110, 0.052);
+  scene.background = new THREE.Color(C.night);
+  scene.fog = new THREE.FogExp2(C.night, 0.05);
 
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 80);
 
@@ -443,36 +468,85 @@ if (renderer) {
     draw(c.getContext('2d'), w, h);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
     return t;
   }
-  // the luminous plane inside the doorway — hot core low, cooling upward
-  const apertureTex = makeTex(256, 512, (g, w, h) => {
-    const grd = g.createRadialGradient(w/2, h*1.06, h*.04, w/2, h*1.06, h*1.35);
-    grd.addColorStop(0, '#fff7ef');
-    grd.addColorStop(.14, '#ffd9b8');
-    grd.addColorStop(.34, '#f08648');
-    grd.addColorStop(.58, '#c2401c');
-    grd.addColorStop(.82, '#71200a');
-    grd.addColorStop(1, '#2e0d04');
+  // the luminous plane inside the doorway — hot core low, cooling upward.
+  // The stops are the site's own ramp: paper → ember → route → embers out.
+  const apertureTex = makeTex(512, 1024, (g, w, h) => {
+    const grd = g.createRadialGradient(w/2, h*1.02, h*.02, w/2, h*1.02, h*.98);
+    grd.addColorStop(0,   '#FFE3C2');   // warm cream, never #fff — ACES turns a
+    grd.addColorStop(.09, '#F9CFA0');   // blown-out white into a green-grey smear
+    grd.addColorStop(.22, '#F09A55');
+    grd.addColorStop(.40, '#E8763F');
+    grd.addColorStop(.60, '#C2401C');
+    grd.addColorStop(.80, '#7A2A0C');
+    grd.addColorStop(1,   '#341509');
     g.fillStyle = grd; g.fillRect(0, 0, w, h);
   });
-  // soft round glow sprite
+  // soft round glow sprite — bloom, halo, dust and the floor pool all use it
   const glowTex = makeTex(256, 256, (g, w, h) => {
     const grd = g.createRadialGradient(w/2, h/2, 0, w/2, h/2, w/2);
-    grd.addColorStop(0, 'rgba(255,255,255,1)');
-    grd.addColorStop(.25, 'rgba(255,210,170,.55)');
-    grd.addColorStop(.6, 'rgba(255,140,80,.16)');
-    grd.addColorStop(1, 'rgba(255,120,60,0)');
+    grd.addColorStop(0,   'rgba(255,255,255,1)');
+    grd.addColorStop(.25, 'rgba(255,214,178,.55)');
+    grd.addColorStop(.6,  'rgba(232,118,63,.15)');
+    grd.addColorStop(1,   'rgba(232,118,63,0)');
     g.fillStyle = grd; g.fillRect(0, 0, w, h);
   });
   // vertical streak for the floor reflection
   const streakTex = makeTex(128, 256, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h);
-    grd.addColorStop(0, 'rgba(255,190,150,.95)');
-    grd.addColorStop(.4, 'rgba(240,110,55,.34)');
-    grd.addColorStop(1, 'rgba(240,110,55,0)');
+    grd.addColorStop(0,  'rgba(255,198,158,.92)');
+    grd.addColorStop(.4, 'rgba(232,118,63,.32)');
+    grd.addColorStop(1,  'rgba(232,118,63,0)');
     g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    // feather the sides — a beam with straight edges is the most CG-looking
+    // thing in the frame, and light falling through a doorway has none
+    g.globalCompositeOperation = 'destination-in';
+    const side = g.createLinearGradient(0, 0, w, 0);
+    side.addColorStop(0,   'rgba(0,0,0,0)');
+    side.addColorStop(.28, 'rgba(0,0,0,.85)');
+    side.addColorStop(.5,  'rgba(0,0,0,1)');
+    side.addColorStop(.72, 'rgba(0,0,0,.85)');
+    side.addColorStop(1,   'rgba(0,0,0,0)');
+    g.fillStyle = side; g.fillRect(0, 0, w, h);
   });
+  // seamless grain — bump + roughness variation on the stone. Drawn nine
+  // times per blob (3×3 wrap) so the tile has no visible seam.
+  const grainTex = makeTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#7a7a7a'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 220; i++) {
+      const x = Math.random() * w, y = Math.random() * h;
+      const r = 3 + Math.random() * 26;
+      const v = Math.random() * 255 | 0;
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const grd = g.createRadialGradient(x + ox*w, y + oy*h, 0, x + ox*w, y + oy*h, r);
+        grd.addColorStop(0, `rgba(${v},${v},${v},.5)`);
+        grd.addColorStop(1, `rgba(${v},${v},${v},0)`);
+        g.fillStyle = grd;
+        g.fillRect(x + ox*w - r, y + oy*h - r, r*2, r*2);
+      }
+    }
+  });
+  grainTex.wrapS = grainTex.wrapT = THREE.RepeatWrapping;
+  grainTex.repeat.set(2, 5);
+  // slow-drifting light wisps laid over the aperture, so the portal reads as
+  // something moving rather than a printed gradient
+  const wispTex = makeTex(256, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    for (let i = 0; i < 34; i++) {
+      const x = Math.random() * w, y = Math.random() * h;
+      const r = 18 + Math.random() * 62, a = .06 + Math.random() * .12;
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const grd = g.createRadialGradient(x + ox*w, y + oy*h, 0, x + ox*w, y + oy*h, r);
+        grd.addColorStop(0, `rgba(255,222,190,${a})`);
+        grd.addColorStop(1, 'rgba(255,200,160,0)');
+        g.fillStyle = grd;
+        g.fillRect(x + ox*w - r, y + oy*h - r, r*2, r*2);
+      }
+    }
+  });
+  wispTex.wrapS = wispTex.wrapT = THREE.RepeatWrapping;
 
   /* ── the doorway ── */
   const FLOOR_Y = -2.05;
@@ -484,27 +558,39 @@ if (renderer) {
     new THREE.PlaneGeometry(APW, APH),
     new THREE.MeshBasicMaterial({ map: apertureTex, toneMapped: true })
   );
-  aperture.position.y = FLOOR_Y + APH / 2;
+  aperture.position.set(0, FLOOR_Y + APH / 2, -.06);
   doorway.add(aperture);
 
-  // light bloom hugging the aperture, plus a wide ambient halo
-  const bloom = new THREE.Mesh(
-    new THREE.PlaneGeometry(APW * 2.6, APH * 1.9),
-    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .5,
-      blending: THREE.AdditiveBlending, depthWrite: false, color: 0xff8a4e })
+  // the moving light inside it
+  const wisps = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW, APH),
+    new THREE.MeshBasicMaterial({ map: wispTex, transparent: true, opacity: .55,
+      blending: THREE.AdditiveBlending, depthWrite: false })
   );
-  bloom.position.set(0, FLOOR_Y + APH / 2 - .2, -0.05);
-  doorway.add(bloom);
-  const halo = new THREE.Mesh(
-    new THREE.PlaneGeometry(APW * 6.5, APH * 3.4),
-    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .16,
-      blending: THREE.AdditiveBlending, depthWrite: false, color: 0xff7a40 })
-  );
-  halo.position.set(0, FLOOR_Y + APH / 2, -0.1);
-  doorway.add(halo);
+  wisps.position.set(0, FLOOR_Y + APH / 2, -.05);
+  doorway.add(wisps);
+
+  // three glow layers standing in for a bloom pass: a tight core hugging the
+  // aperture, a mid spill that licks the jambs, and a wide ambient halo.
+  const glowLayer = (sx, sy, opacity, color, z, dy = 0) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(APW * sx, APH * sy),
+      new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity,
+        blending: THREE.AdditiveBlending, depthWrite: false, color })
+    );
+    m.position.set(0, FLOOR_Y + APH / 2 - .2 + dy, z);
+    doorway.add(m);
+    return m;
+  };
+  const core  = glowLayer(1.05, .8,  .34, 0xFF9F63, -.05, -APH * .18);
+  const bloom = glowLayer(3.2,  2.1, .34, C.ember,  -.10);
+  const halo  = glowLayer(7.2,  3.6, .13, C.route,  -.14);
 
   // monolithic stone frame — lit for real by the doorway's point light
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x474038, roughness: .82, metalness: .04 });
+  const stoneMat = new THREE.MeshStandardMaterial({
+    color: C.stone, roughness: .9, metalness: .03,
+    bumpMap: grainTex, bumpScale: .05, roughnessMap: grainTex,
+  });
   const jambGeo = new THREE.BoxGeometry(.42, APH + .5, .8);
   const jambL = new THREE.Mesh(jambGeo, stoneMat);
   jambL.position.set(-(APW / 2 + .21), FLOOR_Y + (APH + .5) / 2, .12);
@@ -516,44 +602,86 @@ if (renderer) {
   // floor — rough dark ground that catches the warm light pool
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(120, 60),
-    new THREE.MeshStandardMaterial({ color: 0x16130f, roughness: .5, metalness: .08 })
+    new THREE.MeshStandardMaterial({
+      color: 0x15130E, roughness: .62, metalness: .1,
+      bumpMap: grainTex, bumpScale: .02,
+    })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = FLOOR_Y;
   scene.add(floor);
 
+  // light pool spilling out of the doorway onto the ground
+  const pool = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW * 3.4, 13),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .14,
+      blending: THREE.AdditiveBlending, depthWrite: false, color: C.ember })
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, FLOOR_Y + .001, 2.2);
+  doorway.add(pool);
+
+  // the frame's own contact shadow — no shadow map, just a dark patch where
+  // the stone meets the ground. Without it the doorway floats.
+  const contact = new THREE.Mesh(
+    new THREE.PlaneGeometry(APW * 2.4, 1.7),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: .7,
+      depthWrite: false, color: 0x000000 })
+  );
+  contact.rotation.x = -Math.PI / 2;
+  contact.position.set(0, FLOOR_Y + .004, .1);
+  doorway.add(contact);
+
   // glossy reflection streak stretching toward the camera
   const streak = new THREE.Mesh(
     new THREE.PlaneGeometry(APW * .96, 7.5),
-    new THREE.MeshBasicMaterial({ map: streakTex, transparent: true, opacity: .34,
+    new THREE.MeshBasicMaterial({ map: streakTex, transparent: true, opacity: .24,
       blending: THREE.AdditiveBlending, depthWrite: false })
   );
   streak.rotation.x = -Math.PI / 2;
-  streak.position.set(0, FLOOR_Y + .002, 3.75);
+  streak.position.set(0, FLOOR_Y + .003, 3.75);
   doorway.add(streak);
 
   /* ── lights ── */
-  const portalLight = new THREE.PointLight(0xff6a2e, 90, 26, 2);
+  const portalLight = new THREE.PointLight(C.ember, 88, 26, 2);
   portalLight.position.set(0, FLOOR_Y + 1.4, .9);
   doorway.add(portalLight);
-  scene.add(new THREE.HemisphereLight(0x4a4438, 0x0e0c0a, .42));
+  // low warm bounce off the floor, so the jambs aren't black at the base
+  const bounce = new THREE.PointLight(C.route, 16, 12, 2);
+  bounce.position.set(0, FLOOR_Y + .25, 2.2);
+  doorway.add(bounce);
+  // a cool rim from high behind separates the stone from the background —
+  // the one cold light in the scene, and what stops it reading as a sticker
+  const rim = new THREE.DirectionalLight(C.rim, 1.15);
+  rim.position.set(-5, 7, -2);
+  scene.add(rim);
+  // a low, cool key from the camera's side so the stone has visible form and
+  // its grain catches — without it the frame is a cut-out against the dark
+  const key = new THREE.DirectionalLight(0x9FA6AE, .42);
+  key.position.set(-6, 3, 8);
+  scene.add(key);
+  scene.add(new THREE.HemisphereLight(0x4A4438, 0x0C0B08, .34));
 
-  /* ── dust motes drifting in the light ── */
-  const DUST = 240;
-  const dustGeo = new THREE.BufferGeometry();
-  const dpos = new Float32Array(DUST * 3), dvel = new Float32Array(DUST);
-  for (let i = 0; i < DUST; i++) {
-    dpos[i*3]   = (Math.random() - .5) * 9;
-    dpos[i*3+1] = FLOOR_Y + Math.random() * 5.5;
-    dpos[i*3+2] = -0.5 + Math.random() * 7.5;
-    dvel[i] = .04 + Math.random() * .12;
+  /* ── dust: two layers, so it has depth instead of one flat sparkle ── */
+  function dustLayer(count, spread, size, opacity, speed) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3), vel = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i*3]   = (Math.random() - .5) * spread;
+      pos[i*3+1] = FLOOR_Y + Math.random() * 5.6;
+      pos[i*3+2] = -0.5 + Math.random() * 7.5;
+      vel[i] = speed * (.5 + Math.random());
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      map: glowTex, size, transparent: true, opacity, color: C.mote,
+      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    }));
+    doorway.add(pts);
+    return { geo, vel, count };
   }
-  dustGeo.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-    map: glowTex, size: .055, transparent: true, opacity: .5, color: 0xffb285,
-    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
-  }));
-  doorway.add(dust);
+  const dustFar  = dustLayer(210, 11, .038, .34, .09);
+  const dustNear = dustLayer(60,   7, .105, .42, .16);
 
   /* ── responsive composition ── */
   let doorX = 0;
@@ -577,7 +705,7 @@ if (renderer) {
       const r = stage.getBoundingClientRect();
       mx = (e.clientX - r.left) / r.width - .5;
       my = (e.clientY - r.top) / r.height - .5;
-    });
+    }, { passive: true });
   }
 
   let sp = 0, spT = 0;                            // scroll progress (smoothed / target)
@@ -594,47 +722,75 @@ if (renderer) {
   let visible = true;
   new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: 0 }).observe(stage);
 
+  /* frame-rate independent damping: the fraction of the remaining distance
+     covered depends on elapsed time, not on how often we happen to be called */
+  const damp = (cur, target, lambda, dt) => cur + (target - cur) * (1 - Math.exp(-lambda * dt));
+
   const clock = new THREE.Clock();
+  let lastCopyOpacity = -1;
+
   function frame() {
     requestAnimationFrame(frame);
     if (!visible || document.hidden) return;
-    const t = clock.getElapsedTime();
+    const dt = Math.min(clock.getDelta(), .05);   // clamp: a backgrounded tab
+    const t = clock.getElapsedTime();             // must not jump the rig
 
-    // smooth inputs
-    smx += (mx - smx) * .05;
-    smy += (my - smy) * .05;
-    sp  += (spT - sp) * .09;
+    smx = damp(smx, mx, 3.2, dt);
+    smy = damp(smy, my, 3.2, dt);
+    sp  = damp(sp, spT, 6.5, dt);
     const e = sp * sp * (3 - 2 * sp);             // smoothstep
+
+    // handheld float — small, slow, irrationally-related frequencies so the
+    // camera never visibly repeats itself
+    const fx = Math.sin(t * .37) * .042 + Math.sin(t * .91) * .017;
+    const fy = Math.cos(t * .29) * .034 + Math.sin(t * 1.13) * .012;
 
     // dolly: from establishing shot to the threshold
     const z = 10.2 - e * 7.6;
     camera.position.set(
-      doorX * .35 + smx * .55 + e * (doorX * .62),
-      .5 + smy * -.3 - e * .25,
+      doorX * .35 + smx * .55 + fx + e * (doorX * .62),
+      .5 + smy * -.3 + fy - e * .25,
       z
     );
-    look.set(doorX * .9 - e * doorX * 0, FLOOR_Y + APH * .48, 0);
+    look.set(doorX * (.9 + e * .1), FLOOR_Y + APH * .48, 0);
     camera.lookAt(look);
+    camera.rotation.z += Math.sin(t * .23) * .0035;   // a breath of roll
+    // a touch of dolly-zoom as you arrive, and the light gets stronger
+    camera.fov = (innerWidth > 980 ? 36 : 44) - e * 3;
+    camera.updateProjectionMatrix();
+    renderer.toneMappingExposure = 1.06 + e * .1;
 
     // living light: slow breathing + tiny flicker, intensifying as you approach
     const breathe = Math.sin(t * 1.1) * .5 + Math.sin(t * 3.7) * .18;
-    portalLight.intensity = (88 + breathe * 10) * (1 + e * .9);
-    bloom.material.opacity = .48 + breathe * .04 + e * .25;
-    halo.material.opacity  = .15 + breathe * .015 + e * .12;
+    portalLight.intensity = (86 + breathe * 9) * (1 + e * .55);
+    bounce.intensity = 16 * (1 + e * .8);
+    core.material.opacity  = .32 + breathe * .035 + e * .14;
+    bloom.material.opacity = .32 + breathe * .03  + e * .16;
+    halo.material.opacity  = .12 + breathe * .012 + e * .1;
+    pool.material.opacity  = .13 + breathe * .015 + e * .09;
+    // the wisps drift upward, two speeds, so the portal surface never settles
+    wispTex.offset.y += dt * .014;
+    wisps.material.opacity = .5 + breathe * .05;
 
-    // dust drifts up, recycles
-    const p = dustGeo.attributes.position.array;
-    for (let i = 0; i < DUST; i++) {
-      p[i*3+1] += dvel[i] * .016;
-      p[i*3]   += Math.sin(t * .6 + i) * .0008;
-      if (p[i*3+1] > FLOOR_Y + 5.6) p[i*3+1] = FLOOR_Y + .05;
+    // dust drifts up, recycles — in metres per second, not per frame
+    for (const layer of [dustFar, dustNear]) {
+      const p = layer.geo.attributes.position.array;
+      for (let i = 0; i < layer.count; i++) {
+        p[i*3+1] += layer.vel[i] * dt;
+        p[i*3]   += Math.sin(t * .6 + i) * dt * .05;
+        if (p[i*3+1] > FLOOR_Y + 5.7) p[i*3+1] = FLOOR_Y + .05;
+      }
+      layer.geo.attributes.position.needsUpdate = true;
     }
-    dustGeo.attributes.position.needsUpdate = true;
 
     // copy falls away, veil hands off to the paper site
-    copy.style.opacity = Math.max(0, 1 - e * 1.9);
-    copy.style.transform = `translateY(${e * -40}px)`;
-    veil.style.opacity = Math.max(0, (e - .8) / .2);
+    const co = Math.max(0, 1 - e * 1.9);
+    if (Math.abs(co - lastCopyOpacity) > .002) {   // skip no-op style writes
+      copy.style.opacity = co;
+      copy.style.transform = `translateY(${e * -40}px)`;
+      veil.style.opacity = Math.max(0, (e - .8) / .2);
+      lastCopyOpacity = co;
+    }
 
     renderer.render(scene, camera);
   }
@@ -975,7 +1131,7 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
 (() => {
   const stage = document.getElementById('stage');
   setTimeout(() => {
-    stage.querySelectorAll('.eyebrow,.sub,.actions,.trust').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+    stage.querySelectorAll('.eyebrow,.sub,.actions').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
     stage.querySelectorAll('h1 .ln > span').forEach(s => s.style.transform = 'translateY(0)');
   }, 2600);
 })();
@@ -1009,6 +1165,52 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
     stops.forEach((st, i) => setTimeout(() => st.classList.add('on'), 200 + i * 190));
     o.disconnect();
   }, { threshold: .35 }).observe(track);
+})();
+
+/* ── Register counts, counted up ──
+   The figures are the section's whole argument, so they arrive as something
+   that happens rather than something already printed. The target is read
+   from the markup (the numbers stay in the HTML, where a crawler and a
+   no-JS visitor still see them), the box is pinned to its final width first
+   so nothing reflows mid-count, and reduced-motion gets the number flat. ── */
+(() => {
+  const figs = [...document.querySelectorAll('.cat-stat .fig')];
+  if (!figs.length) return;
+  const fmt = new Intl.NumberFormat('en-US');
+
+  figs.forEach(el => { el.dataset.to = String(parseInt(el.textContent.replace(/[^\d]/g, ''), 10) || 0); });
+  if (REDUCED) return;
+
+  // Pinned at reveal time, not on load: the display face arrives
+  // asynchronously, and a width measured in the fallback font would jump
+  // the moment Fraunces lands.
+  const pin = el => {
+    el.style.display = 'inline-block';
+    el.style.minWidth = el.getBoundingClientRect().width + 'px';
+  };
+
+  const run = (el, delay) => {
+    const to = +el.dataset.to, dur = 1150;
+    let t0 = null;
+    const step = now => {
+      if (t0 === null) t0 = now;
+      const p = Math.min((now - t0) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 4);        // easeOutQuart — fast, then settles
+      el.textContent = fmt.format(Math.round(to * eased));
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = fmt.format(to);        // land exactly on the real figure
+    };
+    setTimeout(() => requestAnimationFrame(step), delay);
+  };
+
+  new IntersectionObserver((es, o) => {
+    if (!es[0].isIntersecting) return;
+    // all four drop to zero together, then count in sequence — staggering the
+    // reset instead would leave three finished figures beside one counting
+    figs.forEach(el => { pin(el); el.textContent = '0'; });
+    figs.forEach((el, i) => run(el, i * 110));
+    o.disconnect();
+  }, { threshold: .5 }).observe(document.querySelector('.cat-stats'));
 })();
 
 /* ── Assessment preview (Q1, live) — the closing CTA is the question itself ── */
