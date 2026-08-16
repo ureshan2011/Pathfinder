@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PathFinder helps Sri Lankan students apply for a master’s or a PhD in New Zealand. Eligibility assessment, 1,716 postgraduate qualifications from the NZQA register, a month-by-month plan, scholarships, and application tracking." />
-  <meta property="og:title" content="PathFinder — Your postgraduate degree in New Zealand starts here" />
-  <meta property="og:description" content="Eligibility assessment, the NZQA course catalogue, scholarships and application tracking, for Sri Lankan students applying to a New Zealand master’s or PhD." />
-  <title>PathFinder — Your postgraduate degree in New Zealand starts here</title>
+  <meta name="description" content="PathFinder plans a New Zealand master’s or PhD end to end for Sri Lankan students — what you qualify for, what it costs, the visa, the move — and connects you with Sri Lankan postgrads already studying there." />
+  <meta property="og:title" content="PathFinder — Your degree in New Zealand, planned end to end" />
+  <meta property="og:description" content="One place for the whole route to a New Zealand master’s or PhD — assessment, courses, cost, scholarships, visa and settling in — plus Sri Lankan postgrads already there to ask." />
+  <title>PathFinder — Your degree in New Zealand, planned end to end</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,7 +35,9 @@
        Three.js: true perspective, point-lit frame, floor
        reflection, dust, fog. Scroll dollies the camera through. */
 
-    .hero-zone { position: relative; height: 260vh; background: #131110; }
+    /* 200vh, not 260: the dolly still reads as a walk through the doorway,
+       but a visitor reaches the first real section a screen and a half sooner. */
+    .hero-zone { position: relative; height: 200vh; background: #131110; }
     .stage {
       position: sticky; top: 0; height: 100vh; overflow: hidden;
       display: flex; flex-direction: column; isolation: isolate;
@@ -200,12 +202,45 @@
     .cat-stat .fig { font-family: var(--font-display); font-size: clamp(2rem, 4.4vw, 3.1rem); font-weight: 560; line-height: 1; color: var(--ink); }
     .cat-stat .cap { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-top: 8px; }
 
-    /* ════════ INDEX STRIP — the legend ════════ */
-    .legend-strip { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); padding: 18px 0; }
-    .legend-list { display: flex; flex-wrap: wrap; gap: 10px 36px; }
-    .legend-list .li { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
-    .legend-list .li b { color: var(--ink); font-weight: 600; }
-    .legend-list .li i { font-style: normal; color: var(--ink-faint); margin-left: 8px; }
+    /* ════════ THE JOURNEY — seven stages on a dashed rail ════════
+       The one diagram the whole page is built around: the route from
+       "I'm thinking about it" to a flat in Wellington, drawn end to end
+       so nobody has to guess which parts PathFinder covers. Each stop is
+       a link into the view that handles that stage. */
+    .journey { margin-top: 52px; }
+    .j-track { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; }
+    .j-track::before {
+      content: ''; position: absolute; left: 9px; right: 9px; top: 9px; height: 0;
+      border-top: 1px dashed var(--line-2);
+    }
+    .j-stop {
+      position: relative; display: flex; flex-direction: column; gap: 13px;
+      align-items: flex-start; padding-right: 20px; min-width: 0;
+    }
+    .j-stop .node {
+      width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--paper); border: 1.5px solid var(--line-2);
+      position: relative; z-index: 1; transition: border-color .35s, box-shadow .35s;
+    }
+    .j-stop .node::after {
+      content: ''; width: 7px; height: 7px; border-radius: 50%;
+      background: transparent; transition: background .35s;
+    }
+    .j-stop.on .node { border-color: var(--route); box-shadow: 0 0 0 4px rgba(194,64,28,.09); }
+    .j-stop.on .node::after { background: var(--route); }
+    .j-stop .no { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-faint); }
+    .j-stop .txt { display: flex; flex-direction: column; gap: 6px; }
+    .j-stop .t { font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--ink); transition: color .2s; }
+    .j-stop .d { font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); }
+    .j-stop:hover .t { color: var(--route); }
+    .j-stop:hover .node { border-color: var(--route); }
+    @media (max-width: 920px) {
+      .j-track { grid-template-columns: 1fr; gap: 22px; }
+      .j-track::before { left: 9px; top: 10px; bottom: 10px; right: auto; height: auto; width: 0; border-top: none; border-left: 1px dashed var(--line-2); }
+      .j-stop { flex-direction: row; align-items: baseline; gap: 16px; padding-right: 0; }
+      .j-stop .node { flex: 0 0 auto; transform: translateY(4px); }
+      .j-stop .no { flex: 0 0 22px; }
+    }
 
     /* ════════ CHAPTER 01 — assessment widget ════════ */
     .split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
@@ -225,85 +260,27 @@
     .asm-row:hover { padding-left: 12px; color: var(--route); }
     .asm-row:hover::after { opacity: 1; }
 
-    @media (max-width: 720px) { .ledger-hide-sm { display: none; } .ledger td, .ledger th { padding-right: 10px; } }
 
-    /* ════════ CHAPTER 03 — labs index ════════ */
-    .lab-index { border-top: 1px solid var(--ink); }
-    .li-row {
-      display: grid; grid-template-columns: 52px minmax(0,5fr) minmax(0,4fr) auto;
-      gap: 18px; align-items: baseline; padding: 22px 4px;
-      border-bottom: 1px solid var(--line); transition: background .2s;
-      cursor: pointer; position: relative;
-    }
-    .li-row:hover { background: rgba(194,64,28,.035); }
-    .li-row .no { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
-    .li-row .uni { font-family: var(--font-display); font-size: clamp(18px, 2.2vw, 23px); font-weight: 500; transition: color .2s; }
-    .li-row:hover .uni { color: var(--route); }
-    .li-row .meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
-    .li-row .go { font-size: 18px; color: var(--ink-faint); transition: transform .25s, color .25s; }
-    .li-row:hover .go { transform: translateX(4px); color: var(--route); }
-    @media (max-width: 720px) { .li-row { grid-template-columns: 36px 1fr auto; } .li-row .meta { display: none; } }
-
-    /* ════════ CHAPTER 04 — night band (tracker) ════════ */
+    /* ════════ NIGHT BAND — the people chapter ════════ */
     .night { background: var(--night); color: var(--paper); }
     .night .chapter { border-top-color: rgba(244,241,234,.85); }
     .night .chapter .ttl { color: rgba(244,241,234,.6); }
     .night .chapter .end { color: rgba(244,241,234,.35); }
     .night .muted { color: rgba(244,241,234,.62); }
     .night .faint { color: rgba(244,241,234,.38); }
-
-    .pipeline { margin: 56px 0 16px; position: relative; }
-    .pipe-track { display: flex; justify-content: space-between; position: relative; }
-    .pipe-track::before {
-      content: ''; position: absolute; left: 8px; right: 8px; top: 7px; height: 0;
-      border-top: 1px dashed rgba(244,241,234,.3);
-    }
-    .pipe-stop { position: relative; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; min-width: 0; }
-    .pipe-stop .node {
-      width: 15px; height: 15px; border-radius: 50%;
-      background: var(--night); border: 1.4px solid rgba(244,241,234,.5); position: relative; z-index: 1;
-      transition: background .3s, border-color .3s, box-shadow .3s;
-    }
-    .pipe-stop.on .node { background: var(--route); border-color: var(--route); box-shadow: 0 0 14px rgba(194,64,28,.7); }
-    .pipe-stop .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgba(244,241,234,.45); max-width: 90px; line-height: 1.45; }
-    .pipe-stop.on .lbl { color: var(--paper); }
-    @media (max-width: 720px) {
-      .pipe-track { flex-direction: column; gap: 18px; }
-      .pipe-track::before { left: 7px; top: 8px; bottom: 8px; right: auto; height: auto; width: 0; border-top: none; border-left: 1px dashed rgba(244,241,234,.3); }
-      .pipe-stop { flex-direction: row; align-items: center; }
-      .pipe-stop .lbl { max-width: none; }
-    }
+    .night .display em { color: #E8763F; }
+    .night .note + .note { border-left-color: rgba(244,241,234,.16); }
+    .night .notes .muted { color: rgba(244,241,234,.58); }
+    @media (max-width: 880px) { .night .note + .note { border-top-color: rgba(244,241,234,.16); } }
 
     .night .btn { border-color: var(--paper); color: var(--paper); }
     .night .btn-primary { background: var(--paper); color: var(--ink); }
     .night .btn-primary:hover { background: var(--route); border-color: var(--route); color: var(--paper); }
+    .night .tlink { color: rgba(244,241,234,.85); }
+    .night .tlink:hover { color: #E8763F; }
+    .night .tlink::after { background: #E8763F; }
 
-    /* ════════ CHAPTER 05 — paper stack ════════ */
-    .paper-stack { position: relative; height: 340px; }
-    .sheet {
-      position: absolute; width: min(250px, 70%); padding: 22px 20px;
-      background: #FDFCF8; border: 1px solid var(--line);
-      box-shadow: 0 2px 4px rgba(28,26,21,.06), 0 14px 34px rgba(28,26,21,.1);
-      font-family: var(--font-mono); font-size: 10px; line-height: 1.8; color: var(--ink-soft);
-      transition: transform .4s cubic-bezier(.22,1,.36,1);
-    }
-    .sheet .sh-title { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); margin-bottom: 10px; }
-    .sheet .ln { height: 5px; background: var(--line-soft); margin: 7px 0; }
-    .sheet .ln.short { width: 62%; }
-    .sheet.s1 { top: 8%; left: 4%; transform: rotate(-4deg); z-index: 1; }
-    .sheet.s2 { top: 2%; left: 32%; transform: rotate(2.5deg); z-index: 2; }
-    .sheet.s3 { top: 26%; left: 18%; transform: rotate(-1deg); z-index: 3; }
-    .paper-stack:hover .s1 { transform: rotate(-7deg) translate(-12px, 4px); }
-    .paper-stack:hover .s2 { transform: rotate(5deg) translate(14px, -6px); }
-    .paper-stack:hover .s3 { transform: rotate(0deg) translateY(-8px); }
-
-    .kit-list { border-top: 1px solid var(--ink); }
-    .kit-row { display: flex; align-items: baseline; gap: 16px; padding: 17px 4px; border-bottom: 1px solid var(--line); }
-    .kit-row .no { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
-    .kit-row strong { font-weight: 600; font-size: 15px; }
-    .kit-row .mono { margin-left: auto; }
-
-    /* ════════ STUDENT QUOTES ════════ */
+    /* ════════ NOTE COLUMNS — people, straight answers ════════ */
     .notes { display: grid; grid-template-columns: repeat(3, 1fr); }
     .note { padding: 8px clamp(20px, 3vw, 40px) 8px 0; }
     .note + .note { border-left: 1px solid var(--line); padding-left: clamp(20px, 3vw, 40px); }
@@ -314,9 +291,16 @@
       .note + .note { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 32px; }
     }
 
-    /* ════════ DISPATCH (newsletter) ════════ */
-    .dispatch { max-width: 560px; margin: 0 auto; text-align: center; }
-    .dispatch .rule-x { width: 56px; height: 1px; background: var(--ink); margin: 0 auto 26px; }
+    /* ════════ DISPATCH (newsletter) — secondary to the CTA above it ════════ */
+    .dispatch-inline {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+      gap: 24px 48px; align-items: center;
+      margin-top: clamp(48px, 6vw, 80px); padding-top: 32px; border-top: 1px solid var(--line);
+    }
+    .dispatch-inline strong { font-size: 15px; font-weight: 600; margin-right: 8px; }
+    .dispatch-inline .muted { font-size: 14px; line-height: 1.6; }
+    .dispatch-inline .email-row { margin: 0; }
+    @media (max-width: 880px) { .dispatch-inline { grid-template-columns: 1fr; } }
     .email-row { display: flex; gap: 0; max-width: 420px; margin: 30px auto 0; border: 1px solid var(--ink); border-radius: 2px; background: var(--surface); }
     .email-row .field { border: none; box-shadow: none !important; background: transparent; }
     .email-row .btn { border: none; border-left: 1px solid var(--ink); border-radius: 0; }
@@ -341,16 +325,14 @@
   <div class="wrap nav-inner">
     <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span><span class="mono" style="font-size:10px">POSTGRAD · NEW ZEALAND</span></a>
     <nav class="nav-links">
-      <a href="#method">Assessment</a>
-      <a href="#catalogue">Courses</a>
-      <a href="#funding">Funding</a>
-      <a href="#labs">Labs</a>
-      <a href="#crossing">Visa&nbsp;&amp;&nbsp;Arrival</a>
-      <a href="#kit">Starter&nbsp;Kit</a>
+      <a href="#journey">The&nbsp;journey</a>
+      <a href="#catalogue">Courses&nbsp;&amp;&nbsp;cost</a>
+      <a href="#people">Mentors</a>
+      <a href="#honest">What&nbsp;this&nbsp;is</a>
     </nav>
     <div style="display:flex;gap:10px;align-items:center">
       <a class="tlink" href="app.html#dashboard" style="font-size:13px">Dashboard</a>
-      <a class="btn btn-primary btn-sm" href="app.html#assessment">Start assessment</a>
+      <a class="btn btn-primary btn-sm" href="app.html#assessment">Start free</a>
     </div>
   </div>
 </header>
@@ -376,9 +358,9 @@
         </h1>
 
         <p class="sub">
-          1,716 postgraduate qualifications from the NZQA register, the 51 providers that
-          teach them, and the parts that are easy to get wrong — what you qualify for,
-          what it costs, the visa, and keeping track of it all.
+          The whole route in one place — what you qualify for, what it really costs, the
+          visa, the move. And Sri Lankan postgrads already in New Zealand to ask when
+          you get stuck.
         </p>
 
         <!-- Two journeys, chosen before the student ever reaches the app: the
@@ -396,11 +378,16 @@
           </a>
         </div>
         <div class="actions" style="margin-top:14px">
-          <a class="tlink" href="#method">How it works</a>
+          <span class="mono" style="color:rgba(240,237,230,.42);font-size:11px;letter-spacing:.1em">
+            Free to start <span class="tick" style="color:#E8763F">·</span> No account needed
+          </span>
         </div>
 
         <div class="trust">
-          <div class="lab mono">Covering</div>
+          <!-- The universities are the names people recognise, but the
+               catalogue is the whole register — say both, or the page
+               promises less than it holds. -->
+          <div class="lab mono">All 51 NZ providers · including</div>
           <div class="unis">
             <span>Auckland</span><span>Otago</span><span>Victoria — Wellington</span>
             <span>Canterbury</span><span>Massey</span><span>Waikato</span>
@@ -673,29 +660,230 @@ addEventListener('scroll', navMode, { passive: true });
 navMode();
 </script>
 
-<!-- ══════════ LEGEND STRIP ══════════ -->
-<div class="legend-strip">
-  <div class="wrap legend-list" id="legend"></div>
-</div>
-
-<!-- ══════════ 01 · ASSESSMENT (preview) ══════════ -->
-<section class="sec" id="method">
+<!-- ══════════ 01 · THE JOURNEY ══════════
+     The spine of the page. Everything PathFinder does is one of these
+     seven stages, so the page says so once, in order, and lets the
+     student click straight into whichever one they are standing on. -->
+<section class="sec" id="journey">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">01</span><span class="ttl">Assessment</span><span class="end">7 questions · under 5 minutes</span>
+      <span class="no">01</span><span class="ttl">The Journey</span><span class="end">Assessment → first week</span>
     </div>
-    <div class="split">
+    <div class="split" style="align-items:end">
       <div>
-        <h2 class="display sec-head" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:22px">First, find out<br><em>where you stand.</em></h2>
-        <p class="muted" data-reveal style="max-width:44ch;margin-bottom:18px">
-          Seven questions on your degree, your results, your subject and your funding — under
-          five minutes — and you get a likely route in: direct entry, a postgraduate diploma
-          that bridges the gap, or an honours year first.
+        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Seven stages between<br>you and <em>New Zealand.</em></h2>
+      </div>
+      <p class="muted" data-reveal style="font-size:15px;max-width:46ch">
+        The application is the part everyone talks about. The rest — what you actually
+        qualify for, what the year truly costs, what Immigration NZ wants on file, where
+        you sleep in week one — is where people get stuck. PathFinder covers all seven,
+        and remembers where you got to.
+      </p>
+    </div>
+
+    <div class="journey" data-reveal>
+      <div class="j-track" id="j-track"></div>
+    </div>
+
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:52px" data-reveal>
+      <a class="btn btn-primary" href="app.html#assessment">Start at stage one</a>
+      <a class="tlink" href="app.html#dashboard">Or open the board — every application and deadline in one view</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 02 · COURSES & COST ══════════
+     The credibility chapter: not a curated shortlist, the actual national
+     register — and the one financial fact that changes everything, stated
+     for both tracks rather than for the flattering one. Counts are baked in
+     at build time from assets/js/catalogue.js. -->
+<section class="sec" id="catalogue" style="padding-top:0">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no">02</span><span class="ttl">Courses &amp; Cost</span><span class="end">NZQA register</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Not a shortlist.<br><em>The register itself.</em></h2>
+      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
+        Every current postgraduate qualification NZQA lists, from all 51 providers that
+        teach one — universities, polytechnics and private colleges — with the entry
+        requirements as published, so you can check them against your own transcript.
+      </p>
+    </div>
+
+    <div class="cat-stats" data-reveal>
+      <div class="cat-stat"><div class="fig">1,716</div><div class="cap">Qualifications</div></div>
+      <div class="cat-stat"><div class="fig">51</div><div class="cap">Providers</div></div>
+      <div class="cat-stat"><div class="fig">281</div><div class="cap">Scholarships</div></div>
+      <div class="cat-stat"><div class="fig">11</div><div class="cap">Subject areas</div></div>
+    </div>
+
+    <div class="cat-grid" data-reveal>
+      <a class="cat-cell" href="app.html#courses"><span class="n">321</span><span class="t">Society and Culture</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">275</span><span class="t">Management and Commerce</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">252</span><span class="t">Health</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">147</span><span class="t">Creative Arts</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">139</span><span class="t">Education</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">122</span><span class="t">Natural and Physical Sciences</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">111</span><span class="t">Engineering and Related Technologies</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">103</span><span class="t">Information Technology</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">64</span><span class="t">Agriculture &amp; Environmental Studies</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">63</span><span class="t">Architecture and Building</span></a>
+      <a class="cat-cell" href="app.html#courses"><span class="n">54</span><span class="t">Mixed Field Programmes</span></a>
+      <a class="cat-cell" href="app.html?track=phd#courses"><span class="n">64</span><span class="t">Doctorates, every field</span></a>
+    </div>
+
+    <!-- The domestic-fee and stipend story is TRUE FOR DOCTORAL CANDIDATES
+         ONLY. Presented unqualified it would mislead the master's audience
+         this page also serves, so the two are stated side by side. -->
+    <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:56px 0 14px">
+      The money works differently for each
+    </p>
+    <div class="fee-split" data-reveal>
+      <div class="fee-col">
+        <span class="chip-lite">PhD</span>
+        <h3>Domestic fees. A stipend.</h3>
+        <p>International PhD candidates pay the <strong>domestic</strong> tuition rate — about
+          NZ$8,500 a year. Doctoral scholarships add NZ$28–33k on top, and most are awarded
+          with admission rather than by separate application. You apply to a supervisor,
+          not to an intake.</p>
+      </div>
+      <div class="fee-col">
+        <span class="chip-lite">Master’s</span>
+        <h3>Full international fees. No stipend.</h3>
+        <p>Budget <strong>NZ$32,000–48,000 a year</strong>, plus the living costs the visa
+          requires you to evidence. Scholarships here are competitive and deadline-bound,
+          and usually discount fees rather than pay you. On the other side of it, a level-9
+          master’s qualifies for a <strong>three-year open work visa</strong>.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:30px;display:flex;gap:14px 30px;flex-wrap:wrap;align-items:center" data-reveal>
+      <a class="tlink" href="app.html#courses">Browse the catalogue <span style="color:var(--route)">→</span></a>
+      <a class="tlink" href="app.html#cost">Work out what a year actually costs <span style="color:var(--route)">→</span></a>
+      <a class="tlink" href="app.html#funding">Scholarships <span style="color:var(--route)">→</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 03 · PEOPLE ══════════
+     The half of the product a document can't do. Deliberately free of
+     named individuals, counts and testimonials — there is no public
+     directory in the app, and inventing social proof for an audience
+     that has already been oversold by agents is exactly the wrong move.
+     What it promises is only what the request lifecycle actually delivers. -->
+<section class="sec night" id="people">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no" style="color:var(--route)">03</span><span class="ttl">People</span><span class="end">Mentors already in New Zealand</span>
+    </div>
+    <div class="split" style="align-items:end;margin-bottom:56px">
+      <div>
+        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">The part no website<br><em>can tell you.</em></h2>
+      </div>
+      <p class="muted" data-reveal style="font-size:15px;max-width:46ch">
+        PathFinder’s mentors are Sri Lankan postgraduate students in New Zealand right now —
+        a year or two ahead of you, on the same visa, out of the same airport. They have
+        already made the mistakes you are about to.
+      </p>
+    </div>
+
+    <div class="notes">
+      <div class="note" data-reveal>
+        <blockquote>Ask one question. That’s it.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">No directory to
+          search, nobody to cold-email. Write what you’re stuck on and it joins a shared queue;
+          the first mentor free to take it picks it up.</p>
+      </div>
+      <div class="note" data-reveal style="transition-delay:100ms">
+        <blockquote>The first 15 minutes are free.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">On a call or over
+          WhatsApp, whichever is easier. If you want more after that, you agree the fee with the
+          mentor before it starts — never a surprise on a bill.</p>
+      </div>
+      <div class="note" data-reveal style="transition-delay:200ms">
+        <blockquote>They walked this exact route.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">The police
+          certificate in Colombo, the eMedical, the bank letter, the first email to a supervisor,
+          renting a flat from 9,000 km away. Mentors are invited and reviewed before they can
+          take a request.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:52px" data-reveal>
+      <a class="btn btn-primary" href="app.html#mentors">Ask a mentor</a>
+      <span class="faint" style="font-size:13.5px;max-width:44ch;line-height:1.6">
+        Sending a request needs a free account, so it stays yours across devices.
+        Everything else on PathFinder works without one.
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 04 · STRAIGHT ANSWERS ══════════
+     This replaced three invented testimonials attributed to named students.
+     They were footnoted "illustrative", but a quote with a name and a city
+     attached reads as a real person whatever the footnote says. Being
+     straight about what the product does and does not do is both honest and,
+     for an audience that has been oversold by agents, more persuasive. -->
+<section class="sec" id="honest">
+  <div class="wrap">
+    <div class="chapter" data-reveal>
+      <span class="no">04</span><span class="ttl">Straight Answers</span><span class="end">What this is</span>
+    </div>
+    <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:40px">What PathFinder does,<br>and <em>what it doesn’t.</em></h2>
+    <div class="notes">
+      <div class="note" data-reveal>
+        <blockquote>It covers the route, not one step of it.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Assessment,
+          courses, cost, scholarships, documents, the visa checklist, the first weeks after you
+          land — in one place that keeps your progress, instead of eleven browser tabs and a
+          WhatsApp group.</p>
+      </div>
+      <div class="note" data-reveal style="transition-delay:100ms">
+        <blockquote>It does the arithmetic you’d rather not.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Tuition, living
+          costs, the visa funds bar, what a scholarship actually covers — worked out for your
+          route, in NZ$ and rupees, with every figure’s source shown. We take no commission from
+          any provider, which is why the cheaper qualification gets mentioned here.</p>
+      </div>
+      <div class="note" data-reveal style="transition-delay:200ms">
+        <blockquote>It can’t get you admitted.</blockquote>
+        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">No tool can.
+          Admission sits with the university, the visa with Immigration NZ, and figures change
+          without notice. Treat everything here as a starting point to verify — check the source
+          links before you commit money.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ START — the closing CTA ══════════
+     The page ends on the one action it wants, with the actual first
+     question of the assessment already on screen: answering it IS the
+     entry point, not a step before it. -->
+<section class="sec" id="start" style="background:var(--paper-2);border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="split" style="align-items:center">
+      <div>
+        <h2 class="display" data-reveal style="font-size:clamp(2rem,4vw,3rem);line-height:1.06;margin-bottom:20px">
+          Start where<br>everyone <em>starts.</em>
+        </h2>
+        <p class="muted" data-reveal style="max-width:42ch;margin-bottom:26px;font-size:15px">
+          Seven questions about your degree, your results and your funding. Under five
+          minutes, and you get a likely route in — direct entry, a postgraduate diploma
+          that bridges the gap, or an honours year first — plus a month-by-month plan
+          built from your answers.
         </p>
-        <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch">
-          Your answers build a month-by-month plan and narrow the catalogue to the
-          qualifications and scholarships worth reading about first. It is a starting
-          point, not a decision — check the entry requirements yourself.
+        <div style="display:flex;gap:12px;flex-wrap:wrap" data-reveal>
+          <a class="btn btn-primary" href="app.html?track=masters#assessment">I’m applying for a master’s</a>
+          <a class="btn btn-ghost" href="app.html?track=phd#assessment">I’m applying for a PhD</a>
+        </div>
+        <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:18px;text-transform:uppercase">
+          Free · No account needed · Your answers are saved
+        </p>
+        <p data-reveal style="margin-top:12px">
+          <a class="tlink" href="app.html#dashboard" style="font-size:13.5px">Already started? Open your board <span style="color:var(--route)">→</span></a>
         </p>
       </div>
       <div data-reveal style="transition-delay:120ms">
@@ -712,301 +900,21 @@ navMode();
         <p class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">Answer to continue in the full assessment ↗</p>
       </div>
     </div>
-  </div>
-</section>
 
-<!-- ══════════ 02 · THE CATALOGUE ══════════
-     The strongest credibility signal on the page: not a curated shortlist
-     but the actual national register. Counts are baked in at build time
-     from assets/js/catalogue.js — see scripts/sync-astra-catalogue.js. -->
-<section class="sec" id="catalogue" style="padding-top:0">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">02</span><span class="ttl">The Catalogue</span><span class="end">NZQA register</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
-      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Not a shortlist.<br><em>The register itself.</em></h2>
-      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
-        Every current postgraduate qualification on the NZQA register, with its entry
-        requirements, what it is for, and what it leads to. Universities, polytechnics
-        and private colleges — 29 of the private ones award master's degrees.
-      </p>
-    </div>
-
-    <div class="cat-stats" data-reveal>
-      <div class="cat-stat"><div class="fig">1,716</div><div class="cap">Qualifications</div></div>
-      <div class="cat-stat"><div class="fig">51</div><div class="cap">Providers</div></div>
-      <div class="cat-stat"><div class="fig">11</div><div class="cap">Subject areas</div></div>
-      <div class="cat-stat"><div class="fig">281</div><div class="cap">Scholarships</div></div>
-    </div>
-
-    <div class="cat-grid" data-reveal>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">321</span><span class="t">Society and Culture</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">275</span><span class="t">Management and Commerce</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">252</span><span class="t">Health</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">147</span><span class="t">Creative Arts</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">139</span><span class="t">Education</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">122</span><span class="t">Natural and Physical Sciences</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">111</span><span class="t">Engineering and Related Technologies</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">103</span><span class="t">Information Technology</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">64</span><span class="t">Agriculture &amp; Environmental Studies</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">63</span><span class="t">Architecture and Building</span></a>
-      <a class="cat-cell" href="app.html?track=masters#courses"><span class="n">54</span><span class="t">Mixed Field Programmes</span></a>
-      <a class="cat-cell" href="app.html?track=phd#courses"><span class="n">64</span><span class="t">Doctorates, every field</span></a>
-    </div>
-
-    <div style="margin-top:28px" data-reveal>
-      <a class="tlink" href="app.html#courses">Browse the catalogue — filter by level, subject and provider <span style="color:var(--route)">→</span></a>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ 03 · FUNDING ══════════ -->
-<section class="sec" id="funding" style="padding-top:0">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">03</span><span class="ttl">Funding</span><span class="end">Scholarships &amp; stipends</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:32px">
-      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">The money works<br><em>differently</em> for each.</h2>
-      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
-        A PhD and a master's are funded on completely different terms in New Zealand.
-        It is worth knowing which one applies to you before you plan anything else.
-      </p>
-    </div>
-
-    <!-- The domestic-fee and stipend story is TRUE FOR DOCTORAL CANDIDATES
-         ONLY. Presented unqualified it would mislead the master's audience
-         this page now also serves, so the two are stated side by side. -->
-    <div class="fee-split" data-reveal>
-      <div class="fee-col">
-        <span class="chip-lite">PhD</span>
-        <h3>Domestic fees. A stipend. Rent covered.</h3>
-        <p>International PhD candidates pay the <strong>domestic</strong> tuition rate — about
-          NZ$8,500 a year, one of the few countries in the world to do this. Doctoral
-          scholarships add NZ$28–33k tax-free on top, and most are awarded automatically
-          with admission rather than by separate application.</p>
-      </div>
-      <div class="fee-col">
-        <span class="chip-lite">Master’s</span>
-        <h3>Full international fees. No stipend. Worth knowing early.</h3>
-        <p>The concession does not extend to master’s students: budget
-          <strong>NZ$32,000–48,000 a year</strong>, plus NZ$20,000 in living costs the visa
-          requires you to evidence. Scholarships here are competitive, deadline-bound and
-          usually discount fees rather than pay you. On the other side of it, a level-9
-          master’s qualifies for a <strong>three-year open work visa</strong>.</p>
-      </div>
-    </div>
-    <!-- The ledger lists DOCTORAL awards only. Under a heading that now serves
-         both tracks it must say so, and point master's students at the 275
-         provider scholarships in the app rather than implying these are theirs. -->
-    <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:44px 0 14px">
-      Doctoral scholarships · the shortlist
-    </p>
-    <div data-reveal style="overflow-x:auto">
-      <table class="ledger" id="ledger">
-        <thead><tr>
-          <th style="width:42%">Scholarship</th>
-          <th>Annual value</th>
-          <th>Deadline</th>
-          <th class="ledger-hide-sm">Fields</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div style="margin-top:28px" data-reveal>
-      <p class="muted" style="font-size:14px;max-width:60ch;margin-bottom:16px">
-        Master’s awards work differently. There are 281 in the funding hub, taken from the
-        providers’ own scholarship pages, with their closing dates and eligibility as published.
-      </p>
-      <a class="tlink" href="app.html?track=masters#funding">Master’s scholarships <span style="color:var(--route)">→</span></a>
-      <span style="display:inline-block;width:28px"></span>
-      <a class="tlink" href="app.html?track=phd#funding">Doctoral funding hub <span style="color:var(--route)">→</span></a>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ 04 · UNIVERSITIES &amp; PROVIDERS ══════════ -->
-<section class="sec" id="labs" style="padding-top:0">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">04</span><span class="ttl">Universities &amp; Providers</span><span class="end">51 providers</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px">
-      <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Find your programme.<br>Or find the <em>right lab.</em></h2>
-      <p class="muted" data-reveal style="max-width:38ch;font-size:14.5px">
-        A master’s applicant picks a programme and applies to an intake. A PhD applicant picks
-        a person and writes to them. The eight universities below carry named labs and
-        supervisors; 43 polytechnics and private colleges carry applied postgraduate
-        qualifications the universities don’t teach.
-      </p>
-    </div>
-    <div class="lab-index" id="lab-index" data-reveal></div>
-    <p class="faint" data-reveal style="font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-top:18px">
-      Each entry opens the explorer — labs, named supervisors, and what to say in your first email.
-    </p>
-  </div>
-</section>
-
-<!-- ══════════ 05 · THE CROSSING (visa · arrival · mentors) ══════════ -->
-<section class="sec" id="crossing" style="padding-top:0">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">05</span><span class="ttl">The Crossing</span><span class="end">Visa · Arrival · Mentors</span>
-    </div>
-    <div class="split">
+    <!-- Secondary, and deliberately quiet: an email is what someone leaves
+         when they are not ready to start, so it sits below the thing they
+         came for rather than competing with it. -->
+    <div class="dispatch-inline" data-reveal>
       <div>
-        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:22px">The offer is the easy part.<br><em>Then you move countries.</em></h2>
-        <p class="muted" data-reveal style="max-width:44ch;margin-bottom:18px">
-          Police clearance in Colombo, eMedical, funds evidence, the eVisa file — then a city
-          you've never seen. The Visa Hub walks every stage with a checklist that remembers
-          your progress, and the Settle In guide covers banks, buses, flats, and family.
-        </p>
-        <p class="faint" data-reveal style="font-size:13.5px;max-width:42ch;margin-bottom:30px">
-          And when a step gets confusing, mentors — Sri Lankan postgraduate students already
-          in New Zealand — are one message away.
-        </p>
-        <div style="display:flex;gap:14px;flex-wrap:wrap" data-reveal>
-          <a class="btn btn-primary" href="app.html#visa">Open the Visa Hub</a>
-          <a class="tlink" href="app.html#settlement">Settle In guide</a>
-          <a class="tlink" href="app.html#mentors">Meet the mentors</a>
-        </div>
+        <strong>Not ready yet?</strong>
+        <span class="muted">Leave an email and we’ll write when a scholarship round closes or a visa rule changes. Occasional, not constant.</span>
       </div>
-      <div data-reveal style="transition-delay:120ms">
-        <div class="kit-list" id="visa-route"></div>
-        <p class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">Seven stages · click any to open the hub ↗</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ 06 · TRACKING ══════════ -->
-<div class="paper-to-night" aria-hidden="true"></div>
-<section class="sec night" style="padding-top:calc(var(--s7) - 32px)">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no" style="color:var(--route)">06</span><span class="ttl">Tracking</span><span class="end">Every application, one board</span>
-    </div>
-    <div class="split" style="align-items:end">
-      <div>
-        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Seven stages between<br>you and <em>enrolment.</em></h2>
-      </div>
-      <p class="muted" data-reveal style="font-size:15px;max-width:44ch">
-        Applications fail in the gaps — the supervisor you forgot to follow up, the deadline that
-        slid past. The dashboard holds every application on one board, from first contact to
-        enrolment, with nothing left to memory.
-      </p>
-    </div>
-
-    <div class="pipeline" data-reveal>
-      <div class="pipe-track" id="pipe-track"></div>
-    </div>
-
-    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:48px" data-reveal>
-      <a class="btn btn-primary" href="app.html#dashboard">Open the dashboard</a>
-      <span class="faint" style="font-family:var(--font-mono);font-size:11px;letter-spacing:.08em">DATA STAYS ON YOUR DEVICE</span>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ 07 · THE PAPERS (starter kit) ══════════ -->
-<section class="sec" id="kit">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">07</span><span class="ttl">Templates</span><span class="end">21 templates · 4 categories</span>
-    </div>
-    <div class="split">
-      <div class="paper-stack" data-reveal aria-hidden="true">
-        <div class="sheet s1">
-          <div class="sh-title">Research Proposal</div>
-          <div class="ln"></div><div class="ln"></div><div class="ln short"></div>
-          <div class="ln"></div><div class="ln short"></div>
-        </div>
-        <div class="sheet s2">
-          <div class="sh-title">Academic CV</div>
-          <div class="ln short"></div><div class="ln"></div><div class="ln"></div>
-          <div class="ln short"></div>
-        </div>
-        <div class="sheet s3">
-          <div class="sh-title">To: Prof. —</div>
-          Subject: Prospective PhD applicant — [your research area]
-          <div class="ln"></div><div class="ln"></div><div class="ln short"></div>
-        </div>
-      </div>
-      <div>
-        <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:18px">The difference between<br><em>read</em> and <em>deleted.</em></h2>
-        <p class="muted" data-reveal style="max-width:46ch;margin-bottom:34px">
-          Admissions offices read a lot of applications each intake, and supervisors a lot of
-          cold emails. The Starter Kit is a set of drafts to start from — a statement of purpose
-          and a programme comparison sheet for the master's route, a proposal outline and a
-          first-contact email for the PhD one — each annotated with the reasoning behind it.
-        </p>
-        <div class="kit-list" data-reveal>
-          <div class="kit-row"><span class="no">i.</span><strong>Master’s statement of purpose</strong><span class="mono">1 page</span></div>
-          <div class="kit-row"><span class="no">ii.</span><strong>Programme comparison sheet</strong><span class="mono">4–6 options</span></div>
-          <div class="kit-row"><span class="no">iii.</span><strong>Supervisor first-contact email</strong><span class="mono">one page</span></div>
-          <div class="kit-row"><span class="no">iv.</span><strong>Research proposal outline</strong><span class="mono">4–6 pages</span></div>
-          <div class="kit-row"><span class="no">v.</span><strong>Academic CV skeleton</strong><span class="mono">2 pp. max</span></div>
-        </div>
-        <div style="margin-top:30px">
-          <a class="btn btn-ghost" href="app.html#kit">Open the kit <span class="material-symbols-outlined" style="font-size:16px">east</span></a>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ WHAT THIS IS ══════════
-     This replaced three invented testimonials attributed to named students.
-     They were footnoted "illustrative", but a quote with a name and a city
-     attached reads as a real person whatever the footnote says. Being
-     straight about what the product does and does not do is both honest and,
-     for an audience that has been oversold by agents, more persuasive. -->
-<section class="sec" style="padding-top:0">
-  <div class="wrap">
-    <div class="chapter" data-reveal>
-      <span class="no">08</span><span class="ttl">Straight Answers</span><span class="end">What this is</span>
-    </div>
-    <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem);margin-bottom:40px">What PathFinder does,<br>and <em>what it doesn't.</em></h2>
-    <div class="notes">
-      <div class="note" data-reveal>
-        <blockquote>It shows you the register, not a shortlist.</blockquote>
-        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Every current postgraduate
-          qualification NZQA lists, from all 51 providers that teach one — including the
-          polytechnics and private colleges that rarely make a shortlist. Entry requirements
-          as published, so you can check them against your own transcript.</p>
-      </div>
-      <div class="note" data-reveal style="transition-delay:100ms">
-        <blockquote>It does the arithmetic you'd rather not.</blockquote>
-        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">Tuition, living costs,
-          the visa funds bar, what a scholarship actually covers — worked out for the route you are
-          on, in NZ$ and rupees. Most people find the number is different from what they assumed.</p>
-      </div>
-      <div class="note" data-reveal style="transition-delay:200ms">
-        <blockquote>It can't get you admitted.</blockquote>
-        <p class="muted" style="font-size:14px;line-height:1.65;margin-top:16px">No tool can. Admission
-          decisions sit with the university, the visa with Immigration NZ, and figures change
-          without notice. Treat everything here as a starting point to verify, not an answer to
-          rely on — and check the source links before you commit money.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════ DISPATCH ══════════ -->
-<section class="sec" style="background:var(--paper-2);border-top:1px solid var(--line)">
-  <div class="wrap">
-    <div class="dispatch" data-reveal>
-      <div class="rule-x"></div>
-      <span class="mono">Email alerts · Scholarships &amp; visas</span>
-      <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.6rem);margin:16px 0 12px">Deadlines don't<br>announce <em>themselves.</em></h2>
-      <p class="muted" style="font-size:14.5px">Leave your email and we'll write when a scholarship round, funded position or visa rule changes. It's a small list and a new one — expect occasional, not constant.</p>
       <form id="lead-form" novalidate>
         <div class="email-row">
           <input type="email" id="lead-email" class="field" placeholder="you@example.com" autocomplete="email" required aria-label="Email address" />
           <button type="submit" class="btn btn-primary">Subscribe</button>
         </div>
-        <p id="lead-msg" class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:14px;text-transform:uppercase">No spam · Unsubscribe anytime</p>
+        <p id="lead-msg" class="faint" style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;margin-top:10px;text-transform:uppercase">No spam · Unsubscribe anytime</p>
       </form>
     </div>
   </div>
@@ -1018,8 +926,8 @@ navMode();
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:40px">
       <nav style="display:flex;gap:26px;flex-wrap:wrap" class="mono">
         <a class="tlink" style="font-size:11px" href="app.html#assessment">Assessment</a>
-        <a class="tlink" style="font-size:11px" href="app.html#roadmap">Roadmap</a>
-        <a class="tlink" style="font-size:11px" href="app.html#explore">Labs</a>
+        <a class="tlink" style="font-size:11px" href="app.html#courses">Courses</a>
+        <a class="tlink" style="font-size:11px" href="app.html#cost">Cost</a>
         <a class="tlink" style="font-size:11px" href="app.html#funding">Funding</a>
         <a class="tlink" style="font-size:11px" href="app.html#visa">Visa</a>
         <a class="tlink" style="font-size:11px" href="app.html#settlement">Settle&nbsp;In</a>
@@ -1072,65 +980,43 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
   }, 2600);
 })();
 
-/* ── Index strip: the eight universities and their cities ── */
+/* ── The journey: seven stages, drawn on the dashed rail ──
+   Static rather than data-driven on purpose: these are the seven stages of
+   the student's own route, not one dataset's rows, and each one has to land
+   on the view that handles it. ── */
 (() => {
-  document.getElementById('legend').innerHTML = PF_UNIVERSITIES.map(u =>
-    `<span class="li"><b>${u.name.replace('University of ','U. ').replace(' University','')}</b><i>${u.city.split(' /')[0]}</i></span>`).join('');
-})();
-
-/* ── The Crossing: 7-stage visa route index ── */
-(() => {
-  const ROMAN = ['i.','ii.','iii.','iv.','v.','vi.','vii.'];
-  document.getElementById('visa-route').innerHTML = PF_VISA_STAGES.map((s, i) =>
-    `<a class="kit-row" href="app.html#visa" style="cursor:pointer">
-      <span class="no">${ROMAN[i]}</span><strong>${s.title}</strong>
-      <span class="mono">${s.dur}${s.cost !== 'Free' ? ' · ' + s.cost.split('(')[0].trim() : ''}</span>
+  const STAGES = [
+    ['Where you stand',  'A 7-question assessment, under five minutes',      'app.html#assessment'],
+    ['What to study',    '1,716 postgraduate qualifications, 51 providers',  'app.html#courses'],
+    ['What it costs',    'Tuition, living, the total nobody quotes you',     'app.html#cost'],
+    ['How to pay for it','281 scholarships, and a funds plan for the visa',  'app.html#funding'],
+    ['The application',  'Templates, proposal drafts and deadlines',         'app.html#kit'],
+    ['The visa',         'All 7 INZ stages, with where to go in Colombo',    'app.html#visa'],
+    ['Landing',          'First 48 hours, bank, phone, flat, first week',    'app.html#settlement'],
+  ];
+  const track = document.getElementById('j-track');
+  track.innerHTML = STAGES.map(([t, d, href], i) =>
+    `<a class="j-stop" href="${href}">
+      <span class="node" aria-hidden="true"></span>
+      <span class="no">${String(i + 1).padStart(2, '0')}</span>
+      <span class="txt"><span class="t">${t}</span><span class="d">${d}</span></span>
     </a>`).join('');
+
+  const stops = track.querySelectorAll('.j-stop');
+  if (REDUCED) { stops.forEach(s => s.classList.add('on')); return; }
+  new IntersectionObserver((es, o) => {
+    if (!es[0].isIntersecting) return;
+    stops.forEach((st, i) => setTimeout(() => st.classList.add('on'), 200 + i * 190));
+    o.disconnect();
+  }, { threshold: .35 }).observe(track);
 })();
 
-/* ── Assessment preview (Q1, live) ── */
+/* ── Assessment preview (Q1, live) — the closing CTA is the question itself ── */
 (() => {
   const q = PF_QUESTIONS[0];
   document.getElementById('asm-preview').innerHTML = q.opts.map((o, i) =>
     `<button class="asm-row" data-i="${i}"><span class="idx">${String.fromCharCode(97 + i)}.</span>${o.t}</button>`).join('');
   document.querySelectorAll('.asm-row').forEach(b => b.onclick = () => location.href = 'app.html#assessment');
-})();
-
-/* ── Funding ledger ── */
-(() => {
-  document.querySelector('#ledger tbody').innerHTML = PF_SCHOLARSHIPS.slice(0, 6).map(s => `
-    <tr style="cursor:pointer" onclick="location.href='app.html#funding'">
-      <td style="font-weight:600;padding-right:24px">${s.name}</td>
-      <td style="font-family:var(--font-mono);font-size:12.5px;white-space:nowrap">${s.value.replace('Fees + ','Fees + ')}</td>
-      <td style="font-family:var(--font-mono);font-size:12.5px;color:var(--route);white-space:nowrap">${s.deadline.split('(')[0].trim()}</td>
-      <td class="ledger-hide-sm" style="font-family:var(--font-mono);font-size:11.5px;color:var(--ink-faint)">${s.fields}</td>
-    </tr>`).join('');
-})();
-
-/* ── Lab index ── */
-(() => {
-  document.getElementById('lab-index').innerHTML = PF_UNIVERSITIES.map((u, i) => {
-    const labCount = PF_LABS.filter(l => l.uni === u.id).length;
-    return `<div class="li-row" onclick="location.href='app.html#explore'" tabindex="0" role="link"
-      onkeydown="if(event.key==='Enter')location.href='app.html#explore'">
-      <span class="no">${String(i + 1).padStart(2, '0')}</span>
-      <span class="uni">${u.name}</span>
-      <span class="meta">${u.city.split(' /')[0]} · ${labCount ? labCount + ' lab' + (labCount > 1 ? 's' : '') + ' listed' : u.rank}</span>
-      <span class="go">→</span>
-    </div>`;
-  }).join('');
-})();
-
-/* ── Pipeline (tracker stages) ── */
-(() => {
-  document.getElementById('pipe-track').innerHTML = PFStore.APP_STATUSES.map((s, i) =>
-    `<div class="pipe-stop" data-i="${i}"><span class="node"></span><span class="lbl">${s}</span></div>`).join('');
-  const stops = document.querySelectorAll('.pipe-stop');
-  new IntersectionObserver((es, o) => {
-    if (!es[0].isIntersecting) return;
-    stops.forEach((st, i) => setTimeout(() => st.classList.add('on'), 250 + i * 240));
-    o.disconnect();
-  }, { threshold: .4 }).observe(document.querySelector('.pipeline'));
 })();
 
 /* ── Lead capture ── */
