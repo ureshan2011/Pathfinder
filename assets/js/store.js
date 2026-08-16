@@ -130,12 +130,18 @@ const PFStore = (() => {
      counts to derive the remaining balance — so it is the only record of
      the spend, and must survive the round trip to Firestore. `priority`
      rides along for plans that include it, and sorts the mentor queue. */
-  function addMentorRequest({ topic, note, name, contact, redeem, priority }) {
+  // `source` is how the enquiry first reached us (PF_REQUEST_SOURCES in
+  // data.js). It defaults to 'platform' — typed on the site — and is set to
+  // 'whatsapp' when the student opens the chat from inside the app, so a
+  // conversation that carries on over WhatsApp still has a row in the queue
+  // rather than living only on somebody's phone.
+  function addMentorRequest({ topic, note, name, contact, redeem, priority, source }) {
     const list = getMentorRequests();
     const r = {
       id: 'mr_' + Date.now(),
       topic: topic || '', note: note || '',
       name: name || '', contact: contact || '',
+      source: source || 'platform',
       studentUid: null,             // set to the real uid by the sync layer
       status: 'open',
       mentorId: null,

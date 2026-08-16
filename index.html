@@ -1072,11 +1072,22 @@ navMode();
       </div>
     </div>
 
-    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:52px" data-reveal>
+    <!-- Two doors, and the second one matters more than it looks: most
+         enquiries in Sri Lanka start as a WhatsApp message long before
+         anyone signs up for anything, and a form is not what that person
+         wants. The href is written by JS from PF_CONFIG (see the foot of
+         this file) so the number lives in exactly one place. -->
+    <div style="display:flex;gap:14px 18px;align-items:center;flex-wrap:wrap;margin-top:52px" data-reveal>
       <a class="btn btn-primary" href="app.html#mentors">Ask a mentor</a>
-      <span class="faint" style="font-size:13.5px;max-width:44ch;line-height:1.6">
+      <a class="btn btn-ghost js-wa" data-wa-from="Mentors, landing page"
+         data-wa-intent="I’d like to talk to someone about studying in New Zealand."
+         target="_blank" rel="noopener" hidden>
+        <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">chat</span>
+        WhatsApp us
+      </a>
+      <span class="faint" style="font-size:13.5px;max-width:42ch;line-height:1.6">
         Sending a request needs a free account, so it stays yours across devices.
-        Everything else on PathFinder works without one.
+        WhatsApp needs nothing at all.
       </span>
     </div>
   </div>
@@ -1196,6 +1207,13 @@ navMode();
         <a class="tlink" style="font-size:11px" href="app.html#mentors">Mentors</a>
         <a class="tlink" style="font-size:11px" href="app.html#kit">Kit</a>
       </nav>
+      <!-- The number, where a footer is the first place anyone looks for it.
+           Both links are written by JS from PF_CONFIG. -->
+      <div class="mono contact-line" style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+        <a class="tlink js-wa" style="font-size:11px" data-wa-from="Footer"
+           target="_blank" rel="noopener" hidden>WhatsApp&nbsp;<span class="js-contact-number"></span></a>
+        <a class="tlink js-tel" style="font-size:11px" hidden>Call&nbsp;<span class="js-contact-number"></span></a>
+      </div>
       <span class="mono">Made for Sri Lankan students <span class="tick">·</span> New Zealand</span>
     </div>
     <div class="big">Path<i>finder</i></div>
@@ -1217,6 +1235,7 @@ navMode();
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/store.js"></script>
+<script src="assets/js/contact.js"></script>
 <script src="assets/js/firebase-config.js"></script>
 <script type="module" src="assets/js/firebase.js"></script>
 <script>
@@ -1311,6 +1330,27 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
     o.disconnect();
     draw();
   }, { threshold: .35 }).observe(track);
+})();
+
+/* ── The phone line ──
+   Every WhatsApp / call link on this page is written here from PF_CONFIG,
+   and stays hidden until PFContact confirms a number is actually set — so
+   an unconfigured build shows nothing rather than a dead `wa.me//` link.
+   Each link carries where it was clicked from, so the first message that
+   arrives already says which part of the site the person was reading. ── */
+(() => {
+  if (typeof PFContact === 'undefined' || !PFContact.has()) return;
+  // The RAW stored value, not PFStore.getTrack() — that degrades an unset
+  // track to PhD, which is right for a stored value that won't parse and
+  // wrong for a visitor who has never been asked. A message claiming the
+  // wrong degree is worse than one that mentions no degree at all.
+  const track = (window.PFStore && PFStore.get('track')) || '';
+  document.querySelectorAll('.js-contact-number').forEach(el => { el.textContent = PFContact.display(); });
+  document.querySelectorAll('.js-wa').forEach(a => {
+    a.href = PFContact.waHref({ intent: a.dataset.waIntent, from: a.dataset.waFrom, track });
+    a.hidden = false;
+  });
+  document.querySelectorAll('.js-tel').forEach(a => { a.href = PFContact.telHref(); a.hidden = false; });
 })();
 
 /* ── Register counts, counted up ──

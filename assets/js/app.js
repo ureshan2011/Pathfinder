@@ -181,6 +181,74 @@ function accountHref(next) {
   return '#account' + (next ? '?next=' + encodeURIComponent(next) : '');
 }
 
+/* A small "reach a human" card, for the screens where the in-app route is
+   the wrong one — the sign-in wall, and the page where someone is deciding
+   whether to spend money. Renders nothing when no number is configured. */
+function contactCard(title, body, from) {
+  if (typeof PFContact === 'undefined' || !PFContact.has()) return '';
+  return `<div class="sidecard">
+    <span class="sidecard-kicker">Talk to us</span>
+    <h2 class="listcard-title mt-3" style="font-size:1.05rem">${esc(title)}</h2>
+    <p>${esc(body)}</p>
+    <p class="mt-3"><strong>${esc(PFContact.display())}</strong></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <a class="btn btn-quiet btn-sm" href="${esc(whatsappHref({ from }))}" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined" aria-hidden="true">chat</span> WhatsApp
+      </a>
+      <a class="btn btn-quiet btn-sm" href="${esc(PFContact.telHref())}">
+        <span class="material-symbols-outlined" aria-hidden="true">call</span> Call
+      </a>
+    </div>
+  </div>`;
+}
+
+/* ── WhatsApp, from inside the app ─────────────────────────────────────
+   One place that opens the chat, so every entry point sends the same
+   shape of message: what they want, which track they are on, which view
+   they were reading, and — when the site has written a record for the
+   enquiry — its ref, which the mentor and admin queues print on the card.
+
+   window.open in the click handler rather than an <a href>: the href has
+   to be built from form values that only exist at click time. It is a
+   direct user gesture and PFStore.addMentorRequest is synchronous, so no
+   popup blocker sees this as automated; location.href is the fallback for
+   the ones that block it anyway. */
+function whatsappHref(opts = {}) {
+  if (typeof PFContact === 'undefined' || !PFContact.has()) return '';
+  return PFContact.waHref(Object.assign({
+    // The RAW stored track, not PFStore.getTrack(): that degrades an unset
+    // value to PhD, which is right for a stored value that won't parse and
+    // wrong for someone who has never been asked — #account and #pricing are
+    // both track-free views a visitor can reach before choosing. A message
+    // claiming the wrong degree is worse than one that names none.
+    track: PFStore.get('track') || '',
+    from: opts.from || (location.hash || '#dashboard').split('?')[0],
+  }, opts));
+}
+
+function openWhatsApp(opts = {}) {
+  const href = whatsappHref(opts);
+  if (!href) return false;
+  const w = window.open(href, '_blank', 'noopener');
+  if (!w) location.href = href;
+  return true;
+}
+
+/* The persistent link in the nav menu. Hidden until PF_CONFIG actually
+   carries a number, so an unconfigured build shows nothing rather than a
+   dead wa.me link. Repainted on every route so the message it carries
+   names the view the student is looking at. */
+function paintContactLinks() {
+  const a = document.getElementById('nav-whatsapp');
+  if (!a) return;
+  const href = whatsappHref({ intent: 'I have a question about my New Zealand application.' });
+  if (!href) { a.hidden = true; return; }
+  a.href = href;
+  a.hidden = false;
+  const label = a.querySelector('.wa-label');
+  if (label) label.textContent = 'WhatsApp ' + PFContact.display();
+}
+
 /* Where to land after a successful sign-up/sign-in on #account: back to
    whatever the visitor was trying to do (?next=), or the dashboard by
    default for a visitor who came to #account directly. */
@@ -352,6 +420,7 @@ function route() {
     main.insertAdjacentHTML('afterbegin', profileTabs(view));
   }
   updateNavChrome();
+  paintContactLinks();
   animateBars(main);
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
     { duration: 350, easing: 'cubic-bezier(.22,1,.36,1)' });
@@ -4849,13 +4918,76 @@ function renderMentors(main) {
         </a>
       </div>`;
 
+    /* ── The other door ───────────────────────────────────────────────
+       Most enquiries in Sri Lanka begin as a WhatsApp message, and the
+       platform is built to absorb that rather than route around it — the
+       admin and mentor dashboards already take phone and WhatsApp intake
+       through "Someone called". This is the same thing from the student's
+       side, and it does two things at once: it opens the chat with their
+       question already typed, AND (when they are signed in, so the record
+       has an owner) it writes that question into the same
+       `mentor_requests` queue with source:'whatsapp'. So the conversation
+       carries on where they want it, and it still has a row on a
+       dashboard, a claimable mentor, a client-book entry and eventually
+       an invoice — instead of living only on somebody's phone.
+
+       Deliberately NOT account-gated. The gate exists so an in-app
+       request is tied to a real person across devices; a phone number is
+       a phone number, and refusing to show it until someone signs up
+       would be theatre. Signed out, it opens the chat and writes nothing. */
+    const waCard = (typeof PFContact !== 'undefined' && PFContact.has()) ? `
+      <div class="sidecard">
+        <span class="sidecard-kicker">Rather just message?</span>
+        <p>WhatsApp <strong>${esc(PFContact.display())}</strong> and a real person answers — same team, same free first ${PF_CONFIG.freeIntroMinutes} minutes.</p>
+        <p class="faint" style="font-size:12.5px;margin-top:8px">${signedIn
+          ? 'Whatever you type below goes with the message and is saved to your requests, so nothing gets lost between the chat and your dashboard.'
+          : 'No account needed. Sign in first if you want the conversation to show up in your requests too.'}</p>
+        <button class="btn btn-quiet btn-sm mt-3" type="button" id="ask-wa">
+          <span class="material-symbols-outlined" aria-hidden="true">chat</span>
+          Open WhatsApp
+        </button>
+      </div>` : '';
+
     const sidecard = `<div class="sidecard">
         <span class="sidecard-kicker">The mentor network</span>
         <p>${st.count} mentor${st.count === 1 ? '' : 's'} active across ${st.fields.length} field${st.fields.length === 1 ? '' : 's'} — postgrads from Sri Lanka, already in New Zealand.</p>
         <div class="chip-row mt-4">${st.fields.map(([f, n]) => `<span class="chip chip-neutral">${esc(f)} · ${n}</span>`).join('')}</div>
       </div>`;
 
-    body.innerHTML = `<div class="viewgrid"><div style="max-width:680px">${askCard}</div><div class="aside">${sidecard}</div></div>`;
+    body.innerHTML = `<div class="viewgrid"><div style="max-width:680px">${askCard}</div><div class="aside">${waCard}${sidecard}</div></div>`;
+
+    const waBtn = $('#ask-wa');
+    if (waBtn) waBtn.addEventListener('click', () => {
+      const val = id => { const el = $(id); return el ? el.value.trim() : ''; };
+      const note = val('#ask-note');
+      const topicSlug = val('#ask-topic');
+      const name = val('#ask-name');
+      let ref = '';
+      // Only a signed-in student gets a record: an anonymous device session
+      // would produce a request nobody can be handed back to.
+      if (signedIn) {
+        const r = PFStore.addMentorRequest({
+          topic: topicSlug, note, name,
+          // Whatever they typed, or a label with NO digits in it. Writing our
+          // own number here would key every WhatsApp enquiry to the same
+          // person in the client book (contactKey() matches on the last nine
+          // digits) — their real number arrives with their message.
+          contact: val('#ask-contact') || 'via WhatsApp',
+          source: 'whatsapp',
+          priority: !!entitlements().priority,
+        });
+        ref = PFContact.ref(r.id);
+        toast('Saved to your requests — the ref is in the message.');
+        mentorsTab = 'mine';
+      }
+      openWhatsApp({
+        intent: 'I’d like to ask a mentor something.',
+        note, ref,
+        topic: PF_CONSULT_TOPICS[topicSlug] || '',
+        from: 'Ask a mentor',
+      });
+      if (signedIn) loadEntitlements(() => route());
+    });
 
     const askForm = $('#ask-form');
     if (askForm) askForm.addEventListener('submit', e => {
@@ -5751,7 +5883,13 @@ function renderPricing(main) {
     body: 'Explorer and Premium are one-time payments, not subscriptions.',
   }) +
     `<div class="price-tiers">${plans.map(card).join('')}</div>
-    <p class="row-sub mt-6" style="max-width:640px">Extra mentor sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you. ${cloudOn() ? `<a href="#billing">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>`;
+    <p class="row-sub mt-6" style="max-width:640px">Extra mentor sessions are ${money(t.quick)}–${money(t.standard)} each, and a standalone application audit is ${money(p.auditSop)}–${money(p.auditFull)} — <a href="#mentors">browse mentors</a>. Partner links (IELTS prep, money transfer, insurance, flights) are clearly labelled and free to you. ${cloudOn() ? `<a href="#billing">View your purchases →</a>` : 'Sign-in and purchases need Firebase configured.'}</p>
+    ${(typeof PFContact !== 'undefined' && PFContact.has()) ? `
+    <p class="row-sub mt-4" style="max-width:640px">
+      Not sure which one fits, or want to ask before you pay? WhatsApp
+      <a href="${esc(whatsappHref({ intent: 'I have a question about the plans before I buy.', from: 'Plans & pricing' }))}" target="_blank" rel="noopener"><strong>${esc(PFContact.display())}</strong></a>
+      — a question about money should never have to go through a form.
+    </p>` : ''}`;
 
   // Resolve what they already own, then repaint — so a returning customer
   // isn't sold a plan they're still holding credits from.
@@ -5941,6 +6079,7 @@ function accountAuth(main) {
           <p>Platform owners only.</p>
           <a class="btn btn-quiet" href="#admin"><span class="material-symbols-outlined" aria-hidden="true">lock</span> Go to admin sign-in</a>
         </div>
+        ${contactCard('Stuck signing in?', 'Message us and we’ll sort it out — no account needed to reach a person.', 'Sign-in screen')}
       </div>
     </div>`;
 
@@ -6979,6 +7118,15 @@ function mentorDashboard(main) {
 /* A request in the open queue. Identity stays hidden until it is claimed —
    but HOW it arrived does not, because a phone lead needs ringing back and
    a form on the site does not. */
+/* A request the student raised on their way into WhatsApp will be followed
+   by a message on the phone quoting this ref — printing it here is what
+   ties the two together, since nothing flows back in from WhatsApp itself. */
+function reqRef(r) {
+  if (!r || r.source !== 'whatsapp' || typeof PFContact === 'undefined') return '';
+  const ref = PFContact.ref(r.id);
+  return ref ? `<span class="chip chip-neutral" title="Quoted in their WhatsApp message">Ref ${esc(ref)}</span>` : '';
+}
+
 function openReqCard(r) {
   const phoned = r.source && r.source !== 'platform';
   return `<div class="card" style="margin-bottom:12px" data-req="${r.id}">
@@ -6992,7 +7140,8 @@ function openReqCard(r) {
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${r.priority ? `<span class="chip chip-gold">Priority</span>` : ''}
-        ${phoned ? `<span class="chip chip-violet">Rang us</span>` : ''}
+        ${phoned ? `<span class="chip chip-violet">${r.source === 'whatsapp' ? 'WhatsApp' : 'Rang us'}</span>` : ''}
+        ${reqRef(r)}
         ${r.redeem ? `<span class="chip chip-ok">${r.redeem === 'audit' ? 'Audit included' : 'Session included'}</span>` : ''}
         <button class="btn btn-primary btn-sm mt-claim" data-req="${r.id}">Claim</button>
       </div>
@@ -7056,6 +7205,7 @@ function claimedReqCard(r) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
         ${reqStatusChip(r.status)}
+        ${reqRef(r)}
         ${r.payment ? payStatusChip(r.payment) : ''}
       </div>
     </div>
@@ -7590,6 +7740,7 @@ function requestCard(r) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
         ${reqStatusChip(r.status)}
+        ${reqRef(r)}
         ${r.payment ? payStatusChip(r.payment) : ''}
       </div>
     </div>

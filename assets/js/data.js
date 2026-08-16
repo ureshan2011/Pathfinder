@@ -1599,7 +1599,22 @@ const PF_MENTORS = [
 /* Platform routing for consultation requests — set before launch */
 const PF_CONFIG = {
   contactEmail: 'consult@pathfinder.example',   // TODO: replace with the real inbox
-  fallbackWhatsapp: '',                          // optional platform WhatsApp line
+
+  /* ── The line people actually use ─────────────────────────────────────
+     One number, written three ways, because three different consumers need
+     three different formats and a hand-typed variant in any one of them is
+     a dead link nobody notices:
+
+       contactPhone      how a Sri Lankan reads it, for display
+       contactPhoneE164  what tel: needs, so a tap dials from abroad too
+       whatsapp          what wa.me needs — digits only, country code, no +
+
+     Everything on the site reads these through PFContact (contact.js);
+     nothing hard-codes the number. Change it here and it changes
+     everywhere, including the legal pages' contact blocks. */
+  contactPhone: '071 270 7074',
+  contactPhoneE164: '+94712707074',
+  whatsapp: '94712707074',
 
   /* ── Mentorship marketplace ──────────────────────────────────────
      Every request opens with a free intro slot; paid follow-on sessions
