@@ -263,19 +263,33 @@ const PFRoi = (() => {
     const psw = d.psw || {};
     const pswYears = psw.mastersYears || 3;
 
+    /* The verdict, in words a family reads once and understands.
+
+       These strings used to be written as if the reader already knew the
+       model: "Does not pay back inside the visa" was a headline on this
+       screen, and it fails three ways at once. It is jargon ("the visa" —
+       which one?). It sounds like a refusal rather than a timing fact. And
+       it is shouted at someone who has usually not entered their own plan
+       yet, so the first thing this product ever tells them about their
+       future is a red alarm about a default.
+
+       So: `band` is now a short, plain STATUS — never the page's headline
+       (see roiHeroCopy in app.js) — and `verdict` explains it by naming
+       the actual numbers and the actual visa, in the order a person asks:
+       how long, against what, and what that means. */
     let band, bandCls, verdict;
     if (!isFinite(paybackYears)) {
-      band = 'Does not pay back'; bandCls = 'chip-alert';
-      verdict = 'On these figures a graduate salary in this field would not cover the cost of living in this city, so there is nothing left over to repay the investment. Look at a cheaper route below, or a different city.';
+      band = 'Earns back: not on these numbers'; bandCls = 'chip-alert';
+      verdict = `On these figures the typical starting salary in this field would not cover the cost of living in ${living.city}, so there is nothing left over each year to put back toward the cost. A cheaper provider or a cheaper city changes this — both are below.`;
     } else if (paybackYears <= pswYears * 0.6) {
-      band = 'Pays back comfortably'; bandCls = 'chip-ok';
-      verdict = `Recovered in about ${fmtYears(paybackYears)} of work — well inside the ${pswYears}-year post-study work visa, with room for a slow start.`;
+      band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-ok';
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa, so that fits comfortably — with room if it takes you a while to find the first job.`;
     } else if (paybackYears <= pswYears) {
-      band = 'Pays back, with no room to spare'; bandCls = 'chip-warn';
-      verdict = `Recovered in about ${fmtYears(paybackYears)}, against a ${pswYears}-year work visa. That assumes work in the field from early on — any gap and it runs past the visa.`;
+      band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-warn';
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa — so it fits, but only if you find work in the field early. A slow start pushes it past the visa.`;
     } else {
-      band = 'Does not pay back inside the visa'; bandCls = 'chip-alert';
-      verdict = `About ${fmtYears(paybackYears)} to recover, but the post-study work visa lasts ${pswYears}. Repaying this needs residence or a longer stay, and neither is guaranteed.`;
+      band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-alert';
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa — so on these numbers you would still be repaying it when that visa runs out. Staying longer means getting residence, which is a separate application and never guaranteed.`;
     }
 
     return {

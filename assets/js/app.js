@@ -4785,14 +4785,7 @@ function renderCost(main) {
      On mobile this is the literal top-to-bottom order. The old version put
      the inputs in an aside, which on a phone dropped them to the BOTTOM —
      below every number they controlled. */
-  main.innerHTML = renderHero({
-    kicker: 'Cost & payback',
-    title: r.band,
-    body: r.verdict,
-    figure: isFinite(r.paybackYears) ? Math.round(r.paybackYears * 10) / 10 : '—',
-    figureSuffix: isFinite(r.paybackYears) ? ' yr' : '',
-    figureCaption: 'to earn it back',
-  }) +
+  main.innerHTML = renderHero(roiHeroCopy(r, cat)) +
     roiPlanCard(cat) +
     roiHeadline(r) +
     roiCostCard(r) +
@@ -4807,6 +4800,56 @@ function renderCost(main) {
 
   if (cloudOn() && !entState.loaded) loadEntitlements(() => {
     if (location.hash.slice(1).split('?')[0] === 'cost') route();
+  });
+}
+
+/* ── The hero, made contextual ───────────────────────────────────────
+   This screen used to headline the VERDICT: a student opened #cost and
+   the biggest text on the page read "Does not pay back inside the visa".
+   Three problems, and they compound:
+
+     · It is jargon. "The visa" is the post-study work visa, which the
+       sentence never names, so the phrase means nothing on first read.
+     · It reads as a judgement on the student rather than a fact about
+       timing — the same information stated as "earns back in 4½ years"
+       is not frightening, just useful.
+     · Worst: it is a verdict on a plan they have NOT ENTERED. The model
+       has to start somewhere, so it defaults to a two-year master's at
+       Auckland. Shouting a red conclusion about someone else's plan is
+       how you lose a reader on their first visit.
+
+   So the title now says what is being costed, in their own terms, and
+   the verdict moves down into the body where it has room to explain
+   itself. Until the student has actually set a plan, the screen says so
+   plainly and asks for the one input that changes everything — the fee
+   they were quoted. */
+function roiHeroCopy(r, cat) {
+  const custom = !!PFStore.get('roiPlan', null);
+  const prov = PFRoi.providerOf(roiState.providerId);
+  const subject = cat && cat.taxonomy && cat.taxonomy[roiState.subjectRoot]
+    ? cat.taxonomy[roiState.subjectRoot].n : null;
+  const city = (r.city && r.city.city) || 'New Zealand';
+  const yrs = isFinite(r.paybackYears);
+
+  const base = {
+    kicker: 'Cost & payback',
+    figure: yrs ? Math.round(r.paybackYears * 10) / 10 : '—',
+    figureSuffix: yrs ? ' yr' : '',
+    figureCaption: yrs ? 'to earn it back' : 'no surplus to repay it',
+  };
+
+  if (!custom) {
+    // Nothing entered yet. Say what the number is an example of, not what
+    // it concludes about them.
+    return Object.assign(base, {
+      title: `What a master's in ${city} costs`,
+      body: `This is a worked example — ${r.years} years at ${prov ? prov.name : 'a New Zealand university'}${subject ? `, studying ${subject.toLowerCase()}` : ''} — so you can see the shape of it. Change the provider, city and subject below and every number here follows. If you have been quoted a fee, enter it: that one figure matters more than everything else on this page.`,
+    });
+  }
+
+  return Object.assign(base, {
+    title: `Your ${r.years}-year plan in ${city}`,
+    body: r.verdict,
   });
 }
 
