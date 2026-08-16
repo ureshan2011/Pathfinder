@@ -43,7 +43,34 @@
       display: flex; flex-direction: column; isolation: isolate;
       background: var(--night); color: #F0EDE6;
     }
-    #hero-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+    #hero-gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+
+    /* ── the flat hero, drawn in CSS, sitting UNDER the canvas ──
+       Light from beyond a threshold rather than the threshold itself. When
+       the 3D scene runs, the opaque canvas paints straight over this and it
+       costs nothing; when it doesn't — a phone, a short window, reduced
+       motion, no WebGL — this IS the hero. It is deliberately all glow and no
+       geometry: the copy then sits on near-solid dark and stays readable,
+       which is exactly what the doorway behind the text was costing. */
+    .stage::before, .stage::after {
+      content: ''; position: absolute; z-index: 0; pointer-events: none;
+      left: 50%; transform: translateX(-50%);
+    }
+    .stage::before {                       /* the wide bloom off the floor */
+      bottom: -24%; width: min(900px, 132%); height: 82%;
+      background: radial-gradient(closest-side, rgba(232,118,63,.52), rgba(194,64,28,.19) 46%, transparent 76%);
+      filter: blur(14px);
+    }
+    .stage::after {                        /* the bright seam at its centre */
+      bottom: -4%; width: min(230px, 40%); height: 52%; border-radius: 50% 50% 0 0 / 22% 22% 0 0;
+      background: linear-gradient(180deg, transparent, rgba(255,205,160,.2) 48%, rgba(255,231,205,.42));
+      filter: blur(18px);
+    }
+    /* on a wide screen the copy holds the left, so the light sits where the
+       doorway itself stands in the 3D scene rather than dead centre */
+    @media (min-width: 981px) {
+      .stage::before, .stage::after { left: 66%; }
+    }
 
     /* cinematic vignette + readability scrim behind copy */
     .stage-vignette {
@@ -136,14 +163,9 @@
     /* hand-off veil into the paper site */
     .veil { position: absolute; inset: 0; z-index: 40; background: var(--paper); opacity: 0; pointer-events: none; }
 
-    /* WebGL-unavailable fallback */
-    .stage.gl-fallback #hero-gl { display: none; }
-    .stage.gl-fallback::after {
-      content: ""; position: absolute; z-index: 1; pointer-events: none;
-      right: 8%; top: 18%; width: 34%; height: 64%;
-      background: radial-gradient(60% 50% at 50% 60%, rgba(232,118,63,.5), rgba(194,64,28,.18) 55%, transparent 75%);
-      filter: blur(30px);
-    }
+    /* No canvas: no WebGL, or reduced motion. The flat hero underneath shows
+       through on its own — this only stops an empty canvas sitting over it. */
+    .stage.no-gl #hero-gl, .stage.no-gl .veil { display: none; }
 
     /* nav over the dark stage */
     .nav.on-dark { background: transparent; border-bottom-color: transparent; }
@@ -157,24 +179,48 @@
     .nav.on-dark .btn-primary { background: #F4F1EA; color: var(--ink); border-color: #F4F1EA; }
     .nav.on-dark .btn-primary:hover { background: var(--route); border-color: var(--route); color: #FFF4ED; }
 
-    @media (max-width: 980px) {
-      .hero-zone { height: auto; }
+    /* ── where the 3D doorway stops being worth it ──
+       On a phone, or any window too short to hold the scene, the doorway ends
+       up BEHIND the copy instead of beside it and the text gets hard to read
+       — so those screens get the flat hero above and never load three.js at
+       all (~600KB saved on exactly the metered mobile connections this
+       audience is on). Laptops, desktops and tablets held landscape keep the
+       full scene. This query and GL_QUERY in the hero script are the same
+       line written twice; change them together. */
+    @media (max-width: 980px), (max-height: 560px) {
+      #hero-gl, .veil { display: none; }
+      .hero-zone { height: auto !important; }
       .stage { position: relative; height: auto; min-height: 100svh; }
-      .hero-grid { grid-template-columns: 1fr; align-items: end; padding-top: 90px; }
+    }
+    @media (max-width: 980px) {
+      .hero-grid { grid-template-columns: 1fr; align-items: center; padding-top: 96px; }
       /* the right-hand column holds the doorway's space in the 3D scene, not
          content — as a second grid row it just pushes the copy off the bottom */
       .hero-grid > div:last-child { display: none; }
-      .copy { padding-bottom: 72px; max-width: none; }
-      /* the door is behind the copy here rather than beside it, so the scrim
-         carries a flat mid-band as well as the top and bottom falloff */
+      .copy { padding-bottom: 44px; max-width: none; }
+      /* the flat hero's glow rises from the foot of the screen, so the scrim
+         runs the other way: heavy under the copy, open where the light is */
       .stage-vignette {
-        background: linear-gradient(180deg, rgba(24,22,16,.62) 0%, rgba(24,22,16,.28) 26%, rgba(24,22,16,.34) 52%, rgba(24,22,16,.88) 80%, rgba(24,22,16,.96) 100%);
+        background: linear-gradient(180deg, rgba(24,22,16,.68) 0%, rgba(24,22,16,.52) 34%, rgba(24,22,16,.2) 72%, rgba(24,22,16,.1) 100%);
       }
+      /* the bloom belongs at the foot of a tall screen, not behind the words */
+      .stage::before { bottom: -26%; height: 56%; }
+      .stage::after { bottom: -8%; height: 34%; }
       .stage-foot { display: none; }
     }
     @media (max-width: 560px) {
       .hero h1 { font-size: clamp(38px, 10.5vw, 52px); }
       .actions .btn { flex: 1; justify-content: center; }
+    }
+    /* a wide but short window — a laptop with the browser half-height, a
+       tablet in landscape — needs the copy to fit above the fold */
+    @media (min-width: 981px) and (max-height: 620px) {
+      .hero-grid { padding-top: 62px; }
+      .hero h1 { font-size: clamp(36px, 4.3vw, 54px); }
+      .sub { margin-top: 16px; }
+      .actions-dual { margin-top: 22px; }
+      .actions { margin-top: 22px; }
+      .copy { padding-bottom: 16px; }
     }
 
     /* ════════ FEE SPLIT — PhD vs master's, stated side by side ════════ */
@@ -208,17 +254,35 @@
     }
     .cat-stat .cap { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint); margin-top: 8px; }
 
-    /* ════════ THE JOURNEY — seven stages on a dashed rail ════════
+    /* ════════ THE JOURNEY — seven stages on a drawn route ════════
        The one diagram the whole page is built around: the route from
-       "I'm thinking about it" to a flat in Wellington, drawn end to end
-       so nobody has to guess which parts PathFinder covers. Each stop is
-       a link into the view that handles that stage. */
-    .journey { margin-top: 52px; }
-    .j-track { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; }
-    .j-track::before {
-      content: ''; position: absolute; left: 9px; right: 9px; top: 9px; height: 0;
-      border-top: 1px dashed var(--line-2);
+       "I'm thinking about it" to a flat in Wellington, drawn end to end so
+       nobody has to guess which parts PathFinder covers. Each stop is a link
+       into the view that handles that stage.
+
+       The rail is two lines stacked: a dashed one that is always there — the
+       route as it exists before you start — and a solid vermilion one that
+       draws along it on reveal, lighting each stop as it reaches it, with a
+       lit head running ahead of it. That is the whole idea of the product in
+       one gesture, so it is worth the ~40 lines. It runs once, and
+       reduced-motion gets the finished state with no travel at all. */
+    .journey { margin-top: 52px; position: relative; }
+    .j-rail {
+      position: absolute; left: 9px; right: 9px; top: 9px; height: 0; z-index: 0;
+      border-top: 1px dashed var(--line-2); pointer-events: none;
     }
+    .j-line {
+      position: absolute; left: 0; top: -1px; height: 2px; width: 100%;
+      background: linear-gradient(90deg, rgba(194,64,28,.28), var(--route) 22%, var(--route));
+      transform-origin: left center; transform: scaleX(var(--draw, 0));
+    }
+    .j-head {
+      position: absolute; top: -4.5px; left: calc(var(--draw, 0) * 100%);
+      width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%;
+      background: #FFEBD2; opacity: var(--head, 0);
+      box-shadow: 0 0 8px 2px rgba(232,118,63,.75), 0 0 22px 6px rgba(194,64,28,.35);
+    }
+    .j-track { display: grid; grid-template-columns: repeat(7, 1fr); position: relative; z-index: 1; }
     .j-stop {
       position: relative; display: flex; flex-direction: column; gap: 13px;
       align-items: flex-start; padding-right: 20px; min-width: 0;
@@ -226,26 +290,59 @@
     .j-stop .node {
       width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
       background: var(--paper); border: 1.5px solid var(--line-2);
-      position: relative; z-index: 1; transition: border-color .35s, box-shadow .35s;
+      position: relative; z-index: 1;
+      transition: border-color .4s, box-shadow .4s, transform .35s cubic-bezier(.22,1,.36,1);
     }
+    /* the filled centre — scales in when the route reaches this stop */
     .j-stop .node::after {
       content: ''; width: 7px; height: 7px; border-radius: 50%;
-      background: transparent; transition: background .35s;
+      background: var(--route); transform: scale(0);
+      transition: transform .45s cubic-bezier(.34,1.56,.64,1);
     }
-    .j-stop.on .node { border-color: var(--route); box-shadow: 0 0 0 4px rgba(194,64,28,.09); }
-    .j-stop.on .node::after { background: var(--route); }
+    /* and a ring that leaves the node once, like the light arriving */
+    .j-stop .node::before {
+      content: ''; position: absolute; inset: -3px; border-radius: 50%;
+      border: 1px solid var(--route); opacity: 0; transform: scale(.5);
+    }
+    .j-stop.on .node { border-color: var(--route); box-shadow: 0 0 0 4px rgba(194,64,28,.08); }
+    .j-stop.on .node::after { transform: scale(1); }
+    .j-stop.on .node::before { animation: jArrive 1.1s cubic-bezier(.22,1,.36,1) forwards; }
+    @keyframes jArrive {
+      0%   { opacity: .85; transform: scale(.5); }
+      60%  { opacity: .28; }
+      100% { opacity: 0; transform: scale(2.6); }
+    }
+    /* the words follow the light rather than arriving with the layout */
+    .j-stop .no, .j-stop .txt {
+      opacity: 0; transform: translateY(7px);
+      transition: opacity .55s ease, transform .55s cubic-bezier(.22,1,.36,1);
+    }
+    .j-stop .txt { transition-delay: .07s; }
+    .j-stop.on .no, .j-stop.on .txt { opacity: 1; transform: none; }
     .j-stop .no { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-faint); }
     .j-stop .txt { display: flex; flex-direction: column; gap: 6px; }
     .j-stop .t { font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--ink); transition: color .2s; }
-    .j-stop .d { font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); }
+    .j-stop .d { font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); transition: color .2s; }
     .j-stop:hover .t { color: var(--route); }
-    .j-stop:hover .node { border-color: var(--route); }
+    .j-stop:hover .d { color: var(--ink-soft); }
+    .j-stop:hover .node { transform: scale(1.18); border-color: var(--route); box-shadow: 0 0 0 6px rgba(194,64,28,.12); }
     @media (max-width: 920px) {
+      .j-rail { left: 9px; right: auto; top: 10px; bottom: 10px; height: auto; width: 0; border-top: none; border-left: 1px dashed var(--line-2); }
+      .j-line {
+        left: -1px; top: 0; width: 2px; height: 100%;
+        background: linear-gradient(180deg, rgba(194,64,28,.28), var(--route) 22%, var(--route));
+        transform-origin: center top; transform: scaleY(var(--draw, 0));
+      }
+      .j-head { left: -4.5px; top: calc(var(--draw, 0) * 100%); margin: -4.5px 0 0 0; }
       .j-track { grid-template-columns: 1fr; gap: 22px; }
-      .j-track::before { left: 9px; top: 10px; bottom: 10px; right: auto; height: auto; width: 0; border-top: none; border-left: 1px dashed var(--line-2); }
       .j-stop { flex-direction: row; align-items: baseline; gap: 16px; padding-right: 0; }
       .j-stop .node { flex: 0 0 auto; transform: translateY(4px); }
+      .j-stop:hover .node { transform: translateY(4px) scale(1.18); }
       .j-stop .no { flex: 0 0 22px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .j-stop .node::before { animation: none !important; }
+      .j-stop .no, .j-stop .txt, .j-stop .node, .j-stop .node::after { transition: none !important; }
     }
 
     /* ════════ CHAPTER 01 — assessment widget ════════ */
@@ -422,8 +519,9 @@
      1 - exp(-lambda * dt), never a fixed per-frame fraction, so the sway,
      the dolly and the dust move identically at 60, 90 and 144Hz instead of
      racing on a high-refresh screen. dt is clamped so a backgrounded tab
-     doesn't teleport the camera on its first frame back. */
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+     doesn't teleport the camera on its first frame back.
+
+   And it only runs where it earns its place — see GL_QUERY below. */
 
 const stage = document.getElementById('stage');
 const zone  = document.getElementById('hero-zone');
@@ -432,14 +530,29 @@ const veil  = document.getElementById('veil');
 const canvas = document.getElementById('hero-gl');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-} catch (e) {
-  stage.classList.add('gl-fallback');
+/* Wide enough to put the doorway BESIDE the copy, and tall enough to hold the
+   scene. Below either bar the door lands behind the words and the hero stops
+   being readable, so those screens get the flat CSS hero instead — and, since
+   the import is dynamic, they never download three.js at all. Keep in step
+   with the matching @media query in the stylesheet above. */
+const GL_QUERY = '(min-width: 981px) and (min-height: 561px)';
+
+if (reduced || !matchMedia(GL_QUERY).matches) {
+  stage.classList.add('no-gl');
+  if (matchMedia(GL_QUERY).matches) zone.style.height = '100vh';  // reduced motion on a big screen
+} else {
+  import('https://unpkg.com/three@0.160.0/build/three.module.js')
+    .then(buildDoorway)
+    .catch(() => stage.classList.add('no-gl'));   // offline, blocked CDN, anything
 }
 
-if (renderer) {
+function buildDoorway(THREE) {
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  } catch (e) { /* no context — fall through to the flat hero */ }
+  if (!renderer) { stage.classList.add('no-gl'); return; }
+  {
   /* ── palette, straight off the stylesheet ── */
   const C = {
     night:  0x181610,   // --night, the site's dark band
@@ -795,15 +908,7 @@ if (renderer) {
     renderer.render(scene, camera);
   }
 
-  if (reduced) {
-    // single static establishing frame; collapse the scroll zone
-    zone.style.height = '100vh';
-    camera.position.set(doorX * .35, .5, 10.2);
-    look.set(doorX * .9, FLOOR_Y + APH * .48, 0);
-    camera.lookAt(look);
-    renderer.render(scene, camera);
-  } else {
-    frame();
+  frame();
   }
 }
 
@@ -838,6 +943,7 @@ navMode();
     </div>
 
     <div class="journey" data-reveal>
+      <div class="j-rail" aria-hidden="true"><i class="j-line"></i><i class="j-head"></i></div>
       <div class="j-track" id="j-track"></div>
     </div>
 
@@ -1158,12 +1264,52 @@ addEventListener('scroll', () => document.getElementById('nav').classList.toggle
       <span class="txt"><span class="t">${t}</span><span class="d">${d}</span></span>
     </a>`).join('');
 
-  const stops = track.querySelectorAll('.j-stop');
-  if (REDUCED) { stops.forEach(s => s.classList.add('on')); return; }
+  const stops = [...track.querySelectorAll('.j-stop')];
+  const journey = track.closest('.journey');
+  const rail = journey.querySelector('.j-rail');
+
+  // The finished state, for anyone who has asked not to be moved around.
+  const land = () => { rail.style.setProperty('--draw', 1); stops.forEach(s => s.classList.add('on')); };
+  if (REDUCED) { land(); return; }
+
+  /* The route draws itself along the rail and each stop lights as the line
+     reaches it. The lighting is driven by the SAME progress value that moves
+     the line — not by parallel setTimeouts — so a stop can never light before
+     the light gets there, whatever the frame rate. */
+  const draw = () => {
+    // Where each node actually sits along the rail, measured rather than
+    // assumed: the stops are grid cells, so the last node is ~86% of the way
+    // down a rail that runs the full width, and it flips to vertical under
+    // 920px. One measurement covers both.
+    const r = rail.getBoundingClientRect();
+    const horiz = r.width > r.height;
+    const marks = stops.map(s => {
+      const n = s.querySelector('.node').getBoundingClientRect();
+      return horiz ? (n.left + n.width / 2 - r.left) / (r.width || 1)
+                   : (n.top + n.height / 2 - r.top) / (r.height || 1);
+    });
+
+    const dur = 2100, hold = 260;                 // hold: a beat before it sets off
+    let lit = 0, t0 = null;
+    const tick = now => {
+      if (t0 === null) t0 = now;
+      const raw = Math.min(Math.max((now - t0 - hold) / dur, 0), 1);
+      const p = raw < .5 ? 2*raw*raw : 1 - Math.pow(-2*raw + 2, 2) / 2;   // easeInOutQuad
+      rail.style.setProperty('--draw', p);
+      // the head burns only while it is travelling, and dies at the far end
+      rail.style.setProperty('--head',
+        raw > 0 && raw < 1 ? Math.min(1, raw * 8) * (1 - Math.pow(raw, 6)) : 0);
+      while (lit < marks.length && p >= marks[lit]) stops[lit++].classList.add('on');
+      if (raw < 1) requestAnimationFrame(tick);
+      else land();
+    };
+    requestAnimationFrame(tick);
+  };
+
   new IntersectionObserver((es, o) => {
     if (!es[0].isIntersecting) return;
-    stops.forEach((st, i) => setTimeout(() => st.classList.add('on'), 200 + i * 190));
     o.disconnect();
+    draw();
   }, { threshold: .35 }).observe(track);
 })();
 
