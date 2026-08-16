@@ -103,6 +103,152 @@
     /* the dashboard strip uses the same rows but trims the top border of the first */
     #dash-news .news-row:first-child { border-top: none; padding-top: 4px; }
 
+    /* ── Briefing cards (#news) ────────────────────────────────────
+       A card wall rather than a list of links, because a headline with a
+       publisher, a date and two lines of context is a thing you can judge
+       before you spend a tap on it — and this audience is on metered data.
+
+       On the pictures: none of the feeds carrying this topic publish
+       images (Google News RSS has none at all; RNZ's and Beehive's have
+       none either). Rather than fetch twenty article pages through a free
+       proxy to scrape one og:image each, a card falls back to a cover
+       drawn from the publisher's name — deterministic, so RNZ always
+       looks like RNZ and the wall reads as a set. */
+    .nc-grid {
+      display: grid; gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+    }
+    .nc {
+      display: flex; flex-direction: column; overflow: hidden;
+      border: 1px solid var(--line); border-radius: 10px;
+      background: var(--surface); color: inherit; text-decoration: none;
+      transition: border-color .2s, transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s;
+    }
+    .nc:hover { border-color: var(--line-2); transform: translateY(-2px); box-shadow: var(--shadow-1); }
+    .nc:focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
+
+    .nc-media { position: relative; aspect-ratio: 16 / 9; background: var(--paper-2); overflow: hidden; }
+    .nc-img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: 1; background: var(--paper-2);
+    }
+    /* The cover sits UNDER any real image, so a broken URL simply reveals
+       it — no onerror juggling, no empty frame, no layout shift. */
+    .nc-cover {
+      position: absolute; inset: 0; overflow: hidden;
+      background:
+        radial-gradient(130% 130% at 16% 8%, hsl(var(--h) 38% 36%) 0%, transparent 62%),
+        linear-gradient(135deg, hsl(var(--h) 28% 21%) 0%, hsl(calc(var(--h) + 42) 32% 12%) 100%);
+    }
+    /* A fine diagonal weave, barely there — enough to stop a flat panel
+       reading as a missing image. */
+    .nc-cover::after {
+      content: ""; position: absolute; inset: 0; opacity: .16;
+      background-image: repeating-linear-gradient(115deg,
+        rgba(255,255,255,.5) 0 1px, transparent 1px 9px);
+    }
+    /* A large geometric motif, drawn in CSS.
+
+       This was a 118px Material Symbols glyph, and it was the single worst
+       place in the product to depend on that font: the icons are LIGATURES,
+       so while the async font was still in flight every card rendered the
+       literal word "takeoff" or "gavel" in 118px type across its cover. A
+       decorative element must not be able to fail that loudly, so it is now
+       two rings and an arc that need no font at all. */
+    .nc-motif {
+      position: absolute; right: -34px; bottom: -46px;
+      width: 190px; height: 190px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.16);
+      box-shadow:
+        inset 0 0 0 26px rgba(255,255,255,.05),
+        inset 0 0 0 27px rgba(255,255,255,.13);
+      pointer-events: none;
+    }
+    .nc-motif::before {
+      content: ""; position: absolute; inset: 52px;
+      border-radius: 50%; border: 1.5px solid rgba(255,255,255,.20);
+      border-bottom-color: transparent; border-right-color: transparent;
+      transform: rotate(-38deg);
+    }
+    /* The publisher, with its real logo. */
+    .nc-chip {
+      position: absolute; top: 12px; left: 12px; z-index: 2;
+      display: inline-flex; align-items: center; gap: 7px;
+      max-width: calc(100% - 24px);
+      padding: 5px 11px 5px 6px; border-radius: 999px;
+      background: rgba(255,255,255,.94);
+      font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+      letter-spacing: .04em; color: #1C1A15;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .nc-chip > span { overflow: hidden; text-overflow: ellipsis; }
+    /* No background: a favicon that fails or comes back blank should leave
+       nothing behind, not a white blob beside the publisher's name. */
+    .nc-logo { width: 20px; height: 20px; border-radius: 5px; flex: none; object-fit: contain; }
+    /* The subject, named. */
+    .nc-topic {
+      position: absolute; left: 14px; bottom: 12px; z-index: 2;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      letter-spacing: .09em; text-transform: uppercase;
+      color: rgba(255,255,255,.92); text-shadow: 0 1px 6px rgba(0,0,0,.45);
+    }
+    .nc-topic .material-symbols-outlined { font-size: 15px; }
+    .nc-badge {
+      position: absolute; z-index: 3; top: 12px; right: 12px;
+      padding: 3px 9px; border-radius: 999px;
+      background: var(--ink); color: var(--paper);
+      font-family: var(--font-mono); font-size: 9.5px;
+      letter-spacing: .1em; text-transform: uppercase;
+    }
+
+    .nc-body { display: flex; flex-direction: column; gap: 8px; padding: 15px 16px 16px; flex: 1; }
+    .nc-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .nc-src {
+      font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--ink); font-weight: 500;
+    }
+    .nc-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+    .nc-title {
+      margin: 0; font-size: 15.5px; line-height: 1.35; font-weight: 500;
+      letter-spacing: -.008em; color: var(--ink); text-wrap: balance;
+    }
+    .nc:hover .nc-title { color: var(--route); }
+    .nc-sum {
+      margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-soft);
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .nc-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line-soft);
+    }
+    .nc-go {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11.5px; color: var(--ink-faint); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .nc-go .material-symbols-outlined { font-size: 13px; }
+    .nc:hover .nc-go { color: var(--route); }
+
+    /* Loading skeletons keep the grid's shape so nothing jumps on arrival. */
+    .nc-skel { pointer-events: none; }
+    .nc-skel .nc-media { background: var(--line-soft); }
+    .nc-skel-line { display: block; height: 10px; border-radius: 3px; background: var(--line-soft); }
+    @keyframes ncPulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+    .nc-skel .nc-media, .nc-skel-line { animation: ncPulse 1.4s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .nc-skel .nc-media, .nc-skel-line { animation: none; }
+      .nc:hover { transform: none; }
+    }
+
+    .news-note { font-size: 12px; line-height: 1.6; color: var(--ink-faint); }
+    .news-note strong { color: var(--ink-soft); }
+
+    @media (max-width: 560px) {
+      .nc-grid { grid-template-columns: 1fr; gap: 14px; }
+      .nc-media { aspect-ratio: 2 / 1; }
+    }
+
     /* ── Course Catalogue (#courses) ── */
     .crs-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
     .crs-search, .crs-sel {

@@ -501,6 +501,52 @@ A request raised against a credit is prepaid, and the mentor's queue card says s
 
 > Credit *consumption* is derived client-side, like the Starter Kit's template gate. The root of trust is the admin-only `paid` flag on the order; the spend accounting is a soft gate on top of it. Worst case is a queue-position or an extra session, never data access — the rules never widen.
 
+## Briefing (`#news`)
+
+### Where the headlines come from
+
+Three kinds of source, mixed on purpose:
+
+| Source | Why |
+|---|---|
+| **beehive.govt.nz** RSS | The government's own release feed — where an immigration or education-export change is *announced*, before any newsroom writes it up. Items from it carry an **Official** badge. |
+| **RNZ** national + political | Clean titles, real URLs, no publisher-suffix mangling. |
+| **Google News** search (4 queries) | Coverage the two above don't carry — the Indian and sector press that follows NZ student-visa policy closely. |
+
+Beehive's feed is all-of-government, so most of it is irrelevant here and gets scored away. That is the intent: what survives is a real policy release rather than a write-up of one.
+
+### Relevance is scored, not filtered
+
+The old test was *"does this contain any of ~20 words"*, which let "university rugby" and "student loan rates" through and then ranked everything by publication date — so an incidental mention published this morning sat above a visa rule change from Tuesday.
+
+Now every item earns points: a core topic word scores **4 in the headline, 2 in the body**; supporting words score 2 and 1; the source's own `boost` is added. Items below `minScore` are dropped, and the sort key is **relevance first, recency second**, with scores decaying about a point a week.
+
+> **A core word in the body alone is not enough — it needs two.** A single one is almost always incidental: a district-plan consultation mentions "residents", a trade release mentions "visas" in passing, and both ranked on page one until this rule went in. A core word in the *headline* is a different signal and counts on its own.
+
+Duplicates are collapsed on the normalised title — the same story genuinely arrives from a ministerial release, RNZ *and* two Google searches — keeping the best copy, where official beats unofficial and an item with an image beats one without.
+
+### About the pictures
+
+**None of the feeds that cover this topic publish images.** Google News RSS carries none at all; neither RNZ's nor Beehive's feeds do either. Real per-article photos would mean fetching every article's HTML through a free CORS proxy to scrape one `og:image` tag — twenty-odd full page loads to decorate a list, for an audience mostly paying for mobile data. That is the wrong trade, so it isn't made.
+
+Instead each card's cover is **built from what we genuinely have**:
+
+- **The publisher's real logo.** Google News hands us the publisher's *domain* in `<source url>` even though its own `<link>` is an opaque redirect — so the masthead is the real one, at about 1.5 KB. Two logo services are tried (Google, then DuckDuckGo) because some networks block one; a second failure removes the element, so the chip is just the name and never a broken-image icon.
+- **The subject**, as an icon and a label read off the headline (`Student visa`, `Fees & costs`, `Residence`, `Policy change`…), so a card is legible as a subject before a word of the headline is read.
+- **A colour and a motif** derived from the publisher's name, so the same source always looks the same and the wall reads as a designed set.
+
+Where a feed *does* provide an image (`media:thumbnail`, `media:content`, `<enclosure>`, or the first `<img>` in the description), it is used and simply sits on top of the cover — so a dead image URL reveals the cover underneath rather than leaving a hole.
+
+> The big cover motif is **drawn in CSS, not set in the icon font**. It was briefly a 118px Material Symbols glyph, which is the worst possible place to depend on that font: the icons are ligatures, so while the async font was still in flight every card rendered the literal word "takeoff" or "gavel" in 118px type across its cover. A decorative element must not be able to fail that loudly.
+
+### Sourcing, always
+
+Every card names its publisher twice — once on the cover chip, once in the meta line — shows the age of the item, and links straight to the original with `rel="noopener"`. The footer states exactly which feeds are aggregated, that PathFinder does not write, host, edit or endorse any of it, what the **Official** badge means, and that visa rules should be confirmed with Immigration New Zealand before acting on a headline.
+
+### Known fragility
+
+The browser cannot read cross-origin RSS, so feeds are fetched through free public CORS relays (`PF_NEWS.proxies`, three of them, tried in order). They are free services and they do go down or rate-limit. When all three fail the view says so plainly rather than showing an empty page. If the Briefing is persistently empty, that relay list is the first thing to check.
+
 ## The profile strip
 
 The dashboard is the student's own page — what they have saved, applied for, checked, and been told. But three of the five things that belong on that page were behind the three-dot overflow menu (**Assessment**, **Cost & payback**, **Briefing**), and a fourth — the **visa Funds Check**, a whole feature with its own questions, score and saved result — had **no nav entry anywhere**. It was reachable only if a contextual nudge happened to catch you.

@@ -409,36 +409,87 @@ const PF_VISA_UPDATES_MASTERS = [
    query so results stay on-topic; app.js further filters by an
    allow-list and a max-age window, dedupes, and sorts newest-first.
    Tune the queries/age here; nothing else needs to change. */
+/* ── Briefing (#news) ────────────────────────────────────────────────
+   Two kinds of source, deliberately mixed:
+
+     'official' — the government's own RSS, where immigration and
+                  education policy is actually ANNOUNCED. Beehive carries
+                  every ministerial release, so most of it is irrelevant
+                  to us and gets scored away; what survives is the real
+                  thing rather than a news write-up of it.
+     'news'     — a newsroom feed, and targeted Google News searches for
+                  coverage the official feeds do not carry.
+
+   Google News is kept because its search is genuinely good at this
+   topic, but it has two flaws worth knowing: it returns no images at
+   all, and its links are opaque `news.google.com/rss/articles/CBMi…`
+   redirects, so we cannot dedupe on the real URL or read an article's
+   og:image from it. Both are handled in app.js — dedupe falls back to
+   the normalised title, and cards that arrive without an image get a
+   generated cover rather than a hole.
+
+   Relevance is SCORED, not filtered pass/fail. The old version kept
+   anything containing one of ~20 words, which let "university rugby" and
+   "student loan interest" through and ranked them by date alongside a
+   visa rule change. Now every item earns points for topic words (more in
+   the title than the body), for being an official source, and for being
+   recent; anything under `minScore` is dropped. */
 const PF_NEWS = {
   refreshHours: 3,     // re-fetch at most this often (cached locally between)
-  maxAgeDays: 90,      // drop anything older — keeps the feed "current"
-  perFeed: 12,         // items to read from each feed before merge/filter
-  // Free, no-key CORS proxies tried in order (resilient to one being down).
-  // They fetch the RSS XML the browser can't read cross-origin directly.
+  maxAgeDays: 60,      // drop anything older — keeps the feed "current"
+  perFeed: 40,         // candidates read from each feed BEFORE scoring (most are dropped)
+  maxItems: 36,        // items kept after scoring
+  minScore: 3,         // below this an item is noise, not news
+
+  // Free, no-key CORS proxies tried in order. They fetch the RSS the
+  // browser cannot read cross-origin. Free proxies go down; more than one
+  // is the whole point, and the UI says so honestly when they all fail.
   proxies: [
     'https://api.allorigins.win/raw?url=',
     'https://corsproxy.io/?url=',
+    'https://api.codetabs.com/v1/proxy?quest=',
   ],
-  // Google News RSS search — NZ edition, English. Each entry is one lens.
-  feeds: [
-    { id: 'immigration', tag: 'Immigration & visa', accent: 'rose',
-      q: '("New Zealand" OR NZ) (immigration OR "student visa" OR "post-study work visa" OR "skilled migrant") international students' },
-    { id: 'policy', tag: 'Visa policy', accent: 'gold',
-      q: '"New Zealand" "Immigration New Zealand" (policy OR rules OR "processing times" OR settings) students' },
-    { id: 'phd', tag: 'PhD & postgrad', accent: 'violet',
-      q: '"New Zealand" (PhD OR doctoral OR postgraduate) (international students OR university)' },
-    { id: 'scholarships', tag: 'Scholarships', accent: 'teal',
-      q: '"New Zealand" (doctoral OR PhD OR postgraduate) scholarship international' },
+
+  sources: [
+    /* Official — the primary record. A rule change appears here first. */
+    { id: 'beehive', kind: 'official', tag: 'Government', accent: 'gold',
+      source: 'New Zealand Government', boost: 3,
+      url: 'https://www.beehive.govt.nz/rss.xml' },
+
+    /* Newsroom — clean titles, real URLs, no publisher-suffix mangling. */
+    { id: 'rnz', kind: 'news', tag: 'New Zealand', accent: 'violet',
+      source: 'RNZ', boost: 2,
+      url: 'https://www.rnz.co.nz/rss/national.xml' },
+    { id: 'rnz-pol', kind: 'news', tag: 'New Zealand', accent: 'violet',
+      source: 'RNZ', boost: 2,
+      url: 'https://www.rnz.co.nz/rss/political.xml' },
+
+    /* Google News searches — coverage the two above will not carry. */
+    { id: 'immigration', kind: 'google', tag: 'Immigration & visa', accent: 'rose', boost: 3,
+      q: '("New Zealand" OR NZ) ("student visa" OR "post-study work visa" OR "immigration rules" OR "Immigration New Zealand") international students' },
+    { id: 'policy', kind: 'google', tag: 'Visa policy', accent: 'gold', boost: 3,
+      q: '"Immigration New Zealand" (policy OR rules OR "processing times" OR "median wage" OR "Green List") visa' },
+    { id: 'study', kind: 'google', tag: 'Study & fees', accent: 'teal', boost: 2,
+      q: '"New Zealand" (university OR polytechnic) international students (tuition OR fees OR enrolments OR "master\'s" OR postgraduate)' },
+    { id: 'scholarships', kind: 'google', tag: 'Scholarships', accent: 'teal', boost: 2,
+      q: '"New Zealand" (postgraduate OR "master\'s" OR doctoral) scholarship international students' },
   ],
-  // Relevance safety net — an item must mention at least one of these
-  // (in title or summary) to survive, even if a feed returns noise.
-  keywords: ['visa', 'immigration', 'migrant', 'residence', 'inz', 'border',
-    'student', 'students', 'international', 'phd', 'doctoral', 'postgraduate',
-    'postgrad', 'scholarship', 'university', 'universities', 'study', 'tuition',
-    'fees', 'enrol', 'enrol', 'graduate', 'research'],
-  // Hard drops — obvious off-topic collisions of the query words.
+
+  /* Scoring vocabulary. `core` is what this product is about — an item
+     needs one of these to be worth a card at all. `plus` are supporting
+     terms that raise a borderline item. Title hits count double. */
+  core: ['visa', 'visas', 'immigration', 'inz', 'migrant', 'migration',
+    'student visa', 'work visa', 'post-study', 'green list', 'residency',
+    'residence visa', 'skilled migrant', 'international student',
+    'international students', 'overseas student', 'study abroad'],
+  plus: ['student', 'students', 'university', 'universities', 'polytechnic',
+    'postgraduate', 'postgrad', 'master', 'masters', 'phd', 'doctoral',
+    'scholarship', 'tuition', 'fees', 'enrolment', 'enrolments', 'enrol',
+    'graduate', 'nzqa', 'education', 'work rights', 'median wage'],
+  // Hard drops — the collisions these query words reliably produce.
   blocklist: ['rugby', 'cricket', 'netball', 'all blacks', 'transfer window',
-    'football', 'recipe', 'weather', 'lotto'],
+    'football', 'recipe', 'lotto', 'horoscope', 'super rugby', 'league',
+    'olympic', 'america\'s cup', 'weather forecast'],
   googleBase: 'https://news.google.com/rss/search?hl=en-NZ&gl=NZ&ceid=NZ:en&q=',
 };
 

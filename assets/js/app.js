@@ -765,51 +765,190 @@ async function newsProxyFetch(url) {
   return null;
 }
 
-function newsRelevant(title, summary) {
-  const hay = (title + ' ' + summary).toLowerCase();
-  if ((PF_NEWS.blocklist || []).some(b => hay.includes(b))) return false;
-  return (PF_NEWS.keywords || []).some(k => hay.includes(k));
+/* ── Relevance, scored rather than filtered ──────────────────────────
+   The old test was "does this contain any of twenty words" — which let
+   "university rugby" and "student loan rates" through, then ranked them
+   by date next to a visa rule change. Scoring lets the genuinely relevant
+   item lead even when it is a day older than the noise.
+
+   Title hits count double, because a headline is what the item is about
+   and a body mention is often incidental. Official sources get their
+   feed's boost, since a rule change announced by the minister outranks a
+   write-up of the same rule change. Recency is a tie-breaker, not the
+   sort key — that was the previous bug. */
+function newsScore(title, summary, src) {
+  const t = (title || '').toLowerCase();
+  const b = (summary || '').toLowerCase();
+  const hay = t + ' ' + b;
+  if ((PF_NEWS.blocklist || []).some(x => hay.includes(x))) return 0;
+
+  let titleCore = 0, bodyCore = 0, score = 0;
+  (PF_NEWS.core || []).forEach(k => {
+    if (t.includes(k)) { score += 4; titleCore++; }
+    else if (b.includes(k)) { score += 2; bodyCore++; }
+  });
+  (PF_NEWS.plus || []).forEach(k => {
+    if (t.includes(k)) score += 2;
+    else if (b.includes(k)) score += 1;
+  });
+
+  /* A core word in the HEADLINE means the item is about this. A single
+     core word buried in the body usually does not — a district-plan
+     consultation mentions "residents", a trade release mentions "visas"
+     in passing, and both sailed in under the old any-one-word test. So a
+     body-only match needs two of them to count. */
+  if (!titleCore && bodyCore < 2) return 0;
+  return score + (src && src.boost ? src.boost : 0);
 }
 
-function parseNewsXML(xml, feed) {
+/* RSS carries HTML-escaped text, so a stripped description arrives full of
+   `&nbsp;` and `&amp;`. Decoding through the parser handles every entity
+   without a lookup table of our own. */
+function decodeEntities(s) {
+  if (!s || s.indexOf('&') === -1) return s || '';
+  const el = document.createElement('textarea');
+  el.innerHTML = s;
+  return el.value;
+}
+
+/* A summary worth printing, or nothing at all.
+
+   Google News does not write summaries: its <description> is a link
+   wrapping the headline followed by the publisher's name. Stripped of
+   tags that becomes "Headline  Publisher" — the title, echoed back under
+   itself, which is worse than an empty space. Direct feeds (Beehive, RNZ)
+   do write real summaries, so those are kept. The test is whether what
+   remains after removing the headline actually says anything. */
+function newsSummary(descHtml, title) {
+  const text = decodeEntities(stripTags(descHtml || '')).replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nt = norm(title), nd = norm(text);
+  if (!nt || !nd) return '';
+  if (nd.startsWith(nt)) {
+    // What is left once the headline is removed — usually just the
+    // publisher's name, which the card already shows twice.
+    const rest = text.slice(title.length).replace(/^[\s ·—–-]+/, '');
+    return rest.length >= 60 ? rest.slice(0, 240) : '';
+  }
+  return text.length >= 40 ? text.slice(0, 240) : '';
+}
+
+/* An image, if the feed gave us one. Checked in order of how likely each
+   is to be a real article picture rather than a tracking pixel or a
+   publisher logo. Google News gives none of these, which is why the card
+   has a designed fallback. */
+function newsImageFrom(it, descHtml) {
+  const pick = el => {
+    if (!el) return '';
+    const u = el.getAttribute('url') || el.getAttribute('href') || '';
+    const type = el.getAttribute('type') || '';
+    if (!u) return '';
+    if (type && !/^image\//.test(type)) return '';
+    return /^https?:\/\//.test(u) ? u : '';
+  };
+  const tag = n => it.getElementsByTagName(n)[0];
+  let u = pick(tag('media:thumbnail')) || pick(tag('media:content')) || pick(tag('enclosure'));
+  if (!u && descHtml) {
+    const m = descHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m && /^https?:\/\//.test(m[1])) u = m[1];
+  }
+  // Tracking pixels turn into 1px smears when a card stretches them.
+  if (/\/(1x1|pixel|spacer)\.|width=1&|\.gif($|\?)/i.test(u)) return '';
+  return u;
+}
+
+function parseNewsXML(xml, src) {
   const out = [];
   try {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    [...doc.querySelectorAll('item')].slice(0, PF_NEWS.perFeed || 12).forEach(it => {
-      const rawTitle = stripTags(it.querySelector('title')?.textContent || '');
-      const link = (it.querySelector('link')?.textContent || '').trim();
-      const desc = stripTags(it.querySelector('description')?.textContent || '');
-      const pub = it.querySelector('pubDate')?.textContent || '';
-      let src = (it.getElementsByTagName('source')[0]?.textContent || '').trim();
+    const items = [...doc.querySelectorAll('item'), ...doc.querySelectorAll('entry')];
+    items.slice(0, PF_NEWS.perFeed || 25).forEach(it => {
+      const rawTitle = decodeEntities(stripTags(it.querySelector('title')?.textContent || ''));
+      const linkEl = it.querySelector('link');
+      const link = ((linkEl && (linkEl.textContent || linkEl.getAttribute('href'))) || '').trim();
+      const descHtml = it.querySelector('description')?.textContent
+        || it.querySelector('summary')?.textContent || '';
+      const desc = decodeEntities(stripTags(descHtml));
+      const pub = it.querySelector('pubDate')?.textContent
+        || it.querySelector('published')?.textContent
+        || it.querySelector('updated')?.textContent || '';
       const ts = pub ? Date.parse(pub) : 0;
       if (!rawTitle || !link) return;
-      // Google News appends " - Publisher" to titles — split it back out.
+
+      // Google News appends " - Publisher" to titles and carries the real
+      // publisher in <source>. Direct feeds carry neither, so the feed's
+      // own name stands in — a card must never say just "News".
       let title = rawTitle;
+      const srcEl = it.getElementsByTagName('source')[0];
+      let publisher = (srcEl?.textContent || '').trim();
+      // Google News carries the real publisher's domain here even though
+      // its own <link> is an opaque redirect — which is what lets a card
+      // show that publisher's actual logo.
+      let host = '';
+      try { host = new URL(srcEl?.getAttribute('url') || link).hostname.replace(/^www\./, ''); } catch (_) {}
       const dash = rawTitle.lastIndexOf(' - ');
-      if (dash > 0 && rawTitle.length - dash < 40) { if (!src) src = rawTitle.slice(dash + 3); title = rawTitle.slice(0, dash); }
-      if (!newsRelevant(title, desc)) return;
-      out.push({ title: title.trim(), link, source: src || 'News', summary: desc, ts, tag: feed.tag, accent: feed.accent });
+      if (dash > 0 && rawTitle.length - dash < 40) {
+        if (!publisher) publisher = rawTitle.slice(dash + 3);
+        title = rawTitle.slice(0, dash);
+      }
+      publisher = publisher || src.source || 'News';
+
+      const score = newsScore(title, desc, src);
+      if (score < (PF_NEWS.minScore || 3)) return;
+
+      out.push({
+        title: title.trim(), link, source: publisher, host,
+        summary: newsSummary(descHtml, title.trim()),
+        image: newsImageFrom(it, descHtml),
+        ts, score, tag: src.tag, accent: src.accent,
+        official: src.kind === 'official',
+      });
     });
-  } catch {}
+  } catch { /* a malformed feed must never take the view down */ }
   return out;
 }
 
 async function fetchNews() {
-  const maxAge = (PF_NEWS.maxAgeDays || 90) * 86400e3;
+  const maxAge = (PF_NEWS.maxAgeDays || 60) * 86400e3;
   const now = Date.now();
   const all = [];
-  await Promise.all((PF_NEWS.feeds || []).map(async f => {
-    const xml = await newsProxyFetch(PF_NEWS.googleBase + encodeURIComponent(f.q));
-    if (xml) all.push(...parseNewsXML(xml, f));
+
+  await Promise.all((PF_NEWS.sources || []).map(async src => {
+    const url = src.kind === 'google'
+      ? PF_NEWS.googleBase + encodeURIComponent(src.q)
+      : src.url;
+    const xml = await newsProxyFetch(url);
+    if (xml) all.push(...parseNewsXML(xml, src));
   }));
-  let items = all.filter(x => !x.ts || (now - x.ts) <= maxAge); // recency (keep undated)
-  const seen = new Set();                                        // dedupe by title
-  items = items.filter(x => {
+
+  let items = all.filter(x => !x.ts || (now - x.ts) <= maxAge);
+
+  /* Dedupe. The same story reaches us from a ministerial release, RNZ and
+     two Google searches, so this is not an edge case — it is most of the
+     feed. Match on the normalised title; where two copies collide, keep
+     the better one: an official source and a real image both beat a
+     Google redirect, and that is exactly the copy worth showing. */
+  const best = new Map();
+  items.forEach(x => {
     const k = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
-    if (seen.has(k)) return false; seen.add(k); return true;
+    const prev = best.get(k);
+    if (!prev) { best.set(k, x); return; }
+    const rank = i => (i.official ? 4 : 0) + (i.image ? 2 : 0) + (i.score / 100);
+    if (rank(x) > rank(prev)) best.set(k, x);
   });
-  items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-  return items.slice(0, 40);
+
+  /* Sort by relevance FIRST, recency second. Sorting purely by date was
+     the old bug: it put an incidental mention published this morning
+     above a visa rule change from Tuesday. Age still matters, so scores
+     decay gently — a week old costs about a point. */
+  const aged = x => {
+    const days = x.ts ? (now - x.ts) / 86400e3 : 14;
+    return x.score - Math.min(6, days / 7);
+  };
+  return [...best.values()]
+    .sort((a, b) => aged(b) - aged(a) || (b.ts || 0) - (a.ts || 0))
+    .slice(0, PF_NEWS.maxItems || 36);
 }
 
 function loadNews(cb, force) {
@@ -839,48 +978,173 @@ function relTime(ts) {
   return d < 30 ? d + 'd ago' : new Date(ts).toLocaleDateString();
 }
 
-/* one headline + a mono date — no excerpt, per the Briefing spec */
-function newsItemRow(x) {
-  return `<a class="row" href="${esc(x.link)}" target="_blank" rel="noopener">
-    <div class="row-main">
-      <div class="row-title">${esc(x.title)}</div>
-      <div class="row-sub">${esc(x.source)}${x.ts ? ' · ' + relTime(x.ts) : ''}</div>
+/* ── News cards ──────────────────────────────────────────────────────
+   About the pictures, honestly: none of the feeds that carry this topic
+   well publish images. Google News RSS has none at all, RNZ's feed has
+   none, and Beehive's has none. Real per-article photos would mean
+   fetching every article's HTML through a free CORS proxy to read one
+   og:image tag — twenty-odd full page loads, on an audience mostly on
+   mobile data, to decorate a list. That is the wrong trade.
+
+   So: we use a feed's image whenever it gives us one, and otherwise draw
+   a cover. The cover is deterministic from the publisher's name, so RNZ
+   always looks like RNZ and the wall reads as a designed set rather than
+   a row of broken frames. A card is never empty, never waits on a second
+   request, and never lies about having a photo. */
+/* What the story is ACTUALLY about, read off the headline. Checked
+   most-specific first, because "student visa fee increase" is a fees
+   story and "post-study work visa" is a work story even though both
+   contain the word "visa". Drives the cover's icon and its label, so a
+   card is legible as a subject before a word of the headline is read. */
+const NEWS_TOPICS = [
+  { k: ['post-study', 'work visa', 'work rights', 'job'],                   icon: 'work',            label: 'Work visa' },
+  { k: ['residence', 'residency', 'green list', 'skilled migrant'],         icon: 'home_work',       label: 'Residence' },
+  { k: ['fee', 'fees', 'cost', 'tuition', 'price', 'levy', 'funding cut'],  icon: 'payments',        label: 'Fees & costs' },
+  { k: ['scholarship', 'grant', 'stipend', 'bursary'],                      icon: 'school',          label: 'Scholarships' },
+  { k: ['processing', 'wait time', 'backlog', 'delay', 'apply early'],      icon: 'schedule',        label: 'Processing' },
+  { k: ['pathway', 'student visa', 'study visa'],                           icon: 'flight_takeoff',  label: 'Student visa' },
+  { k: ['rule', 'rules', 'policy', 'law', 'settings', 'consultation', 'reform'], icon: 'gavel',      label: 'Policy change' },
+  { k: ['university', 'universities', 'polytechnic', 'enrol', 'campus', 'course'], icon: 'account_balance', label: 'Universities' },
+  { k: ['immigration', 'migrant', 'migration', 'border'],                   icon: 'public',          label: 'Immigration' },
+];
+
+function newsTopic(x) {
+  const hay = ((x.title || '') + ' ' + (x.summary || '')).toLowerCase();
+  const hit = NEWS_TOPICS.find(t => t.k.some(k => hay.includes(k)));
+  return hit || { icon: 'newspaper', label: x.tag || 'Briefing' };
+}
+
+/* ── The cover ───────────────────────────────────────────────────────
+   None of the feeds that cover this topic well publish article images:
+   Google News RSS has none at all, and neither RNZ's nor Beehive's feeds
+   carry one. Fetching each article's HTML through a free CORS proxy to
+   scrape an og:image would be twenty-odd full page loads to decorate a
+   list, on an audience mostly paying for mobile data — the wrong trade.
+
+   So a cover is BUILT, from three things we genuinely have:
+
+     · the publisher's real logo, via a favicon service — Google News
+       hands us the publisher's domain in <source url> even though its
+       own link is an opaque redirect, so this is the actual masthead
+       and about 1.5 KB;
+     · the subject, as an icon and a label read off the headline;
+     · a colour derived from the publisher's name, so the same source
+       always looks the same and the wall reads as a designed set.
+
+   The result carries more information than a stock photo would, and it
+   never breaks, never shifts the layout, and never waits on a fetch. */
+function newsCover(x) {
+  const name = x.source || 'News';
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  const topic = newsTopic(x);
+  /* Two logo services, because networks block them unevenly — some
+     corporate and school networks in Sri Lanka block google.com outright,
+     which would otherwise take every masthead off the page. First failure
+     falls through to the second, second failure removes the element so the
+     chip is just the publisher's name. Never a broken-image icon. */
+  const d = encodeURIComponent(x.host || '');
+  const logo = x.host
+    ? `<img class="nc-logo" src="https://www.google.com/s2/favicons?domain=${d}&sz=64"
+         alt="" width="20" height="20" loading="lazy" decoding="async"
+         data-alt="https://icons.duckduckgo.com/ip3/${d}.ico"
+         onerror="if(this.dataset.alt){this.src=this.dataset.alt;delete this.dataset.alt;}else{this.remove();}">`
+    : '';
+  return `<div class="nc-cover" style="--h:${h}">
+    <span class="nc-motif" aria-hidden="true"></span>
+    <span class="nc-chip">${logo}<span>${esc(name)}</span></span>
+    <span class="nc-topic">
+      <span class="material-symbols-outlined" aria-hidden="true">${topic.icon}</span>
+      ${esc(topic.label)}
+    </span>
+  </div>`;
+}
+
+function newsCard(x) {
+  return `<a class="nc" href="${esc(x.link)}" target="_blank" rel="noopener">
+    <div class="nc-media">
+      ${x.image
+        ? `<img class="nc-img" src="${esc(x.image)}" alt="" loading="lazy" decoding="async"
+             onerror="this.remove()">`
+        : ''}
+      ${newsCover(x)}
+      ${x.official ? '<span class="nc-badge">Official</span>' : ''}
     </div>
-    <span class="chip chip-neutral">${esc(x.tag)}</span>
+    <div class="nc-body">
+      <div class="nc-meta">
+        <span class="nc-src">${esc(x.source)}</span>
+        ${x.ts ? `<span class="nc-time">${esc(relTime(x.ts))}</span>` : ''}
+      </div>
+      <h3 class="nc-title">${esc(x.title)}</h3>
+      ${x.summary ? `<p class="nc-sum">${esc(x.summary)}</p>` : ''}
+      <div class="nc-foot">
+        <span class="chip chip-neutral">${esc(x.tag)}</span>
+        <span class="nc-go">Read at ${esc(x.source)}
+          <span class="material-symbols-outlined" aria-hidden="true">north_east</span></span>
+      </div>
+    </div>
   </a>`;
 }
 
 function renderNews(main) {
+  // The Briefing said "Immigration & PhD news" to every visitor, including
+  // the master's track that is now most of them.
+  const T = trackCfg();
   main.innerHTML = renderHero({
-    kicker: 'Briefing', title: 'Immigration & PhD news, live',
-    body: 'Visa/immigration changes and postgraduate news, pulled fresh and refreshed continuously.',
+    kicker: 'Briefing',
+    title: 'What changed this week',
+    body: `Visa and immigration decisions, fee and policy changes, and ${T.label}-level study news — pulled live from the government's own release feed and public newsrooms, and ranked by how much it affects you.`,
   }) + `<div id="news-body"></div>`;
   const body = $('#news-body', main);
 
   const paint = () => {
     const items = newsState.items || [];
-    const tags = ['all', ...new Set((PF_NEWS.feeds || []).map(f => f.tag))];
-    const chips = tags.map(t => `<button type="button" class="tab news-fil" role="tab" aria-selected="${newsFilter === t}" data-fil="${esc(t)}">${t === 'all' ? 'All' : esc(t)}</button>`).join('');
+    const tags = ['all', ...new Set((PF_NEWS.sources || []).map(f => f.tag))];
+    const counts = {};
+    items.forEach(x => { counts[x.tag] = (counts[x.tag] || 0) + 1; });
+    const chips = tags
+      .filter(t => t === 'all' || counts[t])   // never offer an empty filter
+      .map(t => `<button type="button" class="tab news-fil" role="tab" aria-selected="${newsFilter === t}" data-fil="${esc(t)}">${
+        t === 'all' ? `All <span class="tab-n">${items.length}</span>` : `${esc(t)} <span class="tab-n">${counts[t]}</span>`}</button>`).join('');
     const shown = items.filter(x => newsFilter === 'all' || x.tag === newsFilter);
     const updated = newsState.fetchedAt ? `Updated ${relTime(newsState.fetchedAt)}` : '';
 
     let listHtml;
-    if (newsState.loading && !items.length) listHtml = '<p>Fetching the latest immigration & PhD news…</p>';
-    else if (!items.length) listHtml = '<p>Couldn’t reach the news sources right now — <button type="button" class="btn-quiet news-refresh">Try again</button></p>';
-    else listHtml = shown.length ? shown.map(x => newsItemRow(x)).join('')
-      : '<p>Nothing in this category right now — try "All".</p>';
+    if (newsState.loading && !items.length) {
+      // Skeletons rather than a sentence: the grid keeps its shape, so the
+      // page does not jump when the real cards land.
+      listHtml = `<div class="nc-grid">${Array.from({ length: 6 }, () =>
+        `<div class="nc nc-skel"><div class="nc-media"></div><div class="nc-body">
+           <span class="nc-skel-line" style="width:38%"></span>
+           <span class="nc-skel-line" style="width:92%"></span>
+           <span class="nc-skel-line" style="width:70%"></span></div></div>`).join('')}</div>`;
+    } else if (!items.length) {
+      listHtml = `<div class="listcard"><p><strong>Couldn't reach the news sources.</strong>
+        The Briefing reads public RSS feeds through a free relay service, and one of the two is
+        sometimes down or rate-limited. Nothing is wrong with your account.</p>
+        <button type="button" class="btn btn-quiet news-refresh mt-3">Try again</button></div>`;
+    } else if (!shown.length) {
+      listHtml = `<div class="listcard"><p>Nothing under this filter right now — try “All”.</p></div>`;
+    } else {
+      listHtml = `<div class="nc-grid">${shown.map(newsCard).join('')}</div>`;
+    }
 
     body.innerHTML = `<div class="tab-row" role="tablist" aria-label="News category">${chips}
         <div class="tab-row-end">
           <span class="row-sub">${updated}${newsState.loading ? ' · refreshing…' : ''}</span>
-          <button type="button" class="icon-btn news-refresh" title="Refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+          <button type="button" class="icon-btn news-refresh" title="Refresh" aria-label="Refresh the briefing"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
         </div>
       </div>
-      <div class="listcard">
-        <div class="listcard-head"><h2 class="listcard-title">Latest</h2></div>
-        ${listHtml}
-      </div>
-      <p class="row-sub mt-5">Headlines are aggregated live from public news sources via Google News — PathFinder doesn’t write or endorse them. Always confirm visa rules with Immigration New Zealand.</p>`;
+      ${listHtml}
+      <p class="news-note mt-5"><strong>Where this comes from.</strong> Headlines are aggregated live from
+        public RSS: the <a href="https://www.beehive.govt.nz/" target="_blank" rel="noopener">New Zealand
+        Government</a>'s own release feed, <a href="https://www.rnz.co.nz/" target="_blank" rel="noopener">RNZ</a>,
+        and Google News searches across other publishers. Every card names its publisher and links
+        straight to the original — PathFinder does not write, host, edit or endorse any of it.
+        Items marked <strong>Official</strong> are ministerial releases, which is where a rule change
+        appears first. Always confirm visa rules with
+        <a href="https://www.immigration.govt.nz/" target="_blank" rel="noopener">Immigration New Zealand</a>
+        before acting on a headline.</p>`;
   };
 
   paint();
