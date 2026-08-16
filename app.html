@@ -195,6 +195,52 @@
     .tl-list li::before { content: '—'; position: absolute; left: 0; color: var(--route); }
 
     /* Explorer */
+    /* ── Profile strip (#dashboard / #assessment / #funds / #cost / #news) ──
+       A sub-navigation band, not a filter row: these five tabs each swap
+       the whole view beneath them. It sits ABOVE the hero for that reason
+       — the hero belongs to the tab, so it has to change underneath a bar
+       that stays put.
+
+       Each tab carries a live status line, which is what makes this the
+       student's profile rather than a menu. Horizontally scrollable on a
+       phone with the scrollbar hidden, the same idiom as .segs. */
+    .ptabs {
+      display: flex; gap: 6px; margin: 0 0 22px; padding-bottom: 4px;
+      overflow-x: auto; scroll-snap-type: x proximity;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .ptabs::-webkit-scrollbar { display: none; }
+    .ptab {
+      display: flex; align-items: center; gap: 9px; flex: 0 0 auto;
+      padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--surface); color: var(--ink-soft);
+      text-decoration: none; scroll-snap-align: start;
+      transition: border-color .18s, color .18s, background .18s;
+    }
+    .ptab:hover { border-color: var(--line-2); color: var(--ink); }
+    .ptab:focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
+    .ptab .material-symbols-outlined { font-size: 19px; flex: none; color: var(--ink-faint); }
+    .ptab-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .ptab-label { font-size: 13.5px; font-weight: 500; line-height: 1.25; white-space: nowrap; }
+    .ptab-state {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: .05em;
+      color: var(--ink-faint); white-space: nowrap; text-transform: uppercase;
+    }
+    .ptab.is-on {
+      background: var(--ink); border-color: var(--ink); color: var(--paper);
+    }
+    .ptab.is-on .material-symbols-outlined,
+    .ptab.is-on .ptab-state { color: rgba(255,255,255,.62); }
+
+    @media (max-width: 768px) {
+      /* Full-bleed on a phone so the strip scrolls edge to edge instead of
+         ending in a dead gutter the thumb has to avoid. The 20px matches
+         `.shell .main`'s mobile padding (site.css) — keep them in step, or
+         the first tab stops lining up with the content below it. */
+      .ptabs { margin: 0 -20px 18px; padding: 0 20px 4px; }
+      .ptab { padding: 8px 12px; }
+    }
+
     .chip-filter {
       padding: 7px 13px; border-radius: 2px;
       font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
@@ -408,9 +454,6 @@
       <div class="navpop" id="nav-pop" role="menu" aria-label="More" hidden>
         <!-- which journey the student is on; painted by paintTrackSwitch() -->
         <div class="track-switch" id="track-switch" role="group" aria-label="Study track"></div>
-        <a class="navpop-link" role="menuitem" data-view="assessment" href="#assessment"><span class="material-symbols-outlined" aria-hidden="true">quiz</span>Assessment</a>
-        <a class="navpop-link" role="menuitem" data-view="cost"       href="#cost"><span class="material-symbols-outlined" aria-hidden="true">savings</span>Cost &amp; payback</a>
-        <a class="navpop-link" role="menuitem" data-view="news"       href="#news"><span class="material-symbols-outlined" aria-hidden="true">newspaper</span>Briefing</a>
         <a class="navpop-link" role="menuitem" data-view="billing"    href="#billing"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Billing</a>
         <a class="navpop-link" role="menuitem" data-view="account"    href="#account"><span class="material-symbols-outlined" aria-hidden="true">account_circle</span>Account</a>
         <a class="navpop-link" role="menuitem" data-view="pricing"    href="#pricing"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Plans</a>

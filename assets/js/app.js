@@ -342,6 +342,15 @@ function route() {
   const main = $('#view');
   main.innerHTML = '';
   fn(main);
+  // The profile strip is inserted HERE rather than inside each of the five
+  // renderers, because several of them return early (a completed
+  // assessment, a saved funds result, the cost model still loading, the
+  // cold-start dashboard) and every one of those paths needs the strip.
+  // Doing it once, after render, catches them all and keeps the renderers
+  // unaware of it — they still own everything below the strip.
+  if (!gated && PROFILE_TABS.some(t => t.view === view)) {
+    main.insertAdjacentHTML('afterbegin', profileTabs(view));
+  }
   updateNavChrome();
   animateBars(main);
   main.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
@@ -1060,6 +1069,77 @@ function asmQuestions() {
    Exempt: the role/system views, where a study track is meaningless (a
    mentor signing in should never be asked which degree they're applying
    for), and any session that already IS a mentor or an admin. */
+/* ── The profile strip ──────────────────────────────────────────────────
+   The dashboard is the student's own page — what they've saved, applied
+   for, checked and been told. But three of the five things that belong on
+   that page were behind the three-dot overflow menu (Assessment, Cost &
+   payback, Briefing), and a fourth — the visa Funds Check, an entire
+   feature with a score and a saved result — had NO nav entry anywhere.
+   It was reachable only if a contextual nudge happened to catch you.
+
+   So these five now share one strip, rendered above the hero on each, and
+   `#dashboard` is simply its first tab. They keep their own routes: some
+   forty inline CTAs across the visa hub, the funding page and the
+   sidecards point at `#funds`, `#assessment` and `#cost`, and every one
+   of them still works — the strip is navigation drawn on top, not a new
+   place for these screens to live.
+
+   Each tab carries its own state (a readiness %, a funds band, a payback
+   verdict) because that is the difference between a menu and a profile:
+   a menu tells you where you can go, a profile tells you where you are.
+   A tab with nothing to show yet says so, which is also the honest nudge
+   to go and do it. */
+const PROFILE_TABS = [
+  { view: 'dashboard',  href: '#dashboard',  label: 'Overview',   icon: 'space_dashboard' },
+  { view: 'assessment', href: '#assessment', label: 'Assessment', icon: 'quiz' },
+  { view: 'funds',      href: '#funds',      label: 'Funds check', icon: 'account_balance_wallet' },
+  { view: 'cost',       href: '#cost',       label: 'Cost & payback', icon: 'savings' },
+  { view: 'news',       href: '#news',       label: 'Briefing',   icon: 'newspaper' },
+];
+
+/* One short status per tab, or '' when there is nothing to report yet.
+   Kept cheap on purpose — this renders on five views, so it reads only
+   local storage and never touches the network or Firestore. */
+function profileTabState(view) {
+  try {
+    if (view === 'dashboard') {
+      const n = PFStore.getApps().length;
+      return n ? `${n} application${n === 1 ? '' : 's'}` : '';
+    }
+    if (view === 'assessment') {
+      const r = currentResult();
+      return r ? `${r.readiness}% ready` : 'Not taken';
+    }
+    if (view === 'funds') {
+      const fc = PFStore.get('fundsCheck', null);
+      return fc && fc.result ? `${fc.result.score}% ready` : 'Not checked';
+    }
+    if (view === 'cost') {
+      if (!isMasters()) return '';           // the PhD track gets a different screen
+      const plan = PFStore.get('roiPlan', null);
+      return plan ? 'Your plan' : 'Not costed';
+    }
+    if (view === 'news') return '';
+  } catch (_) { /* never let a status line break navigation */ }
+  return '';
+}
+
+function profileTabs(active) {
+  return `<nav class="ptabs" aria-label="Your profile">
+    ${PROFILE_TABS.map(t => {
+      const on = t.view === active;
+      const state = profileTabState(t.view);
+      return `<a class="ptab ${on ? 'is-on' : ''}" href="${t.href}"${on ? ' aria-current="page"' : ''}>
+        <span class="material-symbols-outlined" aria-hidden="true">${t.icon}</span>
+        <span class="ptab-text">
+          <span class="ptab-label">${esc(t.label)}</span>
+          ${state ? `<span class="ptab-state">${esc(state)}</span>` : ''}
+        </span>
+      </a>`;
+    }).join('')}
+  </nav>`;
+}
+
 const TRACK_FREE_VIEWS = ['account', 'admin', 'mentor', 'billing', 'pricing'];
 
 function needsTrackChoice(view) {
@@ -3678,7 +3758,16 @@ function renderDashboard(main) {
   // course or started the visa checklist has real state here, so they get
   // the real dashboard: the test is "is there anything to show?", not
   // "did they take the assessment?".
-  if (!R && !apps.length && !saved.length && !vp.done && !reqs.length) return renderFirstRun(main);
+  // The funds check and a saved cost plan count as state too. They did not
+  // before, and the profile strip made that visibly wrong: the strip could
+  // read "74% ready" while the hero directly beneath it said "nothing here
+  // is filled in yet". If a student has told us their money situation,
+  // this is not a cold start.
+  const fundsDone = !!(PFStore.get('fundsCheck', null) || {}).result;
+  const costDone = !!PFStore.get('roiPlan', null);
+  if (!R && !apps.length && !saved.length && !vp.done && !reqs.length && !fundsDone && !costDone) {
+    return renderFirstRun(main);
+  }
 
   const next = highestPriorityIncompleteStep();
 
