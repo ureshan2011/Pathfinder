@@ -88,6 +88,8 @@ scripts/
   sync-govt-data.js        rebuilds govt-data.js from Immigration NZ and MBIE
   build-corpus-index.js    rebuilds the corpus index from existing shards
   js/store.js              PFStore — storage layer (localStorage, change events, merge metadata)
+  js/contact.js            PFContact — pure builder for the platform's WhatsApp / tel links,
+                           with the context and ref each message carries (see below)
   js/payhere.js            PFPayHere — pure PayHere checkout-link builder (Tier 1, no backend)
   js/invoice.js            PFInvoice — zero-dependency PDF writer: invoices, receipts,
                            and the family decision sheet (#cost)
@@ -312,6 +314,19 @@ Whoever picks up — the admin (`#admin` → **Someone called**) or the mentor w
 - The admin can hand the caller to a mentor on the spot, or leave it open for whoever is free. A mentor taking their own call assigns it to themselves in the same write — enforced in the rules, where a mentor may create a `claimed` request **only** with `mentorId == their own uid`.
 - `studentUid` stays empty, which is exactly what `namedStudentIsOwn()` in the rules expects: an off-platform person has no account, so the invoice is addressed by name and number instead.
 - Because these people have no `#billing` page, request and person cards carry one-tap **WhatsApp / Call / Email** links straight off the contact field.
+
+### The platform's own WhatsApp line
+
+The number lives in **one place** — `contactPhone` / `contactPhoneE164` / `whatsapp` in `PF_CONFIG` (`data.js`), written three ways because display, `tel:` and `wa.me` each need a different format and a hand-typed variant in any one of them is a dead link nobody notices. Every link on the site is built from those by **`PFContact`** (`assets/js/contact.js`), a pure string builder in the same spirit as `payhere.js`. Nothing hard-codes the number except the four legal pages' contact blocks, which are static documents by nature.
+
+Two things the links do that a bare `wa.me` link does not:
+
+- **They carry context.** A message that says only "hi" costs a round trip to work out who it is and what they want. Every link prefills a sentence naming where the person was — the view, the study track, the topic they had selected — so the first message already says it. The **raw** stored track is used, never `PFStore.getTrack()`: that degrades an unset value to PhD, which is right for a stored value that won't parse and wrong for a visitor who has never been asked, and `#account`/`#pricing` are both track-free views someone can reach before choosing. A message claiming the wrong degree is worse than one that names none.
+- **They carry a reference.** On `#mentors`, "Open WhatsApp" opens the chat *and* — when the student is signed in, so the record has an owner — writes what they typed into the same `mentor_requests` queue with `source:'whatsapp'`. The message quotes a short ref (base 36 of the record's own id — no second field to store, and unlike the last six digits of a millisecond clock it doesn't repeat every 17 minutes), and the mentor and admin cards print the same ref beside a **WhatsApp** chip. That is what ties a chat on a phone to a row on a dashboard.
+
+The button is deliberately **not** account-gated. The gate on in-app requests exists so a request is tied to a real person across devices; a phone number is a phone number, and hiding it until someone signs up would be theatre. Signed out it opens the chat and writes nothing. When no contact was typed, the request's `contact` field is the digit-free string `via WhatsApp` — writing *our* number there would key every WhatsApp enquiry to the same person in the client book, since `contactKey()` matches on the last nine digits.
+
+**What this is not: inbound.** Messages do not flow back into PathFinder by themselves, and no amount of client-side code can make them. That needs the WhatsApp Business Cloud API — a Meta business account, a verified display name, a message template review, and a public HTTPS webhook to receive `messages` events, which on Firebase means a Cloud Function and therefore the **Blaze plan** this project deliberately stays off. The design above is the honest free-tier answer: the *outbound* half is automated and pre-filled, and the *inbound* half is the existing "Someone called" form, which takes about fifteen seconds and already produces the identical record. If the project ever moves to Blaze, the shape to add is `functions/whatsapp-webhook.js` alongside `payhere-notify.js`, calling the same `createIntakeRequest()` path — the data model needs no change at all, because a WhatsApp enquiry is already a first-class `source`.
 
 ### People — the client book
 
