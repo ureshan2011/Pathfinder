@@ -872,32 +872,105 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
    ═══════════════════════════════════════════════════════════════════ */
 
 .shell .roi-plan { padding: 0; overflow: hidden; }
+/* The summary is a ROW — a text column that wraps freely and a control
+   on the end that stays put. The chevron used to be absolutely
+   positioned at a fixed offset from the top, which is correct for
+   exactly one summary height: at 360px the plan line wraps to three
+   lines and the chevron floated up beside the kicker, and on the sources
+   card it sat beside a one-line heading. As a flex item it is centred
+   against whatever the text does. */
 .shell .roi-plan-summary {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 18px 20px; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; cursor: pointer; list-style: none;
 }
 .shell .roi-plan-summary::-webkit-details-marker { display: none; }
-/* Chevron drawn in CSS rather than set as a Material Symbols ligature:
-   the icon font is a network request, and when it fails the ligature name
-   renders as the literal word "expand_more" next to the heading. A border
-   triangle always draws. */
-.shell .roi-plan-summary::after {
-  content: ''; position: absolute; right: 22px; top: 26px;
-  width: 8px; height: 8px; border-right: 2px solid var(--ink-faint);
-  border-bottom: 2px solid var(--ink-faint); transform: rotate(45deg);
-  transition: transform var(--t-bar, .2s) ease;
+.shell .roi-plan-text {
+  display: flex; flex-direction: column; gap: 3px;
+  flex: 1 1 auto; min-width: 0;
 }
-.shell details[open] > .roi-plan-summary::after { transform: rotate(-135deg); top: 30px; }
-.shell .roi-plan-summary { position: relative; padding-right: 48px; }
-.shell .roi-plan-summary strong { font-size: 15px; line-height: 1.35; }
-.shell .roi-plan-summary .faint { font-size: 12.5px; }
+/* An "edit" affordance rather than a bare chevron: a heading with a
+   caret beside it reads as a heading, and students were not finding the
+   fields underneath it. The chevron is drawn in CSS rather than set as a
+   Material Symbols ligature — the icon font is a network request, and
+   when it fails the ligature name renders as the literal word
+   "expand_more". A border triangle always draws. */
+.shell .roi-plan-edit {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-btn);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+  white-space: nowrap;
+}
+.shell .roi-plan-edit::after {
+  content: ''; width: 7px; height: 7px; margin-top: -3px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform var(--t-bar, .2s) ease;
+}
+.shell details[open] > .roi-plan-summary .roi-plan-edit::after { transform: rotate(-135deg); margin-top: 2px; }
+.shell .roi-plan-summary:hover .roi-plan-edit { border-color: var(--accent-ink); color: var(--ink); }
+.shell .roi-plan-summary strong { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.shell .roi-plan-summary .faint { font-size: 12.5px; line-height: 1.45; }
 
 .shell .roi-fields {
-  display: grid; grid-template-columns: 1fr; gap: 14px;
-  padding: 4px 20px 20px; border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: 1fr; gap: 16px;
+  padding: 4px 18px 18px; border-top: 1px solid var(--line);
 }
 .shell .roi-fields label { display: block; min-width: 0; }
 .shell .roi-fields .field { width: 100%; }
+.shell .roi-fields .field-label { margin-bottom: 3px; }
+/* One plain sentence under each label. The audience for this screen has
+   never seen a New Zealand fee schedule and does not know that student
+   work is legal, let alone capped at 25 hours — a bare label like
+   "Scholarship on tuition (%)" is a question they cannot answer. */
+.shell .field-help {
+  display: block; font-size: 12px; line-height: 1.45;
+  color: var(--ink-faint); margin: 0 0 8px;
+}
+.shell .roi-plan-foot {
+  display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surface, transparent);
+}
+.shell .roi-plan-foot p { font-size: 12px; line-height: 1.5; margin: 0; flex: 1 1 220px; }
+
+/* ── "How to read this page" ────────────────────────────────────────
+   Three numbered steps, in the order the page is read. */
+.shell .roi-intro { border-color: var(--accent-ink, var(--ochre)); }
+.shell .roi-steps { list-style: none; counter-reset: roi-step; padding: 0; margin: 14px 0 0; }
+.shell .roi-steps li {
+  counter-increment: roi-step; position: relative;
+  padding: 0 0 14px 38px; margin-bottom: 14px; border-bottom: 1px solid var(--line);
+}
+.shell .roi-steps li:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.shell .roi-steps li::before {
+  content: counter(roi-step); position: absolute; left: 0; top: -1px;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gold-soft, var(--surface)); color: var(--accent-ink, var(--ochre));
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+}
+/* Direct children only — the body text quotes the card's own heading in
+   bold, and a nested <strong> that goes display:block breaks the
+   sentence in half. */
+.shell .roi-steps li > strong { display: block; font-size: 14.5px; line-height: 1.35; }
+.shell .roi-steps li > span { display: block; font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin-top: 4px; }
+.shell .roi-intro-foot { font-size: 12px; color: var(--ink-faint); line-height: 1.55; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* ── The student's own shortlist, costable in one tap ──────────────── */
+.shell .roi-courses { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.shell .roi-courses:last-child { border-bottom: 0; }
+.shell .roi-courses-head { margin-bottom: 4px; }
+.shell .roi-course {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.shell .roi-course:last-child { border-bottom: 0; padding-bottom: 0; }
+.shell .roi-course-main { min-width: 0; flex: 1 1 auto; }
+.shell .roi-course-title { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.shell .roi-course-sub { font-size: 12px; color: var(--ink-faint); line-height: 1.45; margin-top: 3px; }
+.shell .roi-course-fee { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-top: 7px; }
+.shell .roi-course-act { flex: 0 0 auto; }
+.shell .roi-course-act .btn { width: 100%; justify-content: center; }
+.shell .roi-course.is-current .roi-course-title { font-weight: 600; }
 
 .shell .roi-headline { border-color: var(--ochre); }
 .shell .roi-big {
@@ -913,6 +986,13 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .shell .roi-facts > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .shell .roi-facts .faint { font-size: 12.5px; }
 .shell .roi-facts strong { font-size: 14px; white-space: nowrap; }
+/* The one sentence that stops a five-figure number being read as a
+   yearly fee, which is how most readers have seen every other figure
+   quoted to them. */
+.shell .roi-headline-note {
+  font-size: 12.5px; color: var(--ink-soft); line-height: 1.55;
+  margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line);
+}
 
 /* One cost/earnings line. Label block is min-width:0 so it wraps; the
    money block never wraps and never shrinks. */
@@ -975,9 +1055,23 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   .shell .roi-route-head { flex-direction: row; align-items: flex-start; justify-content: space-between; }
   .shell .roi-route-save { flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; flex: 0 0 auto; }
   .shell .roi-basis .btn { width: auto; }
+  /* A saved course and its button sit on one line once there is room for
+     the title to still read as a title. */
+  .shell .roi-course { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .shell .roi-course-act .btn { width: auto; }
 }
 @media (min-width: 900px) {
   .shell .roi-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Small phones: the plan summary's "Change" pill and a three-line plan
+   description fight for the same 320px. Drop the pill's word and keep
+   the chevron, which is all it needs to be at that width. */
+@media (max-width: 360px) {
+  .shell .roi-plan-summary { gap: 10px; padding: 15px 14px; }
+  .shell .roi-plan-edit { font-size: 0; padding: 8px 9px; gap: 0; }
+  .shell .roi-plan-edit::after { width: 8px; height: 8px; }
+  .shell .roi-fields { padding: 4px 14px 16px; }
+  .shell .roi-plan-foot { padding: 12px 14px; }
 }
 
 /* ── Provider quality (#cost) ───────────────────────────────────────
