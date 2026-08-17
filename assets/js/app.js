@@ -653,6 +653,15 @@ const ROUTES = {
 const ROLE_CODES = () => window.PF_ROLE_CODES || { mentor: 'MNTR', admin: 'ADMN' };
 const norm = s => String(s || '').trim().toUpperCase();
 
+// Views with no entry of their own in the primary nav (topnav/tabbar only
+// has room for 6), mapped to the nav item that best represents them — so
+// the nav highlights something instead of nothing on these views (B-02).
+const NAV_PARENT = {
+  assessment: 'dashboard', funds: 'dashboard', cost: 'dashboard', news: 'dashboard',
+  explore: 'courses', research: 'courses',
+  kit: 'roadmap',
+};
+
 function route() {
   const view = (location.hash || '#dashboard').slice(1).split('?')[0];
   // The track question stands in front of every study view (see
@@ -661,8 +670,9 @@ function route() {
   const gated = needsTrackChoice(view);
   const fn = gated ? renderTrackChoice : (ROUTES[view] || renderDashboard);
   if (ROUTES[view] && !gated) markSeen(view);
+  const navView = NAV_PARENT[view] || view;
   $$('[data-view]').forEach(a => {
-    if (a.dataset.view === view) a.setAttribute('aria-current', 'page');
+    if (a.dataset.view === navView) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
   closeNavPop();
@@ -702,15 +712,25 @@ function hashQuery() {
 
 /* record that a view has been opened (once, ever) — powers the
    "explored" milestones without per-visit writes (stays frugal). */
+// "seen" is keyed per track (see PFStore.getTrack) so visiting #explore on
+// the master's track doesn't mark the PhD track's equivalent milestone done
+// too, and vice versa — see B-01 in the bug tracker.
 function markSeen(view) {
   if (!view) return;
-  const seen = PFStore.get('journey.seen', {}) || {};
-  if (!seen[view]) { seen[view] = Date.now(); PFStore.set('journey.seen', seen); }
+  const key = 'journey.seen.' + PFStore.getTrack();
+  const seen = PFStore.get(key, {}) || {};
+  if (!seen[view]) { seen[view] = Date.now(); PFStore.set(key, seen); }
 }
 
 function journeyModel() {
   const a = PFStore.getAssessment();
   const saved = PFStore.getSaved();
+  // Discover-phase milestones count only the item kinds that phase's step
+  // actually asks for — a master's shortlist of courses must not read as
+  // "3 labs/scholarships saved" the moment the student switches to PhD,
+  // and vice versa (B-01).
+  const savedCourses = saved.filter(x => x.kind === 'course').length;
+  const savedLabsOrScholarships = saved.filter(x => x.kind === 'lab' || x.kind === 'scholarship').length;
   const apps = PFStore.getApps();
   const reqs = PFStore.getMentorRequests();
   const vp = visaProgress();
@@ -718,7 +738,7 @@ function journeyModel() {
   const plans = (PFStore.getFundsPlans && PFStore.getFundsPlans()) || [];
   const fm = (PFStore.getFirstMonthsProgress && PFStore.getFirstMonthsProgress()) || null;
   const fundsCheck = PFStore.get('fundsCheck', null);
-  const seen = PFStore.get('journey.seen', {}) || {};
+  const seen = PFStore.get('journey.seen.' + PFStore.getTrack(), {}) || {};
   const ST = PFStore.APP_STATUSES;
   const furthest = apps.reduce((m, x) => Math.max(m, ST.indexOf(x.status) + 1), 0);
   const halfVisa = vp.total ? Math.ceil(vp.total / 2) : 1;
@@ -729,11 +749,11 @@ function journeyModel() {
                          : 'Find your fit — pathway, fields, labs and funding.',
       steps: isMasters() ? [
         ['Take the 5-minute assessment', !!a, '#assessment'],
-        ['Shortlist 3 qualifications', saved.length >= 3, '#courses'],
+        ['Shortlist 3 qualifications', savedCourses >= 3, '#courses'],
         ['Compare the providers offering them', !!seen.explore, '#explore'],
       ] : [
         ['Take the 5-minute assessment', !!a, '#assessment'],
-        ['Save 3 labs or scholarships', saved.length >= 3, '#explore'],
+        ['Save 3 labs or scholarships', savedLabsOrScholarships >= 3, '#explore'],
         ['Generate a research direction', !!(research && research.candidates && research.candidates.length), '#research'],
       ] },
     { id: 'plan', label: 'Plan', icon: 'route', view: 'roadmap', color: 'violet',
@@ -1577,6 +1597,21 @@ function partnerRow(placement) {
   </div>`;
 }
 window.addEventListener('hashchange', route);
+// The browser only fires 'hashchange' when the fragment actually changes, so
+// a link whose href is the CURRENT hash is a dead click — nothing repaints.
+// That's not hypothetical: the journey map's own segments link to each
+// phase's next incomplete step, computed from live state, and that step can
+// legitimately be on the view already on screen (e.g. the Apply phase's
+// steps point at #dashboard while standing on #dashboard) — the exact
+// "third journey step doesn't respond" report in the bug tracker (B-04 /
+// D-09). Route explicitly in that one case; every other click already goes
+// through the hashchange listener above.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const href = a.getAttribute('href');
+  if (href.length > 1 && href === location.hash) route();
+});
 window.addEventListener('DOMContentLoaded', () => {
   adoptTrackFromQuery();   // must run before the first render
   paintTrackSwitch();
@@ -2012,7 +2047,9 @@ function buildMastersRoadmap(r) {
     r ? `Shortlist 4–6 qualifications in ${r.field} from the catalogue — compare entry requirements line by line, not just the titles`
       : 'Shortlist 4–6 qualifications from the Course Catalogue and compare their entry requirements',
     'Check whether each one is 180 points (one year) or 240 points (two) — it changes your fees and your visa funds by a full year',
-    r && r.english < 3 ? 'Book IELTS Academic — target 6.5+ overall with no band below 6.0' : 'English requirement met ✓ — your IELTS certificate is valid for two years',
+    r && r.english < 3 ? 'Book IELTS Academic — target 6.5+ overall with no band below 6.0'
+      : r && r.english === 4 ? 'An English-taught degree does not automatically waive IELTS — most universities also require it to be from an English-speaking country. Confirm the waiver with each admissions office before you skip the test'
+      : 'English requirement met ✓ — your IELTS certificate is valid for two years',
   ]});
 
   phases.push({ when: '8–10 months out', title: 'Credentials & documents', color: 'violet', consult: 'masters-credential', items: [

@@ -34,6 +34,7 @@ if (cfg && cfg.apiKey) {
   const [{ initializeApp },
          { getAuth, GoogleAuthProvider, EmailAuthProvider, signInWithPopup, signInWithCredential, signInWithEmailAndPassword,
            createUserWithEmailAndPassword, linkWithPopup, linkWithCredential,
+           signInWithRedirect, linkWithRedirect, getRedirectResult,
            signInAnonymously, onAuthStateChanged, signOut },
          { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, collection,
            collectionGroup, addDoc, serverTimestamp, query, where, runTransaction }] = await Promise.all([
@@ -45,6 +46,13 @@ if (cfg && cfg.apiKey) {
   const app  = initializeApp(cfg);
   const auth = getAuth(app);
   const db   = getFirestore(app);
+
+  // Completes the googleSignIn() popup-blocked fallback: after Google sends
+  // the browser back here, this resolves the pending sign-in and
+  // onAuthStateChanged below fires with the now-signed-in user. Resolves to
+  // null on an ordinary page load with no redirect in flight, so it's safe
+  // to call unconditionally.
+  getRedirectResult(auth).catch(e => console.warn('PathFinder: redirect sign-in failed', e));
 
   const isAdminUser = (u) => !!u && u.email === ADMIN_EMAIL;
 
@@ -194,6 +202,12 @@ if (cfg && cfg.apiKey) {
     if (cur && cur.isAnonymous) {
       try { return await linkWithPopup(cur, provider); }
       catch (e) {
+        // Popup blockers stop the popup window.open() itself, before any
+        // Google account is chosen — silently killing signup with no error
+        // shown. Redirect the whole tab instead; onAuthStateChanged picks
+        // up the result when the browser returns from Google (see
+        // getRedirectResult below). See B-05 in the bug tracker.
+        if (e.code === 'auth/popup-blocked') return await linkWithRedirect(cur, provider);
         if (e.code === 'auth/credential-already-in-use') {
           const cred = GoogleAuthProvider.credentialFromError(e);
           if (cred) return await signInWithCredential(auth, cred);
@@ -203,7 +217,11 @@ if (cfg && cfg.apiKey) {
         throw e;
       }
     }
-    return await signInWithPopup(auth, provider);
+    try { return await signInWithPopup(auth, provider); }
+    catch (e) {
+      if (e.code === 'auth/popup-blocked') return await signInWithRedirect(auth, provider);
+      throw e;
+    }
   }
 
   /* Email sign-up, likewise linking an anonymous session in place. */
@@ -624,6 +642,12 @@ if (cfg && cfg.apiKey) {
   onAuthStateChanged(auth, u => {
     user = u;
     paintAuth();
+    // The top-nav avatar (initials) is painted by app.js's updateNavChrome(),
+    // which only runs after route(). Sign-out fires this callback without a
+    // navigation, so without this call the avatar keeps showing the just
+    // signed-out user until the student happens to change views — reading
+    // as still-signed-in on a shared/borrowed device. See B-06.
+    if (window.updateNavChrome) window.updateNavChrome();
     adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
     refreshMentorProfile();          // updates the Mentor Dashboard sidebar link
     if (u && !isAdminUser(u)) pullAndMerge();   // students (incl. anonymous) sync
