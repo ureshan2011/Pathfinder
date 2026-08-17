@@ -283,13 +283,13 @@ const PFRoi = (() => {
       verdict = `On these figures the typical starting salary in this field would not cover the cost of living in ${living.city}, so there is nothing left over each year to put back toward the cost. A cheaper provider or a cheaper city changes this — both are below.`;
     } else if (paybackYears <= pswYears * 0.6) {
       band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-ok';
-      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa, so that fits comfortably — with room if it takes you a while to find the first job.`;
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. This is measured against the ${pswYears}-year post-study work window INZ currently publishes for this qualification level, so it fits comfortably — with room if it takes you a while to find the first job. Whether you would be granted that visa is a separate question, for INZ or a licensed adviser.`;
     } else if (paybackYears <= pswYears) {
       band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-warn';
-      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa — so it fits, but only if you find work in the field early. A slow start pushes it past the visa.`;
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. Measured against the ${pswYears}-year post-study work window INZ currently publishes for this qualification level, it fits — but only if you find work in the field early. A slow start pushes it past that window, and eligibility for the visa is not something this tool can tell you.`;
     } else {
       band = `Earns back in ${fmtYears(paybackYears)}`; bandCls = 'chip-alert';
-      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. After graduating you get a ${pswYears}-year open work visa — so on these numbers you would still be repaying it when that visa runs out. Staying longer means getting residence, which is a separate application and never guaranteed.`;
+      verdict = `At the typical starting salary for this field, the money comes back in about ${fmtYears(paybackYears)} of full-time work. Measured against the ${pswYears}-year post-study work window INZ currently publishes for this qualification level, on these numbers you would still be repaying it when that window closes. Staying longer means residence, a separate application that is never guaranteed — and eligibility for either is a question for INZ or a licensed adviser, not for this tool.`;
     }
 
     return {

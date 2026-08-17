@@ -14,16 +14,154 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
    journey the product shipped with. See PF_TRACK in data.js. */
 const trackCfg = () => PF_TRACK[PFStore.getTrack()] || PF_TRACK.phd;
 const isMasters = () => PFStore.getTrack() === 'masters';
-const visaUpdates = () => (isMasters() ? PF_VISA_UPDATES_MASTERS : PF_VISA_UPDATES);
+const visaUpdates = () => PF_VISA_NOTICES;
 
 /* Track value: prefers a `masters_<field>` alternate on the master's track.
-   Several facts in the Visa Hub and the Settle In guide are true only for
-   doctoral students — unlimited work rights, domestic school fees for
-   children, publicly funded healthcare — and stating them to a master's
-   applicant would be worse than saying nothing. Entries that need a
-   different answer carry the alternate in data.js; everything else falls
-   through to the shared text unchanged. */
+   Used for genuinely academic differences — fee bands, intakes, entry
+   requirements, how admission works — where the two journeys really do
+   need different copy.
+
+   NOT for immigration content. Choosing which immigration rule to show a
+   student on the basis of something we know about them is the platform
+   applying that rule to their circumstances, which is licensed territory
+   under the Immigration Advisers Licensing Act 2007. Visa, work-condition,
+   partner and dependant content is written once, labelled with the group
+   INZ publishes it for, and left for the reader to match against their own
+   visa — see PF_VISA_NOTICES in data.js and the note above it. */
 const tv = (o, k) => (isMasters() && o['masters_' + k] !== undefined ? o['masters_' + k] : o[k]);
+
+/* ── The immigration boundary ─────────────────────────────────────────
+   One place that decides whether a topic is an immigration matter, so the
+   rule cannot drift as views are added. Anything listed here must never
+   open a paid mentor request: it gets adviserReferral() instead, which
+   points at INZ and at a licensed adviser and takes no money and no
+   contact details.
+
+   PathFinder is not licensed. Reproducing INZ's published process is
+   fine; a paid human answering "will my funds evidence pass" or "which
+   category should I apply under" is immigration advice, and it is an
+   offence to provide it unlicensed whether or not a fee is charged. */
+const PF_IMMIGRATION_TOPICS = new Set([
+  'visa-offer', 'visa-docs', 'visa-medical', 'visa-evisa', 'visa-predeparture',
+  // "Will my funds evidence satisfy INZ" is the single most common form of
+  // unlicensed advice in this market, and it was a sellable topic here.
+  'visa-funds',
+  // Partner work visas and dependants' status — outside the offshore
+  // student-visa exemption entirely, so licensed even for an agent abroad.
+  'settle-family',
+]);
+const isImmigrationTopic = t => PF_IMMIGRATION_TOPICS.has(String(t || ''));
+
+/* The topics a mentor may actually be asked about, or advertise. Every
+   picker in the product — the student's request form, the mentor's session
+   log, the mentor profile's "fields" — builds its options from here, so an
+   immigration matter cannot be selected as billable mentor work.
+
+   PF_CONSULT_TOPICS keeps the full label map, immigration entries included,
+   because requests and sessions recorded before this boundary existed still
+   have to render with a readable name in dashboards and invoices. Labelling
+   history is not the same as offering the work. */
+const mentorTopicEntries = () =>
+  Object.entries(PF_CONSULT_TOPICS).filter(([slug]) => !isImmigrationTopic(slug));
+
+/* Where every immigration question goes instead of a mentor. Deliberately
+   plain: no form, no fields, no "send request" — the student leaves for
+   INZ or the licensed adviser register, both of which are free to reach. */
+function adviserReferral(note) {
+  return `<div class="nudge adviser-referral">
+    <span class="material-symbols-outlined nudge-icon" aria-hidden="true">gavel</span>
+    <div class="adviser-referral-main">
+      <strong class="adviser-referral-title">This one is an immigration question</strong>
+      <p class="adviser-referral-body">${esc(note || 'PathFinder can show you the published process, but nobody here — mentors included — may advise on what you personally qualify for, how to answer a question on the form, or whether your documents will satisfy INZ. That advice is licensed work in New Zealand.')}</p>
+      <div class="adviser-referral-links">
+        <a class="tlink" href="https://www.immigration.govt.nz/" target="_blank" rel="noopener noreferrer">Immigration New Zealand <span aria-hidden="true">→</span></a>
+        <a class="tlink" href="https://iaa.ediscovery.co.nz/" target="_blank" rel="noopener noreferrer">Find a licensed adviser <span aria-hidden="true">→</span></a>
+        <a class="tlink" href="https://www.iaa.govt.nz/for-migrants/using-an-adviser/" target="_blank" rel="noopener noreferrer">Why the licence matters <span aria-hidden="true">→</span></a>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* The same boundary, stated to the person on the other side of it. A
+   mentor is the one who ends up in a call with a student who asks "will my
+   funds be enough" — and the offence is theirs as much as the platform's,
+   whether or not they charge for the answer. Shown on the mentor profile,
+   where they declare what they help with. */
+function mentorBoundaryCard() {
+  return `<div class="listcard adviser-referral" style="max-width:520px;margin-bottom:20px">
+    <div class="listcard-head">
+      <h2 class="listcard-title">Before you take a session</h2>
+      <span class="chip chip-warn">Read this</span>
+    </div>
+    <p class="mt-3"><strong>You must not advise a student on their own immigration matter.</strong>
+      Not what visa they qualify for, not how to answer a question on a form, not whether their
+      funds or documents will satisfy INZ, not what their partner or children are entitled to,
+      and not what happens after they finish.</p>
+    <p>That is licensed work under the Immigration Advisers Licensing Act 2007, and providing it
+      unlicensed is an offence carrying up to $100,000 and/or seven years — <strong>whether or not
+      you are paid for it, and whether you are in New Zealand or in Sri Lanka</strong>. Describing
+      your own experience is fine. Applying it to their case is not.</p>
+    <p>What you are here for: academic fit, choosing programmes, supervisors, scholarships, SOPs
+      and proposals, and settling in. Any question that starts <em>"will I get…"</em>,
+      <em>"should I say…"</em> or <em>"do I qualify for…"</em> goes to INZ or a licensed adviser.
+      Hand it over, and never charge for the handoff.</p>
+    <div class="adviser-referral-links">
+      <a class="tlink" href="https://www.iaa.govt.nz/can-i-give-advice/" target="_blank" rel="noopener noreferrer">Who may give immigration advice <span aria-hidden="true">→</span></a>
+      <a class="tlink" href="https://iaa.ediscovery.co.nz/" target="_blank" rel="noopener noreferrer">Register of licensed advisers <span aria-hidden="true">→</span></a>
+    </div>
+  </div>`;
+}
+
+/* Stands at the top of the Visa Hub. disclaimer.html already says this, but
+   a student working through a checklist never opens the disclaimer — the
+   boundary has to be where the content is. */
+function visaBoundaryNotice() {
+  return `<div class="listcard visa-boundary">
+    <div class="listcard-head">
+      <h2 class="listcard-title">What this hub is, and what it is not</h2>
+      <span class="chip chip-warn">Not immigration advice</span>
+    </div>
+    <p class="mt-3">This is a map of the process Immigration New Zealand publishes — the stages,
+      the documents, and where in Sri Lanka to get each one. It is general information, the same
+      for every reader, and it is not tailored to you.</p>
+    <p><strong>Nobody here can advise you on your own application.</strong> What visa you qualify
+      for, how to answer a question on the form, whether your funds evidence is enough, what your
+      partner or children are entitled to, or what happens after you finish — all of that is
+      licensed work in New Zealand under the Immigration Advisers Licensing Act 2007. PathFinder
+      is not licensed, and our mentors are not either. We will not answer those questions, and you
+      should be wary of anyone unlicensed who offers to.</p>
+    <div class="adviser-referral-links">
+      <a class="tlink" href="https://www.immigration.govt.nz/" target="_blank" rel="noopener noreferrer">Immigration New Zealand <span aria-hidden="true">→</span></a>
+      <a class="tlink" href="https://iaa.ediscovery.co.nz/" target="_blank" rel="noopener noreferrer">Search the register of licensed advisers <span aria-hidden="true">→</span></a>
+      <a class="tlink" href="disclaimer.html#immigration">Our full disclaimer <span aria-hidden="true">→</span></a>
+    </div>
+  </div>`;
+}
+
+/* The noticeboard of published INZ settings. One list for everyone, each
+   item labelled with the group it is published for — see the long note on
+   PF_VISA_NOTICES for why it is not filtered by track. */
+function visaNoticesCard() {
+  return `<div class="listcard mt-7">
+    <div class="listcard-head"><h2 class="listcard-title">What INZ currently publishes</h2>
+      <span class="listcard-summary">Check each against your own visa</span></div>
+    ${PF_VISA_NOTICES.map(v => `
+      <div class="row">
+        <span class="chip chip-info">${esc(v.tag)}</span>
+        <div class="row-main">
+          <div class="row-title">${esc(v.title)} <span class="row-sub">· ${esc(v.date)}</span></div>
+          <div class="row-sub"><strong>Published for: ${esc(v.who)}</strong></div>
+          <div class="row-sub">${esc(v.body)}</div>
+          ${v.source ? `<div class="row-sub"><a class="tlink" href="${esc(v.source)}" target="_blank" rel="noopener noreferrer">Read it on immigration.govt.nz <span aria-hidden="true">→</span></a></div>` : ''}
+        </div>
+      </div>`).join('')}
+    <p class="muted" style="font-size:12.5px;margin-top:14px">
+      Summarised from Immigration New Zealand's published guidance and reproduced here so you
+      know what to go and read. Settings change without notice and this page is maintained by
+      hand — the INZ page is the authority, not this one. Whether any of it applies to you is a
+      question for INZ or a licensed immigration adviser.</p>
+  </div>`;
+}
 
 /* The stored assessment recomputed against the ACTIVE track. The answers
    stay valid across a track switch — a bachelor's degree is a bachelor's
@@ -509,7 +647,7 @@ function journeyModel() {
     { id: 'settle', label: 'Settle in', icon: 'luggage', view: 'settlement', color: 'teal',
       blurb: 'Check your visa funds, plan the first months and the move.',
       steps: [
-        ['Check your visa-funds readiness', !!(fundsCheck && fundsCheck.result), '#funds'],
+        ['Compare your funds to the published totals', !!(fundsCheck && fundsCheck.result), '#funds'],
         ['Map your first 90 days', !!fm, '#settlement'],
         ['Read the settling-in guides', !!seen.settlement || plans.length >= 1, '#settlement'],
       ] },
@@ -724,7 +862,10 @@ function highestPriorityIncompleteStep() {
       kicker,
       title: truncate(step.t, 42),
       body: truncate(step.note || visaOpen.summary, 120),
-      primaryLabel: 'Open the Visa Hub', primaryHref: '#visa', consultTopic: visaOpen.consult,
+      // No consult topic on a visa step. Carrying visaOpen.consult through
+      // here pre-aimed the hero's "Ask a mentor" button at an immigration
+      // matter — see PF_IMMIGRATION_TOPICS.
+      primaryLabel: 'Open the Visa Hub', primaryHref: '#visa', consultTopic: '',
     };
   }
 
@@ -1239,6 +1380,8 @@ function renderNews(main) {
    directly via PFStore.addMentorRequest (see the delegated handler below). */
 function consultCTA(topic) {
   const t = topic || '';
+  // An immigration step never opens a paid request — see PF_IMMIGRATION_TOPICS.
+  if (isImmigrationTopic(t)) return adviserReferral();
   return `<div class="consult-hook">
     <span class="material-symbols-outlined" style="font-size:15px">support_agent</span>
     <button type="button" class="consult-hook-toggle">Stuck at this step? Ask a mentor →</button>
@@ -1290,6 +1433,13 @@ document.addEventListener('submit', e => {
   if (!form) return;
   e.preventDefault();
   const topic = form.dataset.topic;
+  // Backstop for the boundary the render path already enforces: a stale or
+  // hand-edited form must not be able to open a paid request on an
+  // immigration matter. Cheap to check, and the one that must not fail.
+  if (isImmigrationTopic(topic)) {
+    form.classList.add('hidden');
+    return toast('Immigration questions go to INZ or a licensed adviser — see the links on this step.');
+  }
   if (!requireAccount('Create a free account to connect with a mentor.',
     { next: 'mentors' + (topic ? '?topic=' + topic : '') })) return;
   const name = form.querySelector('.ch-name').value.trim();
@@ -1818,6 +1968,8 @@ function buildPhdRoadmap(r) {
    behaviour change. */
 function consultNudge(topic) {
   const t = topic || '';
+  // Same boundary as consultCTA — the panel shape differs, the rule does not.
+  if (isImmigrationTopic(t)) return adviserReferral();
   return `<div class="nudge">
     <span class="material-symbols-outlined nudge-icon" aria-hidden="true">support_agent</span>
     <button type="button" class="consult-hook-toggle nudge-toggle">Stuck at this step? Ask a mentor →</button>
@@ -3478,18 +3630,7 @@ function paintFunding(main) {
     fundsCheckBanner() +
     (list ? scholarshipBrowser(list) : legacyScholarships()) +
 
-    `<div class="listcard mt-7">
-      <div class="listcard-head"><h2 class="listcard-title">Latest visa updates</h2>
-        <span class="listcard-summary">${masters ? 'Master’s' : 'PhD'} students</span></div>
-      ${visaUpdates().map(v => `
-        <div class="row">
-          <span class="chip chip-info">${esc(v.tag)}</span>
-          <div class="row-main">
-            <div class="row-title">${esc(v.title)} <span class="row-sub">· ${esc(v.date)}</span></div>
-            <div class="row-sub">${esc(v.body)}</div>
-          </div>
-        </div>`).join('')}
-    </div>`;
+    visaNoticesCard();
 
   const rerender = () => paintFunding(main);
   ['level', 'org'].forEach(k => {
@@ -3774,11 +3915,17 @@ function computeFunds(a) {
   if (a.timeline === 'lt3') penalty += 5;
   const score = Math.max(0, Math.min(100, Math.round(Math.min(1, ratio) * 100) - penalty));
 
+  /* Bands describe the gap between the money entered and the totals INZ
+     and the providers publish. They deliberately do not describe how an
+     application would go: this tool does arithmetic over public figures,
+     which is fine, but calling the result "visa-funds ready" turned that
+     arithmetic into a verdict on someone's visa case \u2014 an assessment only
+     INZ or a licensed adviser can make. */
   let band, bandCls, verdict;
-  if (score >= 95 && gap === 0) { band = 'Visa-funds ready'; bandCls = 'chip-ok'; verdict = 'You meet the indicative funds bar. The work now is evidence, not money.'; }
-  else if (score >= 75) { band = 'Nearly there'; bandCls = 'chip-warn'; verdict = 'A small gap left to close, and a workable one.'; }
-  else if (score >= 45) { band = 'Notable gap'; bandCls = 'chip-info'; verdict = 'There’s a real gap to plan for — best to start now, with a clear strategy.'; }
-  else { band = 'Significant gap'; bandCls = 'chip-alert'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
+  if (score >= 95 && gap === 0) { band = 'Fully covered on paper'; bandCls = 'chip-ok'; verdict = 'The figure you entered covers the published totals with nothing missing. What remains is assembling evidence \u2014 and whether INZ accepts that evidence is a separate assessment this tool cannot make.'; }
+  else if (score >= 75) { band = 'Small gap on paper'; bandCls = 'chip-warn'; verdict = 'A small shortfall against the published totals, and a workable one.'; }
+  else if (score >= 45) { band = 'Notable gap on paper'; bandCls = 'chip-info'; verdict = 'A real shortfall against the published totals — best to start planning now.'; }
+  else { band = 'Significant gap on paper'; bandCls = 'chip-alert'; verdict = 'A sizeable gap as things stand. Worth looking at funded routes, or a cheaper 180-point programme, before anything else.'; }
 
   return { fundsNZD, tuition, grossTuition, tuitionCovered, livingReq, airfare, requiredTotal,
            livingCovered, counted, gap, score, band, bandCls, verdict, flags, depMult, heads,
@@ -3792,8 +3939,8 @@ function fundsCheckBanner() {
   return `<a class="journey-nudge" href="#funds" style="margin:0 0 28px;background:var(--surface)">
     <span class="material-symbols-outlined" style="font-size:19px">savings</span>
     <span>${done
-      ? `Your visa-funds readiness: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>. Re-check anytime.`
-      : `<strong>Can you meet the visa funds requirement?</strong> Take the 2-minute Funds Readiness Check and see exactly what INZ wants to see.`}</span>
+      ? `Your funds against the published totals: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>. Re-check anytime.`
+      : `<strong>How does your money compare to the published figures?</strong> A 2-minute check that adds up what INZ and the providers publish, and shows your gap against it.`}</span>
     <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
   </a>`;
 }
@@ -3807,7 +3954,7 @@ function fundsStageCTA() {
     <span class="material-symbols-outlined" style="font-size:19px">savings</span>
     <span>${done
       ? `Your funds readiness: <strong>${fc.result.score}% — ${esc(fc.result.band)}</strong>${fc.result.gap > 0 ? ` · about ${fundsMoney(fc.result.gap)} short` : ''}. Re-check before you compile your evidence.`
-      : `<strong>Before you gather funds evidence,</strong> run the 2-minute Funds Readiness Check — see exactly what INZ wants to see and whether you meet it.`}</span>
+      : `<strong>Before you gather funds evidence,</strong> run the 2-minute funds check — it adds up the figures INZ publishes and shows your gap against them.`}</span>
     <span class="material-symbols-outlined" style="margin-left:auto;font-size:18px">arrow_forward</span>
   </a>`;
 }
@@ -3818,9 +3965,9 @@ function renderFunds(main) {
   // landing on a completed check → show the result (with re-check)
   if (saved && saved.result && fundsState.step === 0 && !fundsState.retake) {
     main.innerHTML = renderHero({
-      kicker: 'Funds Readiness Check', title: saved.result.band,
-      body: 'How your money compares to what Immigration New Zealand expects to see.',
-      figure: saved.result.score, figureSuffix: '%', figureCaption: 'Funds readiness',
+      kicker: 'Funds check', title: saved.result.band,
+      body: 'How the money you entered compares to the totals Immigration New Zealand and the providers publish. Not an assessment of your visa application.',
+      figure: saved.result.score, figureSuffix: '%', figureCaption: 'Covered on paper',
       primaryLabel: 'Re-check my funds', primaryId: 'fc-redo',
       secondaryLabel: 'Detailed funds planner', secondaryHref: '#settlement',
     }) + fundsResultCard(saved.result);
@@ -3875,7 +4022,7 @@ function renderFundsAmount(main) {
          placeholder="${cur === 'LKR' ? 'e.g. 4500000' : 'e.g. 25000'}" value="${a.fundsAmount != null ? a.fundsAmount : ''}">
      </div>
      <div class="hero-actions mt-6">
-       <button type="button" class="btn" id="fc-finish">See my readiness <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+       <button type="button" class="btn" id="fc-finish">See my gap <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
        <button type="button" class="btn btn-quiet" id="fc-back">← Back</button>
      </div>`;
 
@@ -4125,7 +4272,9 @@ function renderDashboard(main) {
     kicker: next.kicker, title: next.title, body: next.body,
     figure: R ? R.readiness : '—', figureSuffix: R ? '%' : '', figureCaption: T.label + '-ready',
     primaryLabel: next.primaryLabel, primaryHref: next.primaryHref,
-    secondaryLabel: 'Ask a mentor', secondaryHref: next.consultTopic ? `#mentors?topic=${next.consultTopic}` : '#mentors',
+    secondaryLabel: 'Ask a mentor',
+    secondaryHref: next.consultTopic && !isImmigrationTopic(next.consultTopic)
+      ? `#mentors?topic=${next.consultTopic}` : '#mentors',
     segments: heroSegments(journeyModel()),
   }) +
 
@@ -4582,7 +4731,8 @@ function renderVisa(main) {
     figure: total ? Math.round(done / total * 100) : 0, figureSuffix: '%', figureCaption: `${done}/${total} steps done`,
   }) +
     `<div class="viewgrid">
-      <div>${visaOddsCard(!cloudOn() || entitlements().officialData === true)}
+      <div>${visaBoundaryNotice()}
+      ${visaOddsCard(!cloudOn() || entitlements().officialData === true)}
       ${PF_VISA_STAGES.map((s, i) => {
         const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
         const stageDone = sDone === s.steps.length;
@@ -4625,14 +4775,21 @@ function renderVisa(main) {
       }).join('')}
       </div>
       <div class="aside">
+        <!-- Was "Your visa as a PhD student", asserting work rights, the
+             post-study visa and dependants' status for whichever track was
+             stored. A panel headed "your visa" that states what someone is
+             entitled to is exactly the tailored assessment the licence
+             covers. What remains is money — tuition is a provider fact and
+             the funds figure is INZ's published threshold, neither of which
+             is a judgement about the reader. -->
         <div class="sidecard">
-          <span class="sidecard-kicker">Your visa as ${esc(T.article)} student</span>
+          <span class="sidecard-kicker">What ${esc(T.article)} costs</span>
           <p><strong>Tuition</strong> — ${T.feeMode === 'domestic'
             ? `Domestic rate, about ${fundsMoney(PF_CONFIG.phdFeesDomesticPerYear)}/yr`
             : `Full international rate, about ${fundsMoney(T.feeLo)}–${fundsMoney(T.feeHi)}/yr`}</p>
-          <p><strong>Living-costs evidence</strong> — ${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr</p>
-          <p><strong>Work rights</strong> — ${esc(T.workRights)}</p>
-          <p><strong>After you finish</strong> — ${esc(T.postStudy)}</p>
+          <p><strong>Living-costs evidence</strong> — INZ publishes a minimum of about ${fundsMoney(PF_CONFIG.visaFundsPerYear)}/yr for student visa applicants</p>
+          <p><strong>Work conditions, what follows study, and family</strong> — set by INZ per visa, not by course type.
+            <a class="tlink" href="https://www.immigration.govt.nz/" target="_blank" rel="noopener noreferrer">Check immigration.govt.nz <span aria-hidden="true">→</span></a></p>
         </div>
       </div>
     </div>
@@ -4851,7 +5008,11 @@ const MENTOR_REQ_STATUS_LINE = {
 };
 
 function renderMentors(main) {
-  const topic = hashQuery().topic || '';
+  // A topic arriving in the URL is untrusted input like any other: an
+  // immigration slug typed or linked into #mentors?topic= must not pre-aim
+  // the request form at licensed work.
+  const rawTopic = hashQuery().topic || '';
+  const topic = isImmigrationTopic(rawTopic) ? '' : rawTopic;
   if (hashQuery().tab === 'mine') mentorsTab = 'mine';
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
@@ -4919,7 +5080,7 @@ function renderMentors(main) {
         <form id="ask-form" class="mt-4" style="display:flex;flex-direction:column;gap:12px">
           <select class="field" id="ask-topic">
             <option value="">General guidance</option>
-            ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
+            ${mentorTopicEntries().map(([slug, lbl]) =>
               `<option value="${slug}" ${slug === topic ? 'selected' : ''}>${lbl}</option>`).join('')}
           </select>
           ${redeemField}
@@ -5441,9 +5602,9 @@ const ROI_PROMISE = [
   ['payments', 'The whole bill, not the tuition figure',
    'Fees, rent, food, transport, the flights, the visa, the medicals, the insurance, the bond and the first shop — added up over the full degree and shown in rupees as well as dollars.'],
   ['work_history', 'What you can earn while you study, taken off',
-   'A student visa lets you work 25 hours a week in term time and full-time in the breaks. We work that out at the legal minimum wage, after tax, and subtract it — so the number you see is what your family actually has to find.'],
+   'Where a student visa carries a work condition, INZ\u2019s published in-semester limit is currently 25 hours a week. We model that at the legal minimum wage, after tax, and subtract it \u2014 so the number you see is what your family actually has to find. What your own visa allows is stated on the visa itself.'],
   ['schedule', 'How long the money takes to come back',
-   'Graduate pay in your field, less tax and less the cost of living here, measured against the three-year work visa you get after a master\'s. If it does not come back inside those three years, you should know that now and not in year four.'],
+   'Graduate pay in your field, less tax and less the cost of living here, measured against the three-year post-study work window INZ publishes for this qualification level. If it does not come back inside those three years, you should know that now and not in year four.'],
   ['compare_arrows', 'The same qualification, somewhere cheaper',
    'Named providers teaching your subject at the same NZQF level, with each one\'s published fee, the saving, the trade-off — and the regulator\'s record on them, so a lower price never gets mistaken for a better decision.'],
   ['description', 'A one-page sheet for whoever is paying',
@@ -6053,7 +6214,7 @@ function roiAfterCard(r) {
     ${row('After tax and ACC', `NZ PAYE ${PF_ROI.tax.asOf} plus the ${(PF_ROI.tax.accRate * 100).toFixed(2)}% earner levy`, PFRoi.money(r.netAfter) + '/yr')}
     ${row('Left over after living costs', 'What can actually go toward repaying this', PFRoi.money(r.annualSurplus) + '/yr')}
     ${row('Time to earn the cost back', `Against a ${r.pswYears}-year post-study work visa`, PFRoi.fmtYears(r.paybackYears))}
-    <div class="roi-basis"><p><strong>The window matters.</strong> A level 9 master's earns a ${r.pswYears}-year
+    <div class="roi-basis"><p><strong>The window matters.</strong> INZ currently publishes a ${r.pswYears}-year
       post-study work visa with open work rights and no job offer needed. Staying past that needs residence, which is a
       separate decision and never guaranteed — so a payback longer than ${r.pswYears} years is a plan that depends on
       something outside your control.</p></div>
@@ -6130,7 +6291,7 @@ function roiPostStudyCard(r, unlocked) {
 
     <div class="roi-basis">
       <p><strong>What this does and does not tell you.</strong> These are decisions across all nationalities on the
-        open post-study work visa, the one a level 9 master's earns. They show the rule has held for a decade and
+        open post-study work visa, the one this model's payback window is measured against. They show the rule has held for a decade and
         that its scope has been changed twice inside that decade. Eligibility is set by policy and policy moves —
         a ${r.pswYears}-year payback that only works if this visa still exists in its current form is a plan with a
         political dependency in it. Confirm the current rule at immigration.govt.nz before you commit.</p>
@@ -6250,8 +6411,9 @@ function roiSourcesCard(r) {
       <li><strong>NZ$ → LKR</strong> — ${d.fx.nzdToLkr} as at ${esc(d.fx.asOf)}; an anchor for reading, not a transfer rate</li>
     </ul>
     <p class="roi-warn"><strong>Read this honestly.</strong> The salary figures are published for
-      <em>domestic</em> New Zealand graduates. An international graduate holds a ${r.pswYears}-year work visa and no
-      guarantee of residence, so treat them as an upper reference, not a forecast. Confirm tuition with the provider in
+      <em>domestic</em> New Zealand graduates. An international graduate is subject to a published post-study work
+      window of about ${r.pswYears} years, which this tool assumes rather than confirms, and has no guarantee of
+      residence — so treat them as an upper reference, not a forecast. Confirm tuition with the provider in
       writing before you decide anything. PathFinder takes no commission from any provider named here.</p>
   </details>`;
 }
@@ -6449,8 +6611,7 @@ function roiPhdNote(main) {
       <div class="listcard-head"><h2 class="listcard-title">Why there is nothing to model</h2></div>
       <p>Tuition at the domestic rate is about ${esc(PFRoi.money(PF_CONFIG.phdFeesDomesticPerYear))} a year, and a doctoral
       scholarship — usually awarded with admission rather than applied for separately — covers fees and adds a stipend of
-      roughly ${esc(PFRoi.money(PF_CONFIG.stipendLo * 12))}–${esc(PFRoi.money(PF_CONFIG.stipendHi * 12))} a year. You also
-      have unlimited work rights. The question that decides a PhD is not cost; it is whether a supervisor says yes.</p>
+      roughly ${esc(PFRoi.money(PF_CONFIG.stipendLo * 12))}–${esc(PFRoi.money(PF_CONFIG.stipendHi * 12))} a year. The question that decides a PhD is not cost; it is whether a supervisor says yes. Work conditions and what follows study are set by INZ on the visa itself \u2014 check immigration.govt.nz rather than planning around anything quoted here.</p>
       <div class="hero-actions mt-5">
         <a class="btn btn-quiet" href="#research">Find supervisors and a topic</a>
         <button type="button" class="btn btn-quiet" id="roi-to-masters">I'm actually looking at a master's</button>
@@ -6508,7 +6669,7 @@ function roiDownloadSheet(r) {
       ['Likely salary in this field', PFRoi.money(r.grossAfter) + ' a year'],
       ['After tax and ACC', PFRoi.money(r.netAfter) + ' a year'],
       ['Left over after living costs', PFRoi.money(r.annualSurplus) + ' a year'],
-      ['Post-study work visa', r.pswYears + ' years, open work rights'],
+      ['Post-study work window assumed', r.pswYears + ' years — INZ\u2019s published setting for this level, not a grant to you'],
       ['Time to earn the cost back', PFRoi.fmtYears(r.paybackYears)],
     ],
     alternatives: routes.map(a => ({ title: a.title, tradeoff: a.tradeoff, saving: a.saving })),
@@ -6517,7 +6678,7 @@ function roiDownloadSheet(r) {
     notes: [
       `Prepared by PathFinder on ${new Date().toLocaleDateString('en-GB')}. Cost data last checked ${PF_ROI.verified}.`,
       `Tuition from ${r.tuition.label}; living costs from PathFinder city data; wages at the NZ adult minimum of NZ$${PF_CONFIG.minWageHourly}/hr from 1 April 2026; tax at IRD ${PF_ROI.tax.asOf} rates.`,
-      `Salary figures are published for DOMESTIC New Zealand graduates (${PF_ROI.earnings.src}) and are an upper reference, not a forecast: an international graduate holds a ${r.pswYears}-year work visa and no guarantee of residence.`,
+      `Salary figures are published for DOMESTIC New Zealand graduates (${PF_ROI.earnings.src}) and are an upper reference, not a forecast: an international graduate is subject to a published post-study work window of about ${r.pswYears} years, which this tool assumes rather than confirms, and has no guarantee of residence.`,
       `Converted at NZ$1 = LKR ${PF_ROI.fx.nzdToLkr} (${PF_ROI.fx.asOf}) for reading only — the real transfer rate will differ.`,
       `Confirm every fee with the provider in writing before committing money. PathFinder takes no commission from any provider named here.`,
     ],
@@ -7078,7 +7239,7 @@ function openIntakeForm(o = {}) {
         <div>${lbl('What they need help with')}
           <select class="field" name="topic">
             ${opt('', 'General guidance', true)}
-            ${Object.entries(PF_CONSULT_TOPICS).map(([k, v]) => opt(k, v)).join('')}
+            ${mentorTopicEntries().map(([k, v]) => opt(k, v)).join('')}
           </select></div>
       </div>
       <div>${lbl('What they said')}
@@ -7229,7 +7390,7 @@ function sessionFormHTML(s, mentors) {
       <div>${lbl('Topic')}
         <select class="field" name="topic">
           ${opt('', 'General guidance', !s.topic)}
-          ${Object.entries(PF_CONSULT_TOPICS).map(([k, v]) => opt(k, v, s.topic === k)).join('')}
+          ${mentorTopicEntries().map(([k, v]) => opt(k, v, s.topic === k)).join('')}
         </select></div>
     </div>
     <div>${lbl('Title (optional — the topic is used if you leave this)')}
@@ -7576,12 +7737,13 @@ function mentorApply(main) {
 
   main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Your mentor profile',
     body: 'Tell us what you can help with — an admin reviews it before it goes live.' }) +
+    mentorBoundaryCard() +
     `<div class="card" style="max-width:520px" id="mt-profile-card">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Display name (students see this after they’re matched with you)</label>
       <input class="field" id="mp-name" placeholder="e.g. Kasun J." style="margin:5px 0 14px">
       <label class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">Fields you can help with</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px" id="mp-fields">
-        ${Object.entries(PF_CONSULT_TOPICS).map(([slug, lbl]) =>
+        ${mentorTopicEntries().map(([slug, lbl]) =>
           `<label class="chip chip-dim mp-field" style="cursor:pointer"><input type="checkbox" value="${slug}" style="margin-right:6px;vertical-align:-1px">${lbl}</label>`).join('')}
       </div>
       <div class="grid-2" style="gap:14px">
