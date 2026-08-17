@@ -302,7 +302,7 @@ function cloudOn() { return !!(window.PF_FIREBASE_CONFIG && window.PF_FIREBASE_C
 
 function emptyEntitlements() {
   return { plans: [], toolkit: false, priority: false, fullAudit: false, interview: false,
-           costCompare: false, officialData: false,
+           costModel: false, costCompare: false, officialData: false,
            sessions: 0, audits: 0, sessionsGranted: 0, auditsGranted: 0 };
 }
 
@@ -313,7 +313,7 @@ function emptyEntitlements() {
 function grantsFrom(orders) {
   const table = PF_CONFIG.planGrants || {};
   const out = { plans: [], toolkit: false, priority: false, fullAudit: false,
-                interview: false, costCompare: false, officialData: false,
+                interview: false, costModel: false, costCompare: false, officialData: false,
                 sessions: 0, audits: 0 };
   (orders || []).filter(o => o.status === 'paid').forEach(o => {
     const g = table[o.item];
@@ -346,7 +346,13 @@ function creditsUsed(requests) {
 function loadEntitlements(cb) {
   if (!(cloudOn() && window.PFCloud && PFCloud.hasUser && PFCloud.hasUser())) {
     entState = { loaded: true, items: emptyEntitlements() };
-    if (cb) cb();
+    // Always call back ASYNCHRONOUSLY, exactly as the Firestore path
+    // below does. Every caller's callback is a route(), and a route()
+    // called synchronously from inside a renderer re-enters the router
+    // mid-render: the inner pass paints the view and appends the profile
+    // strip, then the outer pass appends a second strip to the same
+    // screen. One line, and it keeps every caller on one code path.
+    if (cb) Promise.resolve().then(cb);
     return;
   }
   PFCloud.fetchMyOrders().then(orders => {
@@ -355,7 +361,8 @@ function loadEntitlements(cb) {
     entState = { loaded: true, items: {
       plans: g.plans,
       toolkit: g.toolkit, priority: g.priority,
-      fullAudit: g.fullAudit, interview: g.interview, costCompare: g.costCompare,
+      fullAudit: g.fullAudit, interview: g.interview,
+      costModel: g.costModel, costCompare: g.costCompare,
       officialData: g.officialData,
       sessionsGranted: g.sessions, auditsGranted: g.audits,
       sessions: Math.max(0, g.sessions - used.sessions),
@@ -1449,8 +1456,18 @@ function profileTabState(view) {
     }
     if (view === 'cost') {
       if (!isMasters()) return '';           // the PhD track gets a different screen
-      const plan = PFStore.get('roiPlan', null);
-      return plan ? 'Your plan' : 'Not costed';
+      // Say what the tab will ask for before it asks — a student who taps
+      // through to a sign-in wall they could have seen coming reads it as
+      // a bait-and-switch, and they are right to.
+      if (cloudOn()) {
+        if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn())) return 'Sign in';
+        if (entState.loaded && entitlements().costModel !== true) return 'Explorer';
+      }
+      if (PFStore.get('roiPlan', null)) return 'Your plan';
+      // A shortlisted course seeds the model, so the screen already shows
+      // something of theirs — "not costed" beside a costed plan is just
+      // wrong. See roiSeed().
+      return PFStore.getSaved().some(x => x.kind === 'course') ? 'From your shortlist' : 'Not costed';
     }
     if (view === 'news') return '';
   } catch (_) { /* never let a status line break navigation */ }
@@ -4434,12 +4451,15 @@ function govtTrendBars(series, valueOf, fmt) {
    into. Immigration New Zealand publishes the answer and has done for a
    decade; nobody in this market puts it in front of the student.
 
-   The headline stays FREE, deliberately and for the same reason the
-   total-cost verdict in #cost is free: a person deciding whether to
+   The headline stays FREE, deliberately: a person deciding whether to
    spend their family's savings should not have to pay to find out what
-   the government's own file says about their odds. What Premium buys is
-   the analysis on top — which route declines most, and how Sri Lanka
-   compares with the countries an agent will have name-dropped.
+   the government's own file says about their odds, and republishing a
+   public statistic free is the honest reading of the CC BY licence it
+   carries besides. What Premium buys is the analysis on top — which
+   route declines most, and how Sri Lanka compares with the countries an
+   agent will have name-dropped. (#cost draws its line in a different
+   place — the calculator there is a costed personal plan rather than a
+   published fact, and is paid from Explorer up. See roiAccessWall.)
 
    The decline count is printed as prominently as the approval rate, and
    the publisher's own caveat about what "declined" includes is printed
@@ -5105,25 +5125,165 @@ document.addEventListener('click', e => {
    cheaper qualification never gets mentioned. PathFinder takes no
    provider commission, which is the only reason this screen can exist.
 
-   Free: the truth about the plan they already have.
-   Premium: what to do about it — the cheaper routes, and the one-page
-   sheet they put in front of the person who actually holds the money. */
+   Signed in, and Explorer or above — see roiAccessWall() below for the
+   reasoning and PF_CONFIG.planGrants for the line itself.
+
+   Explorer: the plan, the total, where the money goes, the payback.
+   Premium: what to do about it — the cheaper routes, the decade of visa
+   decisions the payback quietly rests on, and the one-page sheet they put
+   in front of the person who actually holds the money. */
 
 let roiState = null;
 
-function roiDefaults() {
-  const R = currentResult();
-  const saved = PFStore.get('roiPlan', null);
+/* The plan card's open/closed state belongs to the STUDENT, not to the
+   viewport. It used to be recomputed as `window.innerWidth > 860` inside
+   the render — and because every field change re-rendered the entire
+   screen, a student on a phone who typed their quoted fee watched the
+   form they were typing into fold shut under their thumb, then found
+   themselves scrolled back to the top of the page. null means "not told
+   yet", so fall back to the width; after that the student's own toggle
+   wins and survives every repaint. */
+let roiPlanOpen = null;
+const roiPlanIsOpen = () => (roiPlanOpen === null ? window.innerWidth > 860 : roiPlanOpen);
+
+const roiOnScreen = () => location.hash.slice(1).split('?')[0] === 'cost';
+
+/* "18-month", "2-year" — the way a person says a programme length, for
+   headings. PFRoi.fmtYears() is the sentence form ("1 year 6 months"). */
+const roiLengthWord = y => (Number(y) === 1.5 ? '18-month' : `${Number(y)}-year`);
+const roiLengthPlain = y => (Number(y) === 1.5 ? '18 months'
+  : Number(y) === 1 ? '1 year' : `${Number(y)} years`);
+const roiLengthPhrase = y => (Number(y) === 1 ? 'about a year' : `about ${roiLengthPlain(y)}`);
+
+/* ── Starting from what they have already told us ────────────────────
+   Every input on this screen is something the student has answered
+   somewhere else: the subject came out of the assessment, the courses
+   out of their catalogue shortlist, the city and household out of the
+   Funds Planner, the money already set aside out of the Funds Check.
+   Asking for all of it again is how a tool tells someone it has not been
+   paying attention — and it is also how this screen used to open on a
+   worked example about a stranger.
+
+   So the plan SEEDS itself from their own records, and the screen names
+   the record every seeded figure came from (see roiYourDataCard). A plan
+   the student has edited always wins: their saved plan is merged last, so
+   nothing they typed is ever quietly overwritten by a later shortlist. */
+function roiSeed() {
+  const seed = {};
+
   // computeMastersResult() carries the NZQA subject-area ROOT as
   // `subjectArea` (`field` is its display name), which is exactly the key
-  // the fee and earnings tables are cut by — so a student who has taken
-  // the assessment lands here already pointed at their own subject.
+  // the fee and earnings tables are cut by.
+  const R = currentResult();
+  if (R && R.subjectArea) seed.subjectRoot = R.subjectArea;
+
+  // The newest shortlisted course that resolves to a real provider. This
+  // is the strongest signal on the platform — a course someone saved is a
+  // course they are actually considering.
+  const course = roiSavedCourses().find(c => c.providerId);
+  if (course) {
+    seed.providerId = course.providerId;
+    if (course.root) seed.subjectRoot = course.root;
+    if (course.years) seed.years = course.years;
+    const tier = roiTierOf(course.providerId);
+    if (tier) seed.tier = tier;
+    // Costing a Wellington degree against Auckland rents is wrong by
+    // thousands a year, so take the city from where the provider
+    // actually teaches when we can read it off the register. A city the
+    // student chose themselves in the Funds Planner still wins below.
+    const city = roiCityOfProvider(course.providerId);
+    if (city) seed.city = city;
+  }
+
+  const prefs = PFStore.getCalcPrefs();
+  if (prefs && prefs.city) seed.city = prefs.city;
+  if (prefs && prefs.status) seed.who = prefs.status;
+
+  const fc = PFStore.get('fundsCheck', null);
+  if (fc && fc.answers && fc.answers.who) seed.who = fc.answers.who;
+  if (fc && fc.result && fc.result.fundsNZD > 0) seed.ownFundsNZD = Math.round(fc.result.fundsNZD);
+  // Only a full fees award is safe to convert into a percentage. "Partial"
+  // covers everything from 10% to 90%, so the screen asks for the figure
+  // rather than inventing one.
+  if (fc && fc.answers && fc.answers.stipend === 'full') seed.scholarshipPct = 100;
+
+  return seed;
+}
+
+/* Which tier a provider sits in — our own fee table first, then the NZQA
+   register. Drives the tier fee band and the trade-off wording. */
+function roiTierOf(id) {
+  const p = typeof PFRoi !== 'undefined' && PFRoi.providerOf(id);
+  if (p && p.tier) return p.tier;
+  const c = catProvider(id);
+  return (c && c.type) || null;
+}
+
+/* Which of the six cities we hold living costs for a provider teaches in.
+   The register lists campuses as free text ("Albany, Palmerston North,
+   Wellington"), so this matches whole city names against PF_CITY_COSTS
+   and takes the first hit — a best guess the student can override in one
+   tap, never a claim. Returns null when nothing matches, which leaves
+   the plan on whatever city it already had. */
+function roiCityOfProvider(id) {
+  const p = catProvider(id);
+  const list = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
+  if (!p || !p.location || !list.length) return null;
+  const hit = list.find(c => new RegExp(`\\b${c.city.replace(/\s+/g, '\\s+')}\\b`, 'i').test(p.location));
+  return hit ? hit.id : null;
+}
+
+/* The student's shortlist, resolved against the register into something
+   the cost model can actually be pointed at. Newest first, because the
+   last thing someone saved is the thing they are currently thinking
+   about. Rows that cannot be resolved (the catalogue has not loaded, or
+   the qualification has since left the register) are kept and flagged
+   rather than dropped — a saved course silently vanishing is worse than
+   one that says it cannot be read right now. */
+function roiSavedCourses() {
+  const cat = window.PF_CATALOGUE;
+  return PFStore.getSaved()
+    .filter(s => s.kind === 'course')
+    .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+    .map(s => {
+      const q = cat && cat.quals.find(x => x.i === s.id);
+      if (!q) return { id: s.id, title: s.label || 'A saved course', providerName: s.sub || '', unresolved: true };
+      const root = catRoots(q).find(r => cat.roots.includes(r)) || null;
+      const provs = (q.o || []).map(catProvider).filter(Boolean);
+      const credits = Number(q.c) || 0;
+      return {
+        id: q.i, title: q.t, level: q.l, credits,
+        // NZ master's are sized in points: 240 is the two-year route, 180
+        // the eighteen-month one, 120 a one-year taught programme.
+        years: credits >= 240 ? 2 : credits >= 180 ? 1.5 : credits > 0 ? 1 : null,
+        root, rootName: (root && cat.taxonomy[root] && cat.taxonomy[root].n) || null,
+        providerId: (q.o || [])[0] || null,
+        providerName: provs[0] ? provs[0].name : '',
+        otherProviders: Math.max(0, provs.length - 1),
+        // The register carries a published international fee for only a
+        // handful of programmes, and never says whether it is per year or
+        // for the whole thing — so it is shown as something to check, and
+        // never written into the model. See roiCourseRow().
+        fees: (window.PF_CAT_PROGRAMMES || []).filter(p => p.q === q.i && p.intlFee),
+      };
+    });
+}
+
+/* Is the plan currently being costed this saved course? */
+function roiCourseIsCurrent(c) {
+  if (!c || !c.providerId || !roiState) return false;
+  return c.providerId === roiState.providerId
+    && (!c.root || c.root === roiState.subjectRoot)
+    && (!c.years || Number(c.years) === Number(roiState.years));
+}
+
+function roiDefaults() {
   return Object.assign({
-    subjectRoot: (R && R.subjectArea) || '76450',
+    subjectRoot: '76450',
     providerId: '700122001', tier: 'universities', city: 'akl', years: 2,
     who: 'single', scholarshipPct: 0, workHours: 25, feeOverride: 0,
     ownFundsNZD: 0, partnerWorks: false,
-  }, saved || {});
+  }, roiSeed(), PFStore.get('roiPlan', null) || {});
 }
 
 function roiSave() { PFStore.set('roiPlan', roiState); }
@@ -5148,31 +5308,48 @@ function renderCost(main) {
     });
     return;
   }
+  // The PhD economics run the opposite way, so say so rather than running
+  // a master's model over a doctoral plan and quoting nonsense. This sits
+  // in front of the paywall on purpose: nobody should be asked to pay to
+  // be told there is nothing here for them.
+  if (!isMasters()) return roiPhdNote(main);
+
+  // Signed in, on a paid plan, or nothing below this line runs.
+  if (roiAccessWall(main)) return;
+
   ensureInvoice();   // the family decision sheet is one tap away from here
-  if (!roiState) roiState = roiDefaults();
   const cat = window.PF_CATALOGUE;
-  if (!cat) ensureCatalogue().then(() => { if (location.hash.slice(1).split('?')[0] === 'cost') route(); });
+  // The catalogue resolves the student's shortlist into real providers and
+  // subject areas, and the programme file carries the published fees shown
+  // beside them — both re-render once, guarded on the global so a resolved
+  // promise can't loop the router.
+  if (!cat) ensureCatalogue().then(() => { if (roiOnScreen()) route(); });
+  if (!window.PF_CAT_PROGRAMMES) ensureProgrammes().then(ok => { if (ok && roiOnScreen()) route(); });
   // NZQA's per-provider record — ~20 KB, and only this view needs it, so
   // it lazy-loads through the same helper as the catalogue shards.
   ensureProviderQuality().then(loaded => {
-    if (loaded && location.hash.slice(1).split('?')[0] === 'cost') route();
+    if (loaded && roiOnScreen()) route();
   });
   // Immigration NZ's post-study decisions and MBIE's rent medians — same
   // lazy pattern, same guard.
   govtRefresh('cost');
 
-  // The PhD economics run the opposite way, so say so rather than running
-  // a master's model over a doctoral plan and quoting nonsense.
-  if (!isMasters()) return roiPhdNote(main);
+  // Rebuilt on every entry rather than memoised, so a course saved or a
+  // funds check taken since the last visit is picked up. Their own saved
+  // plan is merged last inside roiDefaults(), so this never overwrites an
+  // edit they made.
+  roiState = roiDefaults();
 
   const r = PFRoi.compute(roiState);
-  const unlocked = !cloudOn() || entitlements().costCompare === true;
+  const unlocked = entitlements().costCompare === true || !cloudOn();
   // The government-data panels are their own entitlement, so the two can
   // be priced apart later without untangling them from the fee model.
-  const govtUnlocked = !cloudOn() || entitlements().officialData === true;
+  const govtUnlocked = entitlements().officialData === true || !cloudOn();
 
   /* Reading order is the argument, in the order a family actually asks it:
-       1. what am I costing out          (the plan, editable, at the top)
+       0. what is this screen            (three steps, in plain words)
+       1. what am I costing out          (their own saved work, then the
+                                          plan, editable, at the top)
        2. what does it cost              (one number, in rupees)
        3. where does that go             (the breakdown)
        4. what does it earn back         (payback vs the visa)
@@ -5180,10 +5357,26 @@ function renderCost(main) {
        6. how do you know                (sources, last)
      On mobile this is the literal top-to-bottom order. The old version put
      the inputs in an aside, which on a phone dropped them to the BOTTOM —
-     below every number they controlled. */
-  main.innerHTML = renderHero(roiHeroCopy(r, cat)) +
+     below every number they controlled.
+
+     The hero and the results live in their own wrappers because they are
+     the only parts that change when a field changes: roiRepaint() swaps
+     those two and leaves the form — and the cursor inside it — alone. */
+  main.innerHTML =
+    `<div id="roi-hero">${renderHero(roiHeroCopy(r, cat))}</div>` +
+    roiIntroCard() +
+    roiYourDataCard(cat) +
     roiPlanCard(cat) +
-    roiHeadline(r) +
+    `<div id="roi-results">${roiResults(r, unlocked, govtUnlocked)}</div>`;
+
+  roiBindForm();
+}
+
+/* Everything below the results wrapper, rebuilt from one compute(). Kept
+   as its own function so a field change can replace exactly this and
+   nothing else. */
+function roiResults(r, unlocked, govtUnlocked) {
+  return roiHeadline(r) +
     roiCostCard(r) +
     roiQualityCard() +
     roiAfterCard(r) +
@@ -5191,12 +5384,178 @@ function renderCost(main) {
     roiRoutesCard(r, unlocked) +
     roiSourcesCard(r) +
     consultCTA('funding-costs');
+}
 
-  roiBindForm();
+/* ── The wall ────────────────────────────────────────────────────────
+   Cost & payback is the one screen on this platform that answers with a
+   costed personal plan rather than a published fact, and it is only
+   worth anything if it is genuinely THEIRS: seeded from the courses they
+   shortlisted and the funds check they took, saved, and still there when
+   they open it again on the laptop of whoever is paying. None of that
+   survives an anonymous browser, so the account is not a toll booth — it
+   is the feature working.
 
-  if (cloudOn() && !entState.loaded) loadEntitlements(() => {
-    if (location.hash.slice(1).split('?')[0] === 'cost') route();
-  });
+   The paid part is a product decision the owner has made deliberately:
+   every agent in this market is paid a percentage of the tuition, which
+   is exactly why nobody else will do this arithmetic honestly, and a
+   platform that takes no provider commission has to be paid by the
+   student instead. Explorer is the entry tier.
+
+   What has NOT moved behind the wall: the international fee bands on the
+   landing page, the published fees in the catalogue, the visa-funds
+   figure and the Funds Check, the scholarship register, and the headline
+   government statistics on #visa. A student can still work out roughly
+   what they are facing without paying anything.
+
+   Returns true when it has painted a wall and the caller must stop. */
+function roiAccessWall(main) {
+  if (!cloudOn()) return false;   // static/offline build: no accounts to gate against
+
+  const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  if (!signedIn) { roiSignInWall(main); return true; }
+
+  if (!entState.loaded) {
+    main.innerHTML = renderHero({
+      kicker: 'Cost & payback', title: 'One moment — opening your plan',
+      body: 'Checking what you have on your account.',
+    });
+    loadEntitlements(() => { if (roiOnScreen()) route(); });
+    return true;
+  }
+
+  // Gate on the grants TABLE, not just on the entitlement: if no plan
+  // sells costModel, nothing can grant it, and checking the entitlement
+  // alone would lock the screen for everyone forever. Removing the flag
+  // from PF_CONFIG.planGrants is therefore how you reopen the calculator
+  // to every signed-in student — one line, no code change here.
+  const sold = Object.keys(PF_CONFIG.planGrants || {})
+    .some(k => (PF_CONFIG.planGrants[k] || {}).costModel);
+  if (sold && entitlements().costModel !== true) { roiPlanWall(main); return true; }
+  return false;
+}
+
+/* What is on the other side of the wall, in the words a student would
+   use. Shared by both wall screens so the promise can't drift between
+   the sign-in version and the payment version. */
+const ROI_PROMISE = [
+  ['payments', 'The whole bill, not the tuition figure',
+   'Fees, rent, food, transport, the flights, the visa, the medicals, the insurance, the bond and the first shop — added up over the full degree and shown in rupees as well as dollars.'],
+  ['work_history', 'What you can earn while you study, taken off',
+   'A student visa lets you work 25 hours a week in term time and full-time in the breaks. We work that out at the legal minimum wage, after tax, and subtract it — so the number you see is what your family actually has to find.'],
+  ['schedule', 'How long the money takes to come back',
+   'Graduate pay in your field, less tax and less the cost of living here, measured against the three-year work visa you get after a master\'s. If it does not come back inside those three years, you should know that now and not in year four.'],
+  ['compare_arrows', 'The same qualification, somewhere cheaper',
+   'Named providers teaching your subject at the same NZQF level, with each one\'s published fee, the saving, the trade-off — and the regulator\'s record on them, so a lower price never gets mistaken for a better decision.'],
+  ['description', 'A one-page sheet for whoever is paying',
+   'Most students are not the ones holding the money. Print the sheet, in rupees, and hand it to the person who is.'],
+];
+
+function roiPromiseRows() {
+  return ROI_PROMISE.map(([icon, title, body]) => `<div class="row">
+    <div class="row-main">
+      <div class="row-title"><span class="material-symbols-outlined" aria-hidden="true"
+        style="font-size:17px;vertical-align:-3px;margin-right:8px;color:var(--route)">${icon}</span>${esc(title)}</div>
+      <div class="row-sub">${esc(body)}</div>
+    </div>
+  </div>`).join('');
+}
+
+/* Not signed in. The ask is small and the reason is concrete — this is
+   not the screen to explain the account model on. */
+function roiSignInWall(main) {
+  const price = (PF_CONFIG.pricing && PF_CONFIG.pricing.explorer) || 0;
+  main.innerHTML = renderHero({
+    kicker: 'Cost & payback',
+    title: 'Sign in to work out your own numbers',
+    body: 'This is the screen that tells you what a New Zealand master\'s would really cost you, all in, and how long it takes to earn back. It builds itself out of the courses you have saved and the answers you have already given here, and it keeps your plan — so it needs to know who you are.',
+    primaryLabel: 'Sign in or create an account', primaryHref: accountHref('cost'),
+    secondaryLabel: 'See what the plans include', secondaryHref: '#pricing',
+  }) +
+    `<div class="viewgrid mt-6">
+      <div>
+        <div class="listcard">
+          <div class="listcard-head"><h2 class="listcard-title">What you get on the other side</h2></div>
+          ${roiPromiseRows()}
+        </div>
+      </div>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Why an account</span>
+          <p>Your plan has to survive the conversation at home. An account means it is still there tomorrow, on your phone and on the laptop of whoever you are showing it to — and that the courses you shortlist here turn into real numbers instead of a form you fill in twice.</p>
+          <p class="mt-3">Creating one is free and takes a minute.</p>
+          <a class="btn btn-quiet mt-4" href="${accountHref('cost')}">
+            <span class="material-symbols-outlined" aria-hidden="true">login</span> Sign in</a>
+        </div>
+        <div class="sidecard">
+          <span class="sidecard-kicker">Then what</span>
+          <p>The calculator itself is part of <strong>Explorer</strong> — a one-time ${esc('LKR ' + price.toLocaleString())}, not a subscription. We take no commission from any provider, which is the whole reason this screen can tell you to go somewhere cheaper.</p>
+          <a class="btn btn-quiet mt-4" href="#pricing">See the plans</a>
+        </div>
+        <div class="sidecard">
+          <span class="sidecard-kicker">Free either way</span>
+          <p>You do not need any of this to start. <a href="#courses">Browse the 1,716 qualifications</a> with published fees, <a href="#funds">check the visa money</a>, and <a href="#funding">look through the scholarships</a> — all free, no account.</p>
+        </div>
+        ${contactCard('Want to ask first?', 'Message us before you sign up for anything. A question about money should never have to go through a form.', 'Cost & payback — sign-in')}
+      </div>
+    </div>`;
+}
+
+/* Signed in, no plan. The honest version of a paywall: what it does, what
+   it costs, why it is paid at all, and what stays free regardless. */
+function roiPlanWall(main) {
+  const p = PF_CONFIG.pricing || {};
+  const G = PF_CONFIG.planGrants || {};
+  const ex = G.explorer || {};
+  const money = n => 'LKR ' + Number(n || 0).toLocaleString();
+  const nTpl = (PF_CONFIG.premiumTemplateIds || []).length;
+  const extras = [
+    nTpl ? `all ${nTpl} advanced templates` : '',
+    ex.sessions ? `${ex.sessions} mentor session${ex.sessions === 1 ? '' : 's'}` : '',
+    ex.audits ? 'a review of your SOP or proposal' : '',
+  ].filter(Boolean).join(', ');
+
+  const band = (typeof PF_CONFIG.mastersFeesIntlPerYear === 'object' && PF_CONFIG.mastersFeesIntlPerYear) || {};
+
+  main.innerHTML = renderHero({
+    kicker: 'Cost & payback',
+    title: 'The cost calculator is part of Explorer',
+    body: `Tuition is only about half of what a master's here actually costs, and the other half is the half nobody quotes you. Explorer opens the calculator that works out your number — your course, your city, your household — and keeps the plan on your account. One payment of ${money(p.explorer)}. Not a subscription.`,
+  }) +
+    `<div class="viewgrid mt-6">
+      <div>
+        <div class="listcard">
+          <div class="listcard-head"><h2 class="listcard-title">What Explorer opens here</h2>
+            <span class="chip chip-gold">${esc(money(p.explorer))} once</span></div>
+          ${roiPromiseRows()}
+          <div class="roi-basis">
+            <p>The last two — the cheaper-route comparison and the family sheet — are part of <strong>Premium</strong>, along with the ten years of post-study work visa decisions the payback is measured against. Explorer gets you your own costed plan; Premium gets you the argument for changing it.</p>
+            <button class="btn mt-4 pf-buy" data-item="explorer">
+              <span class="material-symbols-outlined" aria-hidden="true">lock_open</span> Unlock with Explorer · ${esc(money(p.explorer))}</button>
+          </div>
+        </div>
+        <div class="listcard mt-5">
+          <div class="listcard-head"><h2 class="listcard-title">Why this one is paid</h2></div>
+          <p>Every education agent in Colombo is paid a percentage of your tuition. That is not a scandal, it is just how they are paid — but it does mean the cheaper qualification never comes up, because mentioning it costs them money. PathFinder takes nothing from any provider, so the only people who can pay us are students. That is the trade: you pay us once, and we can afford to tell you to go somewhere cheaper.</p>
+          <p class="mt-3">${esc(extras ? `Explorer is not only this screen — it also includes ${extras}.` : '')}</p>
+        </div>
+      </div>
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Still free, no account needed</span>
+          <p>Nothing you need for a first decision has moved.</p>
+          <p class="mt-3"><a href="#courses">The full catalogue</a> — 1,716 qualifications, 51 providers, with published fees where providers publish them.</p>
+          <p class="mt-3"><a href="#funds">The visa Funds Check</a> — what Immigration New Zealand wants you to show, and whether you can show it.</p>
+          <p class="mt-3"><a href="#funding">The scholarship register</a>, and the <a href="#visa">visa approval figures</a>.</p>
+          ${band.lo ? `<p class="mt-3 faint">As a rough anchor while you decide: international master's tuition runs about ${esc(fundsMoney(band.lo))}–${esc(fundsMoney(band.hi))} a year, before living costs.</p>` : ''}
+        </div>
+        <div class="sidecard">
+          <span class="sidecard-kicker">Already paid?</span>
+          <p>If you have bought a plan and this screen is still locked, your payment may not be confirmed yet — we mark it by hand after checking the transfer.</p>
+          <a class="btn btn-quiet mt-4" href="#billing">Check my purchases</a>
+        </div>
+        ${contactCard('Not sure it is worth it?', 'Ask us what the calculator would say about your course before you pay for it. We would rather answer than sell you the wrong thing.', 'Cost & payback — paywall')}
+      </div>
+    </div>`;
 }
 
 /* ── The hero, made contextual ───────────────────────────────────────
@@ -5220,12 +5579,16 @@ function renderCost(main) {
    plainly and asks for the one input that changes everything — the fee
    they were quoted. */
 function roiHeroCopy(r, cat) {
-  const custom = !!PFStore.get('roiPlan', null);
-  const prov = PFRoi.providerOf(roiState.providerId);
+  const prov = PFRoi.providerOf(roiState.providerId) || catProvider(roiState.providerId);
   const subject = cat && cat.taxonomy && cat.taxonomy[roiState.subjectRoot]
     ? cat.taxonomy[roiState.subjectRoot].n : null;
   const city = (r.city && r.city.city) || 'New Zealand';
   const yrs = isFinite(r.paybackYears);
+  // Their plan is "theirs" if they edited it OR if it was built from a
+  // course they shortlisted — both mean the verdict is about them, and
+  // neither is a stranger's worked example.
+  const edited = !!PFStore.get('roiPlan', null);
+  const course = roiSavedCourses().filter(c => !c.unresolved).find(roiCourseIsCurrent);
 
   const base = {
     kicker: 'Cost & payback',
@@ -5234,70 +5597,288 @@ function roiHeroCopy(r, cat) {
     figureCaption: yrs ? 'to earn it back' : 'no surplus to repay it',
   };
 
-  if (!custom) {
-    // Nothing entered yet. Say what the number is an example of, not what
-    // it concludes about them.
+  if (!edited && !course) {
+    // Nothing of theirs to go on yet. Say what the number is an example
+    // of, not what it concludes about them.
     return Object.assign(base, {
       title: `What a master's in ${city} costs`,
-      body: `This is a worked example — ${r.years} years at ${prov ? prov.name : 'a New Zealand university'}${subject ? `, studying ${subject.toLowerCase()}` : ''} — so you can see the shape of it. Change the provider, city and subject below and every number here follows. If you have been quoted a fee, enter it: that one figure matters more than everything else on this page.`,
+      body: `Nothing of yours is in this yet, so it is a worked example — ${r.years} years at ${prov ? prov.name : 'a New Zealand university'}${subject ? `, studying ${subject.toLowerCase()}` : ''} — to show you the shape of it. Change the course, city and length below and every number follows. If a provider has quoted you a fee, put it in: that one figure matters more than everything else on this page.`,
     });
   }
 
   return Object.assign(base, {
-    title: `Your ${r.years}-year plan in ${city}`,
-    body: r.verdict,
+    title: `Your ${roiLengthWord(r.years)} plan in ${city}`,
+    body: (course ? `Costing ${course.title}${course.providerName ? ` at ${course.providerName}` : ''}, from your saved courses. ` : '') + r.verdict,
   });
+}
+
+/* ── 0 · What this screen is ─────────────────────────────────────────
+   The commonest reaction to this page was "I don't know what I'm looking
+   at". Fair: it opens on a five-figure number in a currency the reader
+   is converting in their head, under a heading about payback, above nine
+   form fields. Most people arriving here have never seen a New Zealand
+   fee schedule, have never been told that student work counts, and have
+   no idea that the qualification level is the thing that earns the visa
+   rather than the university's name.
+
+   So the screen now says what it is, in three sentences, before it says
+   anything numeric. Deliberately not a <details>: a collapsed
+   explanation is an explanation nobody reads. */
+function roiIntroCard() {
+  const steps = [
+    ['Check the plan is yours', 'Under <strong>Costing this plan</strong> you set the course, the provider, the city, how long it runs and who is coming with you. Tap it open and change anything — nothing is fixed, and nothing is sent anywhere.'],
+    ['Read the big number', 'That is everything the degree costs from the day you leave to the day you graduate, over the whole programme — not per year, and not tuition on its own. It is shown in rupees first, because that is the currency the decision gets made in.'],
+    ['Then look at how long it takes to come back', 'Graduate pay in your field, minus tax and minus living here, against the three-year work visa a master\'s earns you. That is the part an agent will not tell you.'],
+  ];
+  return `<div class="listcard roi-intro">
+    <div class="listcard-head"><h2 class="listcard-title">How to read this page</h2>
+      <span class="listcard-summary">Takes two minutes</span></div>
+    <ol class="roi-steps">
+      ${steps.map(([t, b]) => `<li><strong>${t}</strong><span>${b}</span></li>`).join('')}
+    </ol>
+    <p class="roi-intro-foot">Every figure here is published by a provider, a government department or a regulator, and each one is named at the bottom of the page. Where we are working from a range rather than a real quote, the screen says so instead of pretending to be precise. PathFinder takes no commission from any provider named here.</p>
+  </div>`;
+}
+
+/* ── 0b · Built from their own answers ───────────────────────────────
+   The platform already knows most of this plan. This card is where that
+   shows: what was picked up, which screen it came from, and a one-tap
+   way to pull in anything that has not been. Where a student has done
+   nothing yet, each row becomes the invitation to go and do it — which
+   is a far better use of the space than an empty state.
+
+   It is deliberately a live comparison rather than a record of what was
+   seeded: it reads storage and the current plan every time it paints, so
+   it can never tell someone their assessment subject is in the plan when
+   they have since changed it. */
+function roiYourDataCard(cat) {
+  return `<div class="listcard" id="roi-yourdata">${roiYourDataInner(cat)}</div>`;
+}
+
+function roiYourDataInner(cat) {
+  const s = roiState;
+  const R = currentResult();
+  const courses = roiSavedCourses();
+  const prefs = PFStore.getCalcPrefs();
+  const fc = PFStore.get('fundsCheck', null);
+  const cityName = id => {
+    const list = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
+    const c = list.find(x => x.id === id);
+    return c ? c.city : id;
+  };
+  const whoWord = w => (w === 'single' ? 'on your own' : w === 'couple' ? 'with a partner' : 'with family');
+
+  const row = (title, sub, action) => `<div class="row">
+    <div class="row-main">
+      <div class="row-title">${title}</div>
+      <div class="row-sub">${sub}</div>
+    </div>
+    <div class="row-actions">${action}</div>
+  </div>`;
+  const useBtn = (key, val, label) =>
+    `<button type="button" class="btn btn-quiet btn-sm" data-roi="use" data-key="${esc(key)}" data-val="${esc(String(val))}">${esc(label)}</button>`;
+  const inPlan = '<span class="chip chip-ok">Used in your plan</span>';
+
+  const rows = [];
+
+  // 1 · Subject, from the assessment.
+  const subjName = (cat && cat.taxonomy[s.subjectRoot] && cat.taxonomy[s.subjectRoot].n) || null;
+  if (R && R.subjectArea) {
+    const match = R.subjectArea === s.subjectRoot;
+    rows.push(row('Your subject',
+      match
+        ? `<strong>${esc(R.field || subjName || '')}</strong> — the field you came out of the assessment pointed at. It sets both the fee and the salary data below.`
+        : `Your assessment pointed at <strong>${esc(R.field || '')}</strong>, but this plan is costing ${esc(subjName || 'another subject')}. Either is fine — just know which one you are looking at.`,
+      match ? inPlan : useBtn('subjectRoot', R.subjectArea, 'Use my assessment subject')));
+  } else {
+    // No assessment. The subject may still be theirs — it comes off the
+    // shortlisted course — so say which, rather than "nothing was set".
+    const fromCourse = courses.find(c => roiCourseIsCurrent(c) && c.root === s.subjectRoot);
+    rows.push(row('Your subject',
+      fromCourse
+        ? `<strong>${esc(subjName || '')}</strong> — read off the course you saved. The 7-question assessment would also tell you which pathway you are actually ready for, in about five minutes.`
+        : `We are costing <strong>${esc(subjName || 'a subject')}</strong> because nothing else has been set. The 7-question assessment picks your field properly, and it takes about five minutes.`,
+      '<a class="btn btn-quiet btn-sm" href="#assessment">Take the assessment</a>'));
+  }
+
+  // 2 · The shortlist. The strongest thing the platform knows.
+  if (courses.length) {
+    rows.push(`<div class="roi-courses">
+      <div class="roi-courses-head">
+        <div class="row-title">Courses you have saved</div>
+        <div class="row-sub">Tap one and the whole page re-costs around it — the provider, the subject area and the length all come from the register.</div>
+      </div>
+      ${courses.slice(0, 6).map(roiCourseRow).join('')}
+      ${courses.length > 6 ? `<p class="faint" style="font-size:12px;margin:10px 0 0">${courses.length - 6} more on <a href="#courses">your shortlist</a>.</p>` : ''}
+    </div>`);
+  } else {
+    rows.push(row('Courses you have saved',
+      'Nothing shortlisted yet, so the plan below starts from a typical two-year master\'s. Save a few real courses in the catalogue and each one turns into a costed plan here — that is when this page starts being about you.',
+      '<a class="btn btn-quiet btn-sm" href="#courses">Browse the catalogue</a>'));
+  }
+
+  // 3 · City and household, from the Funds Planner.
+  const prefCity = prefs && prefs.city;
+  if (prefCity) {
+    const match = prefCity === s.city && (!prefs.status || prefs.status === s.who);
+    rows.push(row('Where you would live',
+      match
+        ? `<strong>${esc(cityName(s.city))}</strong>, ${esc(whoWord(s.who))} — carried over from your Funds Planner, so the rent here and the rent there can never disagree.`
+        : `Your Funds Planner is set to <strong>${esc(cityName(prefCity))}</strong>${prefs.status ? `, ${esc(whoWord(prefs.status))}` : ''}. This plan is costing ${esc(cityName(s.city))}, ${esc(whoWord(s.who))}.`,
+      match ? inPlan : useBtn('cityWho', prefCity + '|' + (prefs.status || s.who), 'Match my funds plan')));
+  } else {
+    // No planner preference saved. If the city was read off the provider
+    // the shortlist points at, say so — an unexplained city is exactly
+    // the kind of number a reader stops trusting the page over.
+    const fromProvider = roiCityOfProvider(s.providerId) === s.city;
+    const prov = PFRoi.providerOf(s.providerId) || catProvider(s.providerId);
+    rows.push(row('Where you would live',
+      `Costing <strong>${esc(cityName(s.city))}</strong>, ${esc(whoWord(s.who))}${fromProvider && prov ? ` — that is where ${esc(prov.name)} teaches` : ''}. Rent is the second-biggest number on this page after tuition and differs by thousands between cities, so change it if you would be living somewhere else.`,
+      '<a class="btn btn-quiet btn-sm" href="#settlement">Open the funds planner</a>'));
+  }
+
+  // 4 · Money already arranged, from the Funds Check.
+  const have = fc && fc.result && Math.round(fc.result.fundsNZD || 0);
+  if (have > 0) {
+    const match = Math.abs(have - Number(s.ownFundsNZD || 0)) < 1;
+    rows.push(row('Money already arranged',
+      match
+        ? `<strong>${esc(PFRoi.money(have))}</strong> — what you entered in the visa Funds Check. It is subtracted at the top of this page so you can see what is still to find, not just the total.`
+        : `Your Funds Check says <strong>${esc(PFRoi.money(have))}</strong> is arranged. This plan is counting ${esc(PFRoi.money(s.ownFundsNZD || 0))}.`,
+      match ? inPlan : useBtn('ownFundsNZD', have, 'Use that figure')));
+  } else {
+    rows.push(row('Money already arranged',
+      'Nothing recorded yet. The visa Funds Check asks what you or your family have set aside and whether Immigration New Zealand would accept it — two minutes, and the answer lands back here.',
+      '<a class="btn btn-quiet btn-sm" href="#funds">Run the funds check</a>'));
+  }
+
+  return `<div class="listcard-head"><h2 class="listcard-title">Built from your own answers</h2>
+      <span class="listcard-summary">Nothing here is asked twice</span></div>
+    ${rows.join('')}`;
+}
+
+/* One shortlisted course, as a thing the model can be pointed at. The
+   published fee is shown as a question rather than typed into the plan:
+   the register does not say whether it is a per-year or whole-programme
+   figure, and quietly guessing wrong would move the total by a year's
+   tuition. */
+function roiCourseRow(c) {
+  if (c.unresolved) {
+    return `<div class="roi-course">
+      <div class="roi-course-main">
+        <div class="roi-course-title">${esc(c.title)}</div>
+        <div class="roi-course-sub">${esc(c.providerName || '')} — still loading from the register, or no longer listed.</div>
+      </div>
+    </div>`;
+  }
+  const current = roiCourseIsCurrent(c);
+  const bits = [
+    c.level ? `Level ${esc(c.level)}` : '',
+    c.credits ? `${esc(String(c.credits))} points` : '',
+    c.years ? esc(roiLengthPhrase(c.years)) : '',
+  ].filter(Boolean).join(' · ');
+  const fee = c.fees.length
+    ? `<div class="roi-course-fee">The register lists an international fee of <strong>${esc(c.fees[0].intlFee)}</strong> for this programme. Ask the provider whether that is per year or the whole thing, then type it into the plan — a quoted fee beats every estimate on this page.</div>`
+    : '';
+  return `<div class="roi-course${current ? ' is-current' : ''}">
+    <div class="roi-course-main">
+      <div class="roi-course-title">${esc(c.title)}</div>
+      <div class="roi-course-sub">${esc(c.providerName || 'Provider not listed')}${c.otherProviders ? ` · also at ${c.otherProviders} other provider${c.otherProviders === 1 ? '' : 's'}` : ''}${bits ? ` · ${bits}` : ''}</div>
+      ${fee}
+    </div>
+    <div class="roi-course-act">${current
+      ? '<span class="chip chip-ok">Costing this one</span>'
+      : `<button type="button" class="btn btn-quiet btn-sm" data-roi="course" data-id="${esc(c.id)}">Cost this one</button>`}</div>
+  </div>`;
 }
 
 /* ── 1 · The plan, editable, first ──────────────────────────────────
    A <details> so it is one tap on a phone and open by default on a wide
    screen. The summary line always states the plan in words, so even
-   closed it says exactly what is being costed. */
+   closed it says exactly what is being costed — and it is repainted in
+   place when a button elsewhere changes the plan, so a closed card is
+   never stale.
+
+   Two things this card has to earn: it must LOOK like a control (a
+   heading with a chevron reads as a heading), and it must survive being
+   typed into. The open state lives in roiPlanOpen, and nothing on this
+   screen re-renders the card while the student has a cursor in it. */
 function roiPlanCard(cat) {
   const s = roiState;
-  const choices = PFRoi.providerChoices(s.subjectRoot);
   const cities = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
-  const subject = cat && cat.taxonomy[s.subjectRoot] ? cat.taxonomy[s.subjectRoot].n : 'your subject';
-  const prov = choices.find(c => c.id === s.providerId);
-  const city = cities.find(c => c.id === s.city);
   const opt = (v, l, sel) => `<option value="${esc(v)}" ${String(sel) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+  const field = (id, label, help, control) => `<label for="${id}">
+      <span class="field-label">${esc(label)}</span>
+      <span class="field-help">${esc(help)}</span>
+      ${control}
+    </label>`;
 
+  return `<details class="listcard roi-plan" id="roi-plan" ${roiPlanIsOpen() ? 'open' : ''} style="margin-top:20px">
+    <summary class="roi-plan-summary">
+      <span class="roi-plan-text" id="roi-plan-line">${roiPlanSummaryLine(cat)}</span>
+      <span class="roi-plan-edit">Change</span>
+    </summary>
+    <div class="roi-fields">
+      ${field('roi-subject', 'Subject area', 'What you want to study. It sets the fee band and the graduate salary data.',
+        `<select class="field" id="roi-subject">${(cat ? cat.roots.map(id => [id, cat.taxonomy[id].n]) : [[s.subjectRoot, 'Loading…']])
+          .map(([id, n]) => opt(id, n, s.subjectRoot)).join('')}</select>`)}
+      ${field('roi-provider', 'Provider', 'The university, polytechnic or college. "Published fees" means we hold their own schedule.',
+        `<select class="field" id="roi-provider">${roiProviderOptions()}</select>`)}
+      ${field('roi-city', 'City', 'Where you would actually live. Rent is the biggest difference between them.',
+        `<select class="field" id="roi-city">${cities.map(c => opt(c.id, c.city, s.city)).join('')}</select>`)}
+      ${field('roi-years', 'Length', 'A 180-point master\'s runs about 18 months; a 240-point one, two years.',
+        `<select class="field" id="roi-years">${[[1, '1 year'], [1.5, '18 months'], [2, '2 years']].map(([v, l]) => opt(v, l, s.years)).join('')}</select>`)}
+      ${field('roi-who', 'Going as', 'Bringing a partner or children raises the rent, the flights and the visa money.',
+        `<select class="field" id="roi-who">${[['single', 'On my own'], ['couple', 'With a partner'], ['family', 'With family']].map(([v, l]) => opt(v, l, s.who)).join('')}</select>`)}
+      ${field('roi-hours', 'Work hours a week', 'A student visa allows 25 hours in term time and full-time in the breaks.',
+        `<select class="field" id="roi-hours">${[[25, '25 — current rules'], [20, '20 — older visa condition'], [0, 'Not working']].map(([v, l]) => opt(v, l, s.workHours)).join('')}</select>`)}
+      ${field('roi-fee', 'Fee you were quoted (NZ$ a year)', 'The single most accurate figure on this page. Ask the provider for it in writing.',
+        `<input class="field" id="roi-fee" type="number" inputmode="numeric" min="0" placeholder="leave blank to use published rates" value="${s.feeOverride || ''}">`)}
+      ${field('roi-schol', 'Scholarship on tuition (%)', 'How much of the tuition an award covers. Leave at 0 if you have not been offered one.',
+        `<input class="field" id="roi-schol" type="number" inputmode="numeric" min="0" max="100" value="${s.scholarshipPct || 0}">`)}
+      ${field('roi-funds', 'Funds already arranged (NZ$)', 'Savings, a sponsor\'s money, an approved loan. Shows what is still to find.',
+        `<input class="field" id="roi-funds" type="number" inputmode="numeric" min="0" value="${s.ownFundsNZD || 0}">`)}
+    </div>
+    <div class="roi-plan-foot">
+      <p class="faint">Everything updates as you change it, and your plan is saved to your account — you can close this and come back to it.</p>
+      <button type="button" class="btn btn-quiet btn-sm" data-roi="clear">Start this plan over</button>
+    </div>
+  </details>`;
+}
+
+/* The one line that says what is being costed, in words. Rendered into
+   the summary and re-rendered on its own whenever the plan changes from
+   somewhere else on the screen. */
+function roiPlanSummaryLine(cat) {
+  const s = roiState;
+  const cities = (typeof PF_CITY_COSTS !== 'undefined' && PF_CITY_COSTS) || [];
+  const subject = (cat && cat.taxonomy[s.subjectRoot] && cat.taxonomy[s.subjectRoot].n) || 'your subject';
+  const prov = PFRoi.providerOf(s.providerId) || catProvider(s.providerId);
+  const city = cities.find(c => c.id === s.city);
+  return `<span class="sidecard-kicker">Costing this plan</span>
+    <strong>${esc(subject)} · ${esc(prov ? prov.name : 'a provider')}</strong>
+    <span class="faint">${esc(city ? city.city : '')} · ${esc(roiLengthWord(s.years))} · ${s.who === 'single' ? 'on your own' : s.who === 'couple' ? 'with a partner' : 'with family'}${s.feeOverride ? ` · your quoted fee ${esc(PFRoi.money(s.feeOverride))}/yr` : ''}</span>`;
+}
+
+/* The provider <select>, grouped by tier. Rebuilt on its own when the
+   subject changes, because the "published fees" note against a provider
+   is per subject. A seeded provider we hold no register entry for yet
+   (the catalogue is still loading) is prepended rather than silently
+   dropped, which would reset the student's choice to whatever sorts
+   first. */
+function roiProviderOptions() {
+  const s = roiState;
+  const choices = PFRoi.providerChoices(s.subjectRoot);
+  const opt = (v, l, sel) => `<option value="${esc(v)}" ${String(sel) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
   const groups = [['universities', 'Universities'], ['polytechnics', 'Polytechnics & institutes of technology'], ['ptes', 'Private colleges']];
-  const provOpts = groups.map(([t, label]) => {
+  const known = choices.some(c => c.id === s.providerId);
+  const head = known ? '' : opt(s.providerId, (catProvider(s.providerId) || {}).name || 'Your chosen provider', s.providerId);
+  return head + groups.map(([t, label]) => {
     const inGroup = choices.filter(c => c.tier === t);
     if (!inGroup.length) return '';
     return `<optgroup label="${esc(label)}">${inGroup.map(c =>
       opt(c.id, c.name + (c.confidence === 'published' ? ' — published fees' : ''), s.providerId)).join('')}</optgroup>`;
   }).join('');
-
-  return `<details class="listcard roi-plan" ${window.innerWidth > 860 ? 'open' : ''} style="margin-top:20px">
-    <summary class="roi-plan-summary">
-      <span class="sidecard-kicker">Costing this plan</span>
-      <strong>${esc(subject)} · ${esc(prov ? prov.name : 'a provider')}</strong>
-      <span class="faint">${esc(city ? city.city : '')} · ${s.years} year${s.years === 1 ? '' : 's'} · ${s.who === 'single' ? 'on your own' : s.who === 'couple' ? 'with a partner' : 'with family'} — tap to change</span>
-    </summary>
-    <div class="roi-fields">
-      <label><span class="field-label">Subject area</span>
-        <select class="field" id="roi-subject">${(cat ? cat.roots.map(id => [id, cat.taxonomy[id].n]) : [[s.subjectRoot, 'Loading…']])
-          .map(([id, n]) => opt(id, n, s.subjectRoot)).join('')}</select></label>
-      <label><span class="field-label">Provider</span>
-        <select class="field" id="roi-provider">${provOpts}</select></label>
-      <label><span class="field-label">City</span>
-        <select class="field" id="roi-city">${cities.map(c => opt(c.id, c.city, s.city)).join('')}</select></label>
-      <label><span class="field-label">Length</span>
-        <select class="field" id="roi-years">${[[1, '1 year'], [1.5, '18 months'], [2, '2 years']].map(([v, l]) => opt(v, l, s.years)).join('')}</select></label>
-      <label><span class="field-label">Going as</span>
-        <select class="field" id="roi-who">${[['single', 'On my own'], ['couple', 'With a partner'], ['family', 'With family']].map(([v, l]) => opt(v, l, s.who)).join('')}</select></label>
-      <label><span class="field-label">Work hours a week</span>
-        <select class="field" id="roi-hours">${[[25, '25 — current rules'], [20, '20 — older visa condition'], [0, 'Not working']].map(([v, l]) => opt(v, l, s.workHours)).join('')}</select></label>
-      <label><span class="field-label">Fee you were quoted (NZ$/yr)</span>
-        <input class="field" id="roi-fee" type="number" inputmode="numeric" min="0" placeholder="most accurate — ask your provider" value="${s.feeOverride || ''}"></label>
-      <label><span class="field-label">Scholarship on tuition (%)</span>
-        <input class="field" id="roi-schol" type="number" inputmode="numeric" min="0" max="100" value="${s.scholarshipPct || 0}"></label>
-      <label><span class="field-label">Funds already arranged (NZ$)</span>
-        <input class="field" id="roi-funds" type="number" inputmode="numeric" min="0" value="${s.ownFundsNZD || 0}"></label>
-    </div>
-  </details>`;
 }
 
 /* ── 2 · The one number ─────────────────────────────────────────── */
@@ -5305,12 +5886,13 @@ function roiHeadline(r) {
   return `<div class="listcard roi-headline">
     <span class="sidecard-kicker">What this costs, all in</span>
     <div class="roi-big">${esc(PFRoi.lkr(r.netCost))}</div>
-    <div class="roi-big-sub">${esc(PFRoi.money(r.netCost))} over ${r.years} year${r.years === 1 ? '' : 's'}, after part-time earnings</div>
+    <div class="roi-big-sub">${esc(PFRoi.money(r.netCost))} over ${esc(roiLengthPlain(r.years))}, after what you can earn working part-time</div>
     <div class="roi-facts">
-      <div><span class="faint">Before work income</span><strong>${esc(PFRoi.money(r.totalCost))}</strong></div>
-      <div><span class="faint">Earned while studying</span><strong>${esc(PFRoi.money(r.studyIncomeTotal))}</strong></div>
-      ${r.ownFunds ? `<div><span class="faint">Still to arrange</span><strong>${esc(PFRoi.money(r.gap))}</strong></div>` : ''}
+      <div><span class="faint">What it all costs</span><strong>${esc(PFRoi.money(r.totalCost))}</strong></div>
+      <div><span class="faint">You earn while studying</span><strong>${esc(PFRoi.money(r.studyIncomeTotal))}</strong></div>
+      ${r.ownFunds ? `<div><span class="faint">Still to find</span><strong>${esc(PFRoi.money(r.gap))}</strong></div>` : ''}
     </div>
+    <p class="roi-headline-note">This is the whole degree, not one year — fees, living costs, flights, the visa and setting up, less what you can legally earn here. Immigration New Zealand will not count that work income toward the funds you have to show them, but your family will feel it.</p>
   </div>`;
 }
 
@@ -5603,13 +6185,13 @@ function roiRoutesCard(r, unlocked) {
       <div class="roi-route-foot">
         ${a.confidence === 'published' ? '<span class="chip chip-ok">Published fee</span>' : '<span class="chip chip-warn">Provider range</span>'}
         <span class="faint">${a.payback == null ? esc(a.paybackNote || '') : 'pays back in ' + esc(PFRoi.fmtYears(a.payback))}</span>
-        ${a.providerId ? `<button type="button" class="btn btn-quiet btn-sm roi-try" data-prov="${esc(a.providerId)}">Cost this one</button>` : ''}
+        ${a.providerId ? `<button type="button" class="btn btn-quiet btn-sm" data-roi="try" data-prov="${esc(a.providerId)}">Cost this one</button>` : ''}
       </div>
     </div>`).join('')}
     <div class="roi-basis">
       <p>These are real providers on the NZQA register, not recommendations. Check each one's standing and talk to a
       graduate before you commit — <a href="#courses">browse them in the catalogue</a>.</p>
-      <button type="button" class="btn mt-4" id="roi-sheet">
+      <button type="button" class="btn mt-4" data-roi="sheet">
         <span class="material-symbols-outlined" aria-hidden="true">description</span> Download the family sheet</button>
     </div>
   </div>`;
@@ -5649,8 +6231,10 @@ function roiSourcesCard(r) {
   const d = PF_ROI;
   const p = PFRoi.providerOf(roiState.providerId);
   return `<details class="listcard">
-    <summary class="roi-plan-summary"><strong>Where these numbers come from</strong>
-      <span class="faint">Every figure is published and dated. Last checked ${esc(d.verified)}.</span></summary>
+    <summary class="roi-plan-summary">
+      <span class="roi-plan-text"><strong>Where these numbers come from</strong>
+        <span class="faint">Every figure is published and dated. Last checked ${esc(d.verified)}.</span></span>
+      <span class="roi-plan-edit">Open</span></summary>
     <ul class="roi-src">
       <li><strong>Tuition</strong> — ${esc(p ? p.src : (d.tiers[roiState.tier] || {}).src || 'provider fee schedules')}</li>
       <li><strong>Living costs</strong> — PathFinder city data, verified ${esc((r.city && r.city.lastVerified) || d.verified)}</li>
@@ -5672,44 +6256,186 @@ function roiSourcesCard(r) {
   </details>`;
 }
 
+/* ── Making a change without losing your place ───────────────────────
+   Every field on this screen used to call route(), which rebuilt the
+   whole view from scratch. On a desktop that was merely wasteful. On a
+   phone it was the bug people actually reported: the plan card is a
+   <details> whose open state was recomputed from the window width, so a
+   full re-render slammed it shut mid-form; the input being typed into was
+   destroyed and rebuilt, so focus and the cursor went with it; and
+   route() ends with window.scrollTo(0, 0), so the student was thrown back
+   to the top of the page after every single change.
+
+   So a field change repaints exactly two regions — the hero and the
+   results — and never touches the form, the plan card or the scroll
+   position. Buttons inside the repainted region work by delegation
+   (roiClick below), so nothing needs re-binding after a repaint. */
+function roiRepaint() {
+  if (!roiOnScreen() || typeof PFRoi === 'undefined') return;
+  const cat = window.PF_CATALOGUE;
+  const r = PFRoi.compute(roiState);
+  const unlocked = entitlements().costCompare === true || !cloudOn();
+  const govtUnlocked = entitlements().officialData === true || !cloudOn();
+
+  const hero = $('#roi-hero');
+  if (hero) hero.innerHTML = renderHero(roiHeroCopy(r, cat));
+
+  const results = $('#roi-results');
+  if (!results) return route();   // something else owns the screen now
+  results.innerHTML = roiResults(r, unlocked, govtUnlocked);
+  animateBars(results);
+
+  // The two cards ABOVE the form still describe the plan, so they follow
+  // — but as innerHTML swaps of their own containers, which keeps the
+  // form element (and the cursor in it) untouched between them.
+  const line = $('#roi-plan-line');
+  if (line) line.innerHTML = roiPlanSummaryLine(cat);
+  const yourData = $('#roi-yourdata');
+  if (yourData) yourData.innerHTML = roiYourDataInner(cat);
+}
+
+/* Push roiState back into the form controls. Needed when the plan is
+   changed from outside the form — a saved course, a cheaper route, a
+   "use my funds check" button — because the form itself is deliberately
+   never re-rendered. */
+function roiSyncFields() {
+  const set = (id, v) => {
+    const el = $('#' + id);
+    if (el && String(el.value) !== String(v)) el.value = v;
+  };
+  const prov = $('#roi-provider');
+  if (prov) prov.innerHTML = roiProviderOptions();   // labels are per subject
+  set('roi-subject', roiState.subjectRoot);
+  set('roi-city', roiState.city);
+  set('roi-years', roiState.years);
+  set('roi-who', roiState.who);
+  set('roi-hours', roiState.workHours);
+  set('roi-fee', roiState.feeOverride || '');
+  set('roi-schol', roiState.scholarshipPct || 0);
+  set('roi-funds', roiState.ownFundsNZD || 0);
+}
+
+/* Apply a change made from outside the form, then repaint. */
+function roiApply(patch, message) {
+  Object.assign(roiState, patch);
+  roiSave();
+  roiSyncFields();
+  roiRepaint();
+  if (message) toast(message);
+}
+
 function roiBindForm() {
-  const bind = (id, key, cast) => {
+  // The student's own open/closed choice, remembered for the session.
+  const det = $('#roi-plan');
+  if (det) det.addEventListener('toggle', () => { roiPlanOpen = det.open; });
+
+  const commit = (el, key, cast) => {
+    const v = cast ? cast(el.value) : el.value;
+    if (roiState[key] === v) return;      // a repaint for nothing is still a flicker
+    roiState[key] = v;
+    // Picking a provider carries its tier along, so the tier bands and
+    // the trade-off wording stay in step with the named provider.
+    if (key === 'providerId') {
+      const tier = roiTierOf(v);
+      if (tier) roiState.tier = tier;
+    }
+    // The provider labels ("— published fees") are cut by subject, so the
+    // list is rebuilt when the subject moves. Focus is in the subject
+    // select at this point, never in the one being rebuilt.
+    if (key === 'subjectRoot') {
+      const prov = $('#roi-provider');
+      if (prov) prov.innerHTML = roiProviderOptions();
+    }
+    roiSave();
+    roiRepaint();
+  };
+
+  const bind = (id, key, cast, live) => {
     const el = $('#' + id);
     if (!el) return;
-    el.addEventListener('change', () => {
-      roiState[key] = cast ? cast(el.value) : el.value;
-      // Picking a provider carries its tier along, so the tier bands and
-      // the trade-off wording stay in step with the named provider.
-      if (key === 'providerId') {
-        const c = PFRoi.providerChoices(roiState.subjectRoot).find(x => x.id === el.value);
-        if (c) roiState.tier = c.tier;
-      }
-      roiSave();
-      route();
-    });
+    el.addEventListener('change', () => commit(el, key, cast));
+    // Number fields update as they type — a student typing a quoted fee
+    // should watch the total move — but debounced, so the results are not
+    // rebuilt six times on the way to "38000". `change` still fires on
+    // blur, which catches a paste or a spinner click.
+    if (live) {
+      let t;
+      el.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => commit(el, key, cast), 450);
+      });
+    }
   };
+
   bind('roi-subject', 'subjectRoot');
   bind('roi-provider', 'providerId');
   bind('roi-city', 'city');
   bind('roi-years', 'years', Number);
   bind('roi-who', 'who');
   bind('roi-hours', 'workHours', Number);
-  bind('roi-fee', 'feeOverride', Number);
-  bind('roi-schol', 'scholarshipPct', Number);
-  bind('roi-funds', 'ownFundsNZD', Number);
-
-  const sheet = $('#roi-sheet');
-  if (sheet) sheet.onclick = () => roiDownloadSheet(PFRoi.compute(roiState));
-
-  $$('.roi-try').forEach(b => b.onclick = () => {
-    const c = PFRoi.providerChoices(roiState.subjectRoot).find(x => x.id === b.dataset.prov);
-    roiState.providerId = b.dataset.prov;
-    if (c) roiState.tier = c.tier;
-    roiState.feeOverride = 0;   // a quoted fee belongs to the old provider
-    roiSave();
-    route();
-  });
+  bind('roi-fee', 'feeOverride', Number, true);
+  bind('roi-schol', 'scholarshipPct', Number, true);
+  bind('roi-funds', 'ownFundsNZD', Number, true);
 }
+
+/* Every button on #cost that changes the plan, delegated once at the
+   document. Delegation rather than per-render binding is exactly what
+   lets roiRepaint() replace the results wholesale: the buttons inside
+   come back wired, and the form nobody re-rendered keeps its cursor. */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-roi]');
+  if (!b || !roiOnScreen() || !roiState || typeof PFRoi === 'undefined') return;
+
+  if (b.dataset.roi === 'course') {
+    const c = roiSavedCourses().find(x => x.id === b.dataset.id);
+    if (!c || !c.providerId) return;
+    roiApply({
+      providerId: c.providerId,
+      tier: roiTierOf(c.providerId) || roiState.tier,
+      subjectRoot: c.root || roiState.subjectRoot,
+      years: c.years || roiState.years,
+      feeOverride: 0,           // a quoted fee belonged to the old plan
+    }, `Now costing ${truncate(c.title, 48)}`);
+    return;
+  }
+
+  if (b.dataset.roi === 'try') {
+    const id = b.dataset.prov;
+    const name = (PFRoi.providerOf(id) || catProvider(id) || {}).name || 'this provider';
+    roiApply({ providerId: id, tier: roiTierOf(id) || roiState.tier, feeOverride: 0 },
+      `Now costing ${name}`);
+    // The plan changed several screens above the button that changed it,
+    // so take them to the number rather than leaving them looking at the
+    // comparison they just acted on.
+    const headline = $('.roi-headline');
+    if (headline) headline.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  if (b.dataset.roi === 'use') {
+    const key = b.dataset.key, val = b.dataset.val;
+    if (key === 'cityWho') {
+      const [city, who] = String(val).split('|');
+      roiApply({ city, who }, 'Matched to your funds plan');
+    } else if (key === 'ownFundsNZD') {
+      roiApply({ ownFundsNZD: Number(val) || 0 }, 'Using the figure from your funds check');
+    } else if (key === 'subjectRoot') {
+      roiApply({ subjectRoot: val }, 'Costing your assessment subject');
+    }
+    return;
+  }
+
+  if (b.dataset.roi === 'clear') {
+    PFStore.remove('roiPlan');
+    roiState = roiDefaults();
+    roiSyncFields();
+    roiRepaint();
+    toast('Plan reset to what we know about you');
+    return;
+  }
+
+  if (b.dataset.roi === 'sheet') roiDownloadSheet(PFRoi.compute(roiState));
+});
 
 /* The PhD track's economics run the other way, so this tells the truth
    about that instead of pretending the model applies. */
@@ -5836,9 +6562,14 @@ function renderPricing(main) {
     credits(pr),
     'Priority mentor matching + a final review before you submit',
   ];
-  // Government-data analysis rides on the Premium row above rather than
-  // adding a seventh line to every card — the headline figures are free,
-  // so the paid part is an extension, not a separate product.
+  // The cost calculator is the headline of the Explorer row rather than a
+  // seventh line: it is the thing a student on this page is most likely
+  // to have just been sent here by.
+  if (ex.costModel) rows[3] = `The full <strong>Cost &amp; payback</strong> calculator — ${rows[3]}`;
+  // Government-data analysis and the cheaper-route comparison ride on the
+  // Premium rows rather than adding lines to every card — the headline
+  // figures are free, so the paid parts are extensions, not products.
+  if (pr.costCompare) rows[4] += ', plus cheaper routes to the same qualification and the family decision sheet';
   if (pr.officialData) rows[5] += ', plus the official visa-decision analysis';
 
   // Only the recommended plan gets a top ribbon — labelling every card

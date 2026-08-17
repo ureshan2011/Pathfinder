@@ -34,6 +34,46 @@ view still lives at its current hash route.
 
 ## Content decisions
 
+- **Cost & payback (`#cost`) now needs an account and a paid plan.** This
+  reverses a stated principle in the README — that the total-cost verdict
+  on a student's own plan stays free, "because telling someone the truth
+  about what they are about to spend should never sit behind a paywall".
+  It is an explicit owner decision, made deliberately and recorded here
+  rather than quietly rewritten in the docs.
+
+  The reasoning that was given for it: the calculator is the one screen
+  that answers with a costed personal plan rather than a published fact,
+  it is the piece an agent is paid a percentage of tuition to fudge, and
+  a platform taking no provider commission has to be paid by students
+  instead. It is also now built out of saved state — shortlisted courses,
+  the funds check, the assessment — which only exists for a named account.
+
+  The counter-argument, for the record, is that this is the screen a
+  family most needs before they can judge whether any of it is worth
+  paying for, and a wall in front of it costs some students who would
+  have converted later. Three mitigations went in with the gate rather
+  than after it:
+
+  1. **Explorer, not Premium** — the entry tier (LKR 14,990), so the
+     cheapest paid plan opens it. Premium keeps only the cheaper-route
+     comparison, the family sheet and the official visa-decision record.
+  2. **Nothing needed for a first decision moved.** Published fees in the
+     catalogue, the international fee bands, the visa Funds Check, the
+     scholarship register and the headline government statistics on
+     `#visa` are all still free with no account.
+  3. **The wall says why**, in plain words, including the commission
+     argument — and the `#cost` profile tab's status chip reads
+     `Sign in` / `Explorer` so nobody taps into a wall they could not
+     see coming.
+
+  Revisit if the conversion data says the funnel is worse off. The switch
+  is one line and no code change: drop `costModel` from every plan in
+  `PF_CONFIG.planGrants` and `roiAccessWall()` stops charging for the
+  screen — it gates on the grants table, not only on the entitlement, so
+  a flag nothing sells cannot lock a screen shut. The sign-in requirement
+  is deliberately *not* wired to that flag, since it is about the plan
+  being saved and personal rather than about payment.
+
 - **Dashboard drops the full saved-opportunities list, the full mentor-
   request history, and the news strip.** The handoff's dashboard layout is
   enumerated exactly — hero, four stats, one applications listcard in the

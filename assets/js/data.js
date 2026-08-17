@@ -1657,6 +1657,8 @@ const PF_CONFIG = {
      is sold and what they can spend can't drift apart.
 
        toolkit    unlocks premiumTemplateIds in the Starter Kit
+       costModel  the Cost & payback calculator itself (#cost) — the plan
+                  editor, the total, the breakdown and the payback
        sessions   mentor sessions included — spent on #mentors, one per
                   request raised against a credit
        audits     document reviews (SOP / proposal) included, same rail
@@ -1675,11 +1677,22 @@ const PF_CONFIG = {
      Credits granted here are spent against the student's own requests and
      the remainder is DERIVED, never stored — see creditsUsed() in app.js.
 
-     `costCompare` is Premium-only on purpose: the total-cost verdict on a
-     student's own plan stays free, because telling someone the truth about
-     what they are about to spend should never sit behind a paywall. What
-     Premium buys is what to DO about it — the cheaper routes to the same
-     NZQF level, and the one-page sheet that convinces whoever is paying.
+     `costModel` gates the Cost & payback screen itself, from Explorer up.
+     It is the one place on the platform where a student gets a costed,
+     personal answer rather than a published fact, it is the piece an agent
+     charges a percentage of tuition to fudge, and it is built out of the
+     work they have already done here — their shortlisted courses, their
+     funds check, their assessment. It also has to be signed in to be
+     worth anything: a plan that vanishes with the browser cache is not a
+     plan a family can act on. The public facts stay public — fee bands on
+     the landing page, the visa-funds figure on #funds, published fees in
+     the catalogue — so nothing a student needs to make a first decision
+     has moved behind the wall.
+
+     `costCompare` sits one tier further up: Explorer prices the plan the
+     student walked in with; Premium buys what to DO about it — the cheaper
+     routes to the same NZQF level, and the one-page sheet that convinces
+     whoever is paying.
 
      `officialData` follows the same line. The headline government figure —
      what share of Sri Lankan student visa applications were approved last
@@ -1692,9 +1705,9 @@ const PF_CONFIG = {
      on. Republishing the raw number free is also the honest reading of the
      CC BY licences these datasets carry. */
   planGrants: {
-    explorer: { toolkit: true, sessions: 1, audits: 1 },
-    premium:  { toolkit: true, sessions: 3, audits: 1, fullAudit: true, interview: true,
-                priority: true, costCompare: true, officialData: true },
+    explorer: { toolkit: true, costModel: true, sessions: 1, audits: 1 },
+    premium:  { toolkit: true, costModel: true, sessions: 3, audits: 1, fullAudit: true,
+                interview: true, priority: true, costCompare: true, officialData: true },
   },
 
   // Platform take-rate on paid mentor sessions (mentor keeps the rest).
