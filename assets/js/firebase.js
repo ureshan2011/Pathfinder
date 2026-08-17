@@ -446,6 +446,16 @@ if (cfg && cfg.apiKey) {
         .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)
                      || (b.at || '').localeCompare(a.at || ''));
     },
+    // The public-to-signed-in-students directory (#mentors → Browse). Any
+    // signed-in user may read the mentors collection (firestore.rules), so
+    // this needs no admin check — only the approved+active filter an
+    // ordinary visitor should see, done client-side on one equality query
+    // so it needs no composite index. On-demand only (called when the
+    // Browse tab opens), never on page load — see firebase-firestore skill.
+    async fetchApprovedMentors() {
+      const snap = await getDocs(query(collection(db, 'mentors'), where('approved', '==', true)));
+      return snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(m => m.active !== false);
+    },
     // The requests this mentor has already claimed (any status).
     async fetchMyClaimedRequests() {
       const u = auth.currentUser; if (!u) return [];

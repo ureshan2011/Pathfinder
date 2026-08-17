@@ -644,6 +644,7 @@ const ROUTES = {
   settlement: renderSettlement,
   mentors:    renderMentors,
   mentor:     renderMentor,
+  'mentor-profile': renderMentorProfile,
   pricing:    renderPricing,
   billing:    renderBilling,
   account:    renderAccount,
@@ -663,6 +664,7 @@ const NAV_PARENT = {
   assessment: 'dashboard', funds: 'dashboard', cost: 'dashboard', news: 'dashboard',
   explore: 'courses', research: 'courses',
   kit: 'roadmap',
+  'mentor-profile': 'mentors',
 };
 
 function route() {
@@ -5264,7 +5266,88 @@ function mentorStats() {
   return { count: PF_MENTORS.length, fields: Object.entries(fields).sort((a, b) => b[1] - a[1]) };
 }
 
-let mentorsTab = 'ask';   // 'ask' | 'mine'
+/* ── Mentor profiles ───────────────────────────────────────────────────
+   Two sources feed one profile page: the 6 curated seed mentors
+   (PF_MENTORS — richer: a named university, priced session packages)
+   and real signed-up, admin-approved mentor accounts (Firestore
+   `mentors/{uid}` — lighter: no university or pricing yet, just what
+   they filled in applying). normalizeMentor() maps either into one
+   shape so the rest of this file never has to branch on where a mentor
+   came from. Skills draw from the same PF_CONSULT_TOPICS vocabulary
+   either way — curated mentors call the field `tags`, live accounts
+   call it `fields`, both hold topic slugs. */
+function normalizeMentor(m, src) {
+  const topicSlugs = (src === 'curated' ? m.tags : m.fields) || [];
+  const skills = topicSlugs.map(slug => ({ slug, label: PF_CONSULT_TOPICS[slug] || slug }))
+    .filter(s => !isImmigrationTopic(s.slug));
+  const uni = src === 'curated' ? uniById(m.uni) : null;
+  // Say only what's verifiably true from the data — not every mentor is
+  // still mid-PhD (one curated bio is a postdoc), so this names their
+  // field and campus rather than asserting a study stage.
+  const quals = uni ? `${m.field} · ${uni.name}` : (skills[0] ? skills[0].label : 'PathFinder Mentor');
+  return {
+    id: src === 'curated' ? m.id : m.uid,
+    src,
+    name: src === 'curated' ? m.name : (m.displayName || 'Mentor'),
+    city: m.city || '',
+    uniName: uni ? uni.name : '',
+    quals,
+    skills,
+    bio: m.bio || '',
+    langs: m.langs || '',
+    availability: m.availability || '',
+    packages: src === 'curated' ? (m.packages || []) : null,
+  };
+}
+
+/* Deterministic "profile picture" — a large initials avatar, colour-coded
+   per mentor from the app's own contrast-verified state palette
+   (--ok/--warn/--alert/--info/--accent, all defined in brand.css). No
+   photo-upload pipeline exists in this zero-backend-cost build, and
+   picking a stable colour per person from tokens already on the page
+   reads as deliberate design rather than a missing feature. */
+const MN_AVATAR_PALETTE = [
+  ['var(--ok)', 'var(--ok-bg)'], ['var(--info)', 'var(--info-bg)'],
+  ['var(--warn)', 'var(--warn-bg)'], ['var(--alert)', 'var(--alert-bg)'],
+  ['var(--accent-ink)', 'var(--accent-wash)'],
+];
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : (parts[0] ? parts[0][1] || '' : ''))).toUpperCase();
+}
+function mentorAvatarHtml(mn, big) {
+  const [ink, wash] = MN_AVATAR_PALETTE[hashStr(mn.id || mn.name || '') % MN_AVATAR_PALETTE.length];
+  return `<span class="mn-avatar${big ? ' mn-avatar-lg' : ''}" style="color:${ink};background:${wash}">${esc(initialsOf(mn.name))}</span>`;
+}
+
+/* One card in the Browse profiles grid — links straight into the full
+   profile (#mentor-profile), already gated by virtue of this grid only
+   rendering for a signed-in visitor. */
+function mentorCardHtml(mn) {
+  return `<a class="mn-card" href="#mentor-profile?id=${encodeURIComponent(mn.id)}&src=${mn.src}">
+    <div class="mn-card-top">
+      ${mentorAvatarHtml(mn)}
+      <div class="mn-card-id">
+        <div class="mn-card-name">${esc(mn.name)}</div>
+        <div class="mn-card-quals">${esc(mn.quals)}</div>
+      </div>
+    </div>
+    ${mn.bio ? `<p class="mn-card-bio">${esc(truncate(mn.bio, 120))}</p>` : ''}
+    <div class="mn-card-skills">${mn.skills.slice(0, 3).map(s => `<span class="chip chip-neutral">${esc(s.label)}</span>`).join('')}
+      ${mn.skills.length > 3 ? `<span class="chip chip-neutral">+${mn.skills.length - 3}</span>` : ''}</div>
+    <div class="mn-card-foot">
+      <span class="mn-card-city">${mn.city ? `<span class="material-symbols-outlined" aria-hidden="true">place</span>${esc(mn.city)}` : ''}</span>
+      <span class="mn-card-link">View profile <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+    </div>
+  </a>`;
+}
+
+let mentorsTab = 'ask';   // 'ask' | 'mine' | 'browse'
 
 /* status → what to tell the student in their own hero, mentor-voice */
 const MENTOR_REQ_STATUS_LINE = {
@@ -5282,6 +5365,7 @@ function renderMentors(main) {
   const rawTopic = hashQuery().topic || '';
   const topic = isImmigrationTopic(rawTopic) ? '' : rawTopic;
   if (hashQuery().tab === 'mine') mentorsTab = 'mine';
+  if (hashQuery().tab === 'browse') mentorsTab = 'browse';
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
   const active = PFStore.getMentorRequests()
@@ -5300,6 +5384,7 @@ function renderMentors(main) {
   }) +
     `<div class="tab-row" id="mtr-tabs" role="tablist" aria-label="Mentors">
       <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'ask'}" data-mtab="ask">Ask a mentor</button>
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'browse'}" data-mtab="browse">Browse profiles</button>
       <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'mine'}" data-mtab="mine">My requests</button>
     </div>
     <div id="mtr-body"></div>`;
@@ -5466,6 +5551,56 @@ function renderMentors(main) {
     });
   }
 
+  /* ── Browse profiles ────────────────────────────────────────────────
+     Full mentor profiles — university, every topic they cover, session
+     packages — are login-gated (the marketing site's promise is no
+     PUBLIC directory; this is a private one, for signed-in students
+     only). The queue-based "Ask a mentor" flow above stays open to
+     everyone; this is a second, complementary way in: browse first,
+     then ask with a specific person in mind. */
+  let mnQuery = '';
+  let liveMentors = null;   // null = not fetched yet this view
+  function paintBrowse() {
+    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+    if (!signedIn) {
+      body.innerHTML = `<div class="listcard mn-locked">
+        <span class="material-symbols-outlined mn-locked-icon" aria-hidden="true">lock</span>
+        <h2 class="listcard-title mt-3">Mentor profiles are for signed-in students</h2>
+        <p class="mt-2">See who's mentoring — their background, what they help with, and their session options — with a free account.</p>
+        <button type="button" class="btn mt-4" id="mn-unlock">Sign in to browse profiles</button>
+      </div>`;
+      $('#mn-unlock').onclick = () => requireAccount('Create a free account to browse mentor profiles.', { action: () => { mentorsTab = 'browse'; route(); } });
+      return;
+    }
+
+    // The search input is created once per tab-open, not once per
+    // keystroke — renderGrid() below only touches #mn-grid, so typing
+    // doesn't blow away the input's focus/caret the way a full repaint
+    // on every 'input' event would.
+    body.innerHTML = `
+      <input class="field mn-search" id="mn-q" type="search" placeholder="Search by name, city or topic…" value="${esc(mnQuery)}" aria-label="Search mentors">
+      <div class="mn-grid mt-4" id="mn-grid"></div>`;
+
+    const renderGrid = () => {
+      const curated = PF_MENTORS.map(m => normalizeMentor(m, 'curated'));
+      const live = (liveMentors || []).map(m => normalizeMentor(m, 'live'));
+      const all = [...curated, ...live];
+      const q = mnQuery.trim().toLowerCase();
+      const shown = q ? all.filter(mn =>
+        mn.name.toLowerCase().includes(q) || mn.city.toLowerCase().includes(q) ||
+        mn.quals.toLowerCase().includes(q) || mn.skills.some(s => s.label.toLowerCase().includes(q))
+      ) : all;
+      $('#mn-grid').innerHTML = shown.map(mentorCardHtml).join('') ||
+        `<p class="muted">No mentors match “${esc(mnQuery)}” — try a different name, city or topic.</p>`;
+    };
+    renderGrid();
+    $('#mn-q').oninput = e => { mnQuery = e.target.value; renderGrid(); };
+
+    if (liveMentors === null && cloudOn()) {
+      PFCloud.fetchApprovedMentors().then(list => { liveMentors = list; renderGrid(); }).catch(() => { liveMentors = []; });
+    }
+  }
+
   function paintMine() {
     const render = (list, live) => {
       cacheReqs(list);
@@ -5487,7 +5622,9 @@ function renderMentors(main) {
     }
   }
 
-  function paint() { (mentorsTab === 'mine' ? paintMine : paintAsk)(); }
+  function paint() {
+    ({ mine: paintMine, browse: paintBrowse, ask: paintAsk })[mentorsTab]();
+  }
 
   $$('#mtr-tabs .tab').forEach(b => b.onclick = () => {
     mentorsTab = b.dataset.mtab;
@@ -5502,6 +5639,115 @@ function renderMentors(main) {
   if (cloudOn() && !entState.loaded) loadEntitlements(() => {
     if (location.hash.slice(1).split('?')[0] === 'mentors') paint();
   });
+}
+
+/* ── One mentor's full profile ───────────────────────────────────────
+   #mentor-profile?id=<id>&src=curated|live. Gated the same way as
+   Browse profiles above (a real, private-not-public directory) —
+   checked again here, not just at the link that leads to it, so a
+   bookmarked or shared profile URL can't skip the gate. */
+let mnLiveCache = null;   // fetched-approved-mentors cache, this page load only
+function renderMentorProfile(main) {
+  const { id, src } = hashQuery();
+  const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  if (!signedIn) {
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Sign in to view this profile',
+      body: 'Mentor profiles — background, topics, session options — are for signed-in students. Your first 15 minutes with a mentor are free either way.' }) +
+      `<div class="listcard mn-locked">
+        <span class="material-symbols-outlined mn-locked-icon" aria-hidden="true">lock</span>
+        <button type="button" class="btn mt-3" id="mnp-unlock">Sign in to continue</button>
+      </div>`;
+    $('#mnp-unlock').onclick = () => requireAccount('Create a free account to view mentor profiles.', { action: route });
+    return;
+  }
+
+  const notFound = () => {
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Mentor not found',
+      body: 'This profile may have moved, or the mentor is no longer active.' }) +
+      `<a class="btn mt-2" href="#mentors?tab=browse">← Back to Browse profiles</a>`;
+  };
+
+  if (src === 'curated') {
+    const raw = PF_MENTORS.find(m => m.id === id);
+    if (!raw) return notFound();
+    return paintMentorProfile(main, normalizeMentor(raw, 'curated'));
+  }
+
+  if (src === 'live') {
+    const paintFromCache = () => {
+      const raw = (mnLiveCache || []).find(m => m.uid === id);
+      if (!raw) return notFound();
+      paintMentorProfile(main, normalizeMentor(raw, 'live'));
+    };
+    if (mnLiveCache !== null) return paintFromCache();
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Loading…', body: '' });
+    PFCloud.fetchApprovedMentors().then(list => {
+      mnLiveCache = list;
+      if (location.hash.slice(1).split('?')[0] === 'mentor-profile') paintFromCache();
+    }).catch(notFound);
+    return;
+  }
+
+  notFound();
+}
+
+function paintMentorProfile(main, mn) {
+  const factRow = (icon, label, value) => value ? `<div class="mnp-fact">
+    <span class="material-symbols-outlined" aria-hidden="true">${icon}</span>
+    <div><span class="mnp-fact-label">${label}</span><span class="mnp-fact-value">${esc(value)}</span></div>
+  </div>` : '';
+
+  main.innerHTML = `
+    <a class="mnp-back" href="#mentors?tab=browse"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Browse profiles</a>
+    <div class="mnp-hero">
+      ${mentorAvatarHtml(mn, true)}
+      <div class="mnp-hero-id">
+        <h1 class="mnp-name">${esc(mn.name)}</h1>
+        <p class="mnp-quals">${esc(mn.quals)}</p>
+        <div class="mnp-hero-meta">
+          ${mn.city ? `<span><span class="material-symbols-outlined" aria-hidden="true">place</span>${esc(mn.city)}</span>` : ''}
+          ${mn.src === 'live' ? `<span class="chip chip-ok">Approved mentor</span>` : `<span class="chip chip-neutral">Founding mentor</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="viewgrid mt-5">
+      <div>
+        ${mn.bio ? `<div class="listcard">
+          <div class="listcard-head"><h2 class="listcard-title">Mentoring experience</h2></div>
+          <p style="font-size:14.5px;line-height:1.7">${esc(mn.bio)}</p>
+        </div>` : ''}
+
+        ${mn.skills.length ? `<div class="listcard mt-4">
+          <div class="listcard-head"><h2 class="listcard-title">Topics ${esc(mn.name.split(' ')[0])} helps with</h2></div>
+          <div class="mnp-skills">${mn.skills.map(s => `<span class="chip chip-topic">${esc(s.label)}</span>`).join('')}</div>
+        </div>` : ''}
+
+        ${mn.packages && mn.packages.length ? `<div class="listcard mt-4">
+          <div class="listcard-head"><h2 class="listcard-title">Session options</h2></div>
+          <div class="mnp-packages">${mn.packages.map(p => `
+            <div class="mnp-pkg">
+              <span class="mnp-pkg-name">${esc(p.name)}</span>
+              <span class="mnp-pkg-price">${esc(p.price)}</span>
+            </div>`).join('')}</div>
+          <p class="faint mt-3" style="font-size:12px">Requests go through PathFinder's shared mentor queue — the fastest available mentor for your topic claims it, so mention ${esc(mn.name.split(' ')[0])} by name below and we'll do our best to match you.</p>
+        </div>` : ''}
+      </div>
+
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Quick facts</span>
+          ${factRow('translate', 'Languages', mn.langs)}
+          ${factRow('schedule', 'Availability', mn.availability)}
+          ${factRow('school', 'Focus area', mn.uniName ? mn.quals : (mn.skills[0] && mn.skills[0].label))}
+        </div>
+        <div class="sidecard mt-3" id="mnp-ask">
+          <span class="sidecard-kicker">Ask a mentor</span>
+          <p style="font-size:13px">Your first ${PF_CONFIG.freeIntroMinutes} minutes are free. Mention ${esc(mn.name.split(' ')[0])} in your note.</p>
+          ${consultCTA((mn.skills[0] && mn.skills[0].slug) || '')}
+        </div>
+      </div>
+    </div>`;
 }
 
 /* a student-facing request card: status + payment + (when due) a Pay button */
