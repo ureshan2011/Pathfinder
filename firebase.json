@@ -6,12 +6,31 @@
       "firestore.rules",
       "**/.*",
       "**/node_modules/**",
-      "README.md"
+      "README.md",
+      "docs/**",
+      "scripts/**"
     ],
     "headers": [
       {
+        "comment": "HTML is never cached, so a reload always picks up the current ?v= stamps. This is the hinge: the HTML decides which asset versions load, so it has to be the one thing that is always fresh.",
+        "source": "**/*.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        ]
+      },
+      {
+        "comment": "Assets are immutable because their URLs carry a content hash (scripts/stamp-assets.js). A changed file gets a new ?v= and therefore a new URL, so a year-long cache can never serve a stale one. Before the stamps existed these were max-age=3600 with unversioned URLs, which let a browser hold a cached data.js against a freshly fetched app.js for an hour after every deploy — app.js called a constant its data.js did not have yet, and the view rendered blank. Skew was invisible in testing because a hard refresh fixes it.",
         "source": "**/*.@(js|css)",
-        "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "comment": "Fonts and images are content-stable but unstamped — a day is a fair trade.",
+        "source": "**/*.@(woff|woff2|ttf|otf|png|jpg|jpeg|svg|webp|ico)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
       }
     ]
   },

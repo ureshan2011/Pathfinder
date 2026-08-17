@@ -761,8 +761,31 @@ The manual rail is not a stopgap to be embarrassed about — at 0% it is cheaper
 
 ## Deploying
 
-- **GitHub Pages**: Settings → Pages → deploy from branch root. No build required. (Add the Pages domain to Firebase authorized domains if sync is enabled.)
-- **Firebase Hosting**: `firebase deploy` — see Firebase setup above.
+**Run `node scripts/stamp-assets.js` before every deploy.** It rewrites every
+local `assets/` URL in the HTML to carry a `?v=<content-hash>`, and it is
+idempotent — safe to re-run, and a no-op when nothing changed.
+
+This is not cosmetic. The app ships as plain scripts with no bundler, so
+`app.js` and `data.js` are separate cacheable files that have to agree with
+each other, and caches expire independently. Without a hash in the URL a
+browser will happily pair a freshly fetched `app.js` with a `data.js` from an
+earlier deploy — and then `app.js` calls a constant its `data.js` has never
+heard of and the view renders blank. That happened once: `visaNoticesCard()`
+read `PF_VISA_NOTICES`, hosting served JS with `max-age=3600` and no version,
+and returning visitors got a dead Funding page for an hour. It never showed up
+in testing because a hard refresh fixes it.
+
+With stamps in place `firebase.json` serves HTML `no-cache` (so the stamps are
+always current) and `assets/**.{js,css}` as `immutable` for a year — faster
+than the old short max-age *and* skew-proof, because a changed file gets a new
+URL rather than a contested cache entry.
+
+Renderers should still degrade rather than throw when data they expect is
+absent — see the `typeof` guard in `visaNoticesCard()`. Stamps prevent skew;
+guards keep one missing symbol from taking down a whole view.
+
+- **GitHub Pages**: Settings → Pages → deploy from branch root. No build required. (Add the Pages domain to Firebase authorized domains if sync is enabled.) Note Pages sends its own cache headers — the `?v=` stamps are what make it safe there too.
+- **Firebase Hosting**: `node scripts/stamp-assets.js && firebase deploy` — see Firebase setup above.
 
 ## Launch checklist
 
@@ -778,6 +801,7 @@ The manual rail is not a stopgap to be embarrassed about — at 0% it is cheaper
 - [ ] Publish the number people should ring, and tell mentors and the admin to use **Someone called** for every enquiry that arrives by phone or WhatsApp — that is what puts a caller with no account into the queue, the client book and the invoice trail
 - [ ] Replace `PF_PARTNERS` placeholder `url:'#'` entries with real affiliate links (or remove the rows)
 - [ ] Paste Firebase config into `assets/js/firebase-config.js`, deploy `firestore.rules`
+- [ ] Run `node scripts/stamp-assets.js` as the last step before every deploy (see *Deploying*)
 - [ ] Verify all costs/figures (visa fees, rents, stipends) are current
 - [ ] **Re-verify the Settle In benchmarks periodically** — all live in `PF_CONFIG` (`data.js`) with source notes:
   - `visaFundsPerYear`/`visaFundsPerMonth` — INZ minimum living-cost requirement (NZ$20,000/yr as of 2026; confirm on immigration.govt.nz, it changes periodically)
