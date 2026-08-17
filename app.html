@@ -28,12 +28,12 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all';this.onload=null" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" media="print" onload="this.media='all';this.onload=null" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" /></noscript>
-  <link rel="stylesheet" href="assets/css/site.css" />
+  <link rel="stylesheet" href="assets/css/site.css?v=d856caf4" />
   <!-- "Ink & Brass" brand system — overrides site.css's tokens for the app
        shell only. index.html and the legal pages load site.css directly and
        never see this file, so they keep today's look. -->
-  <link rel="stylesheet" href="assets/css/brand.css" />
-  <link rel="stylesheet" href="assets/css/settlement.css" />
+  <link rel="stylesheet" href="assets/css/brand.css?v=c1adaeaa" />
+  <link rel="stylesheet" href="assets/css/settlement.css?v=04517ebc" />
 
   <!-- Three.js for the Settlement 3D visualisations — pulled in lazily via
        dynamic import() from assets/js/settlement/scene3d.js (no bundler). -->
@@ -651,17 +651,17 @@
      That is ~43 KB gzipped taken off the landing → dashboard → courses
      funnel, which is where nearly all the traffic is, on an audience
      mostly arriving over mobile data. -->
-<script src="assets/js/data.js"></script>
-<script src="assets/js/store.js"></script>
-<script src="assets/js/contact.js"></script>
+<script src="assets/js/data.js?v=55aa6e3d"></script>
+<script src="assets/js/store.js?v=f236f4ed"></script>
+<script src="assets/js/contact.js?v=9b92476f"></script>
 <!-- Checkout rails stay eager: several views call PFPay during render
      (pay labels, plan names on #billing and #pricing), so deferring them
      would trade 8 KB for a flash of missing prices. -->
-<script src="assets/js/payhere.js"></script>
-<script src="assets/js/paypal.js"></script>
-<script src="assets/js/pay.js"></script>
-<script src="assets/js/firebase-config.js"></script>
-<script src="assets/js/app.js"></script>
-<script type="module" src="assets/js/firebase.js"></script>
+<script src="assets/js/payhere.js?v=02d5f9c1"></script>
+<script src="assets/js/paypal.js?v=e4f20ac5"></script>
+<script src="assets/js/pay.js?v=7917ac88"></script>
+<script src="assets/js/firebase-config.js?v=2a33308f"></script>
+<script src="assets/js/app.js?v=a741f10a"></script>
+<script type="module" src="assets/js/firebase.js?v=8e90d1cc"></script>
 </body>
 </html>

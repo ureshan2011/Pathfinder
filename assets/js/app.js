@@ -14,7 +14,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
    journey the product shipped with. See PF_TRACK in data.js. */
 const trackCfg = () => PF_TRACK[PFStore.getTrack()] || PF_TRACK.phd;
 const isMasters = () => PFStore.getTrack() === 'masters';
-const visaUpdates = () => PF_VISA_NOTICES;
+const visaUpdates = () => (typeof PF_VISA_NOTICES === 'undefined' ? [] : PF_VISA_NOTICES);
 
 /* Track value: prefers a `masters_<field>` alternate on the master's track.
    Used for genuinely academic differences — fee bands, intakes, entry
@@ -250,6 +250,12 @@ function visaBoundaryNotice() {
    item labelled with the group it is published for — see the long note on
    PF_VISA_NOTICES for why it is not filtered by track. */
 function visaNoticesCard() {
+  /* Degrade to nothing if data.js has not supplied the notices. A hard
+     reference here took the whole Funding view down when a browser held a
+     cached data.js against a fresh app.js — one stale file, and every
+     view that touched this card rendered as a blank page. Same defence as
+     visaOddsCard() and roiSheetQuality() use for their data. */
+  if (typeof PF_VISA_NOTICES === 'undefined' || !Array.isArray(PF_VISA_NOTICES)) return '';
   return `<div class="listcard mt-7">
     <div class="listcard-head"><h2 class="listcard-title">What INZ currently publishes</h2>
       <span class="listcard-summary">Check each against your own visa</span></div>
