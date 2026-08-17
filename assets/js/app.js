@@ -112,6 +112,114 @@ function mentorBoundaryCard() {
   </div>`;
 }
 
+/* ── Who the agents are, from the regulator's own file ────────────────
+   Immigration New Zealand publishes education agent approval rates BY
+   NAME for exactly nine source markets, and Sri Lanka is one of them.
+   Almost no student in Colombo knows this file exists, which is the
+   whole point: they are about to hand LKR 50,000–200,000 to an agency
+   whose measured performance is a public document.
+
+   Why this is safe to publish, and where the lines are.
+
+   · It is not immigration advice. This is aggregate published
+     statistics with attribution, the same footing as visaOddsCard()
+     above. It says nothing about any reader's own application.
+   · Crown copyright under NZGOAL (CC BY) permits reuse on attribution
+     and forbids implying endorsement — govtSourceLine() prints both.
+   · The risk that IS live here is misrepresentation: saying something
+     untrue or misleading about a named competitor engages the Fair
+     Trading Act and defamation. The defence is to reproduce and not
+     characterise. So: INZ's bands are shown as bands (never a midpoint,
+     never "87%"), volumes as INZ's ranges, no editorial adjective on
+     any firm, no "worst agents" framing, and every one of the
+     publisher's own caveats reproduced verbatim underneath.
+   · One caveat does real work and must never be dropped: individual
+     rows exclude withdrawn and lapsed applications while the market
+     total includes them, so an agent's band is NOT comparable to the
+     80% market figure. Publishing the table without that line would
+     hand readers a false comparison we constructed.
+
+   Sorting is the reader's, not ours — the default is the publisher's
+   own descending order and the control is neutral. */
+let agentSort = 'band';
+
+function agentTableCard() {
+  const g = window.PF_GOVT;
+  const a = g && g.agents;
+  if (!a || !a.rows || !a.rows.length) return '';
+
+  const bandFloor = r => parseInt(r.band, 10) || 0;
+  const volFloor = r => parseInt(String(r.volume).replace(/,/g, ''), 10) || 0;
+  const rows = agentSort === 'volume'
+    ? a.rows.slice().sort((x, y) => volFloor(y) - volFloor(x) || x.name.localeCompare(y.name))
+    : agentSort === 'name'
+      ? a.rows.slice().sort((x, y) => x.name.localeCompare(y.name))
+      : a.rows;
+
+  return `<div class="listcard govt-card agent-card">
+    <div class="listcard-head">
+      <h2 class="listcard-title">The agents, and what INZ measured</h2>
+      <span class="chip chip-ok">Official figures</span>
+    </div>
+
+    <p class="mt-3">Immigration New Zealand publishes student visa approval rates for education agents
+      by name, for nine source markets. <strong>Sri Lanka is one of them.</strong> This is the
+      ${esc(String(a.year))} file, unedited. If you are paying an agency, look them up before you pay.</p>
+
+    <div class="govt-headline">
+      <div class="govt-figure">
+        <strong>${esc(String(a.total.rate))}%</strong>
+        <span>across the whole Sri Lanka market</span>
+      </div>
+      <div class="govt-split">
+        <div><span class="govt-n">${a.rows.length}</span><span class="govt-l">agents named</span></div>
+        <div><span class="govt-n">${esc(String(a.total.volume).replace(/ student visas$/, ''))}</span><span class="govt-l">visas with an agent declared</span></div>
+        <div><span class="govt-n">${esc(String(a.year))}</span><span class="govt-l">reporting year</span></div>
+      </div>
+    </div>
+
+    <div class="agent-sort" role="group" aria-label="Sort agents">
+      ${[['band', 'Approval band'], ['volume', 'Volume'], ['name', 'Name']].map(([k, l]) =>
+        `<button type="button" class="chip-filter ${agentSort === k ? 'active' : ''}" data-agent-sort="${k}">${l}</button>`).join('')}
+    </div>
+
+    <div class="agent-scroll">
+      <table class="ledger agent-table">
+        <thead><tr><th>Agent, as INZ names them</th><th>Approval band</th><th>Volume</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>
+            <td class="agent-name">${esc(r.name)}</td>
+            <td class="agent-band"><span class="chip chip-neutral">${esc(r.band)}</span></td>
+            <td class="agent-vol">${esc(String(r.volume).replace(/ student visas$/, ''))}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="roi-basis">
+      <p><strong>Read it honestly — four things this table is not.</strong></p>
+      <ul class="tl-list">
+        <li><strong>A band is not a score.</strong> INZ publishes ranges, not point figures, and we
+          do not narrow them. A firm in 85–90% is not measurably better than one in 80–85%.</li>
+        <li><strong>The market total is not a benchmark for the rows.</strong> Individual agent rows
+          exclude applications that were withdrawn or lapsed; the ${esc(String(a.total.rate))}% market figure
+          includes them. Comparing an agent's band against it is comparing two different things.</li>
+        <li><strong>Small volumes swing hard.</strong> An agent in the 5–25 range can move a whole
+          band on two decisions. Weight the bands by the volume beside them.</li>
+        <li><strong>Approval rate is not service quality.</strong> An agent who only takes strong
+          applications will score well. One who helps difficult cases will not. It measures
+          outcomes on the files they lodged, nothing else.</li>
+      </ul>
+      ${a.publisherNotes && a.publisherNotes.length ? `<details class="agent-notes">
+        <summary>Immigration New Zealand's own notes on this file</summary>
+        <ul class="tl-list">${a.publisherNotes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+      </details>` : ''}
+      ${govtSourceLine(a)}
+      <p class="govt-src"><a class="tlink" href="${esc(a.fileUrl)}" target="_blank" rel="noopener noreferrer">Download the original spreadsheet <span aria-hidden="true">→</span></a></p>
+    </div>
+  </div>`;
+}
+
 /* Stands at the top of the Visa Hub. disclaimer.html already says this, but
    a student working through a checklist never opens the disclaimer — the
    boundary has to be where the content is. */
@@ -4733,6 +4841,7 @@ function renderVisa(main) {
     `<div class="viewgrid">
       <div>${visaBoundaryNotice()}
       ${visaOddsCard(!cloudOn() || entitlements().officialData === true)}
+      ${agentTableCard()}
       ${PF_VISA_STAGES.map((s, i) => {
         const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
         const stageDone = sDone === s.steps.length;
@@ -4834,6 +4943,17 @@ document.addEventListener('click', e => {
   const open = body.classList.toggle('hidden');
   stage.classList.toggle('open', !open);
   t.setAttribute('aria-expanded', String(!open));
+});
+
+/* Re-sorting the agent table repaints only that card. A full route()
+   would collapse whichever visa stage the student had open — they are
+   reading the table partway down a checklist, not starting over. */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-agent-sort]');
+  if (!b) return;
+  agentSort = b.dataset.agentSort;
+  const card = b.closest('.agent-card');
+  if (card) card.outerHTML = agentTableCard();
 });
 
 /* ── 8 · Settle In ──────────────────────────────────────────
