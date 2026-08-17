@@ -758,10 +758,19 @@ function journeyModel() {
       ] },
     { id: 'plan', label: 'Plan', icon: 'route', view: 'roadmap', color: 'violet',
       blurb: 'Turn your result into a month-by-month roadmap.',
-      steps: [
+      // PhD funding is usually bundled with admission, not a separate cycle
+      // with its own hard deadline the way master's scholarships are — so
+      // "Check eligible scholarships" read as master's copy pasted onto the
+      // PhD track (U-19). Word the same milestone for how PhD funding
+      // actually works instead.
+      steps: isMasters() ? [
         ['Open your personalized roadmap', !!seen.roadmap && !!a, '#roadmap'],
         ['Grab a starter-kit template', !!seen.kit, '#kit'],
         ['Check eligible scholarships', !!seen.funding, '#funding'],
+      ] : [
+        ['Open your personalized roadmap', !!seen.roadmap && !!a, '#roadmap'],
+        ['Grab a starter-kit template', !!seen.kit, '#kit'],
+        ['See how doctoral funding usually works', !!seen.funding, '#funding'],
       ] },
     { id: 'apply', label: 'Apply', icon: 'folder_managed', view: 'dashboard', color: 'gold',
       blurb: isMasters() ? 'Apply to your intakes and track every application.'
@@ -946,7 +955,7 @@ function truncate(s, n) {
 /* friendly names for the hero's secondary "Open X" phrasing — not a
    fabricated fact, just a nicer label for a real, already-computed href */
 const HERO_HREF_LABEL = {
-  '#assessment': 'the assessment', '#courses': 'Courses', '#explore': 'Explore',
+  '#assessment': 'the assessment', '#courses': 'Programmes', '#explore': 'Explore',
   '#research': 'Research Studio', '#roadmap': 'your roadmap', '#kit': 'Templates',
   '#funding': 'Funding', '#dashboard': 'your dashboard', '#visa': 'the Visa Hub',
   '#mentors': 'Mentors', '#funds': 'the Funds Check', '#settlement': 'Settle In',
@@ -1024,13 +1033,35 @@ function updateNavChrome() {
   const ctx = document.getElementById('nav-context');
   if (ctx) {
     const R = currentResult();
-    ctx.textContent = trackCfg().label + (R && R.field ? ' · ' + R.field : '');
+    // PFStore.getTrack() degrades an unset track to 'phd' — right for
+    // reading a value that won't parse, wrong for a visitor who hasn't
+    // been asked yet: the track gate (needsTrackChoice) stands in front of
+    // every view, but the nav chrome sits outside #view and was painting
+    // "PhD" before the student had picked anything. Read the RAW stored
+    // value here so the label stays neutral until they actually choose
+    // (see U-15).
+    ctx.textContent = PFStore.get('track') === null ? '' : trackCfg().label + (R && R.field ? ' · ' + R.field : '');
   }
   const av = document.getElementById('nav-avatar');
   if (av) {
-    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
-    const email = signedIn && PFCloud.currentEmail && PFCloud.currentEmail();
-    av.textContent = email ? email.slice(0, 2).toUpperCase() : '·';
+    // A staff session needs to read as staff at a glance, not look like any
+    // other signed-in visitor — the same request from both Auth (B19) and
+    // Dashboard (G10) in the tracker (U-30). Colour comes from the
+    // data-role CSS rules above; the two-letter badge replaces initials
+    // only for admin/mentor, where "which account am I in" actually matters.
+    const role = (window.PFCloud && PFCloud.role && PFCloud.role()) || 'anon';
+    const ROLE_BADGE = { admin: 'AD', mentor: 'MN', mentor_pending: 'MN' };
+    const ROLE_TITLE = { admin: 'Signed in as Admin', mentor: 'Signed in as Mentor', mentor_pending: 'Mentor application pending' };
+    av.dataset.role = role;
+    if (ROLE_BADGE[role]) {
+      av.textContent = ROLE_BADGE[role];
+      av.title = ROLE_TITLE[role];
+    } else {
+      const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+      const email = signedIn && PFCloud.currentEmail && PFCloud.currentEmail();
+      av.textContent = email ? email.slice(0, 2).toUpperCase() : '·';
+      av.removeAttribute('title');
+    }
   }
 }
 
@@ -1618,12 +1649,23 @@ window.addEventListener('DOMContentLoaded', () => {
   route();
 });
 
+/* The Admin link is hidden by default (app.html) — advertising a login
+   surface in the public menu invites probing for no benefit, since staff
+   already know the #admin URL directly. Show it only once the session IS
+   an admin, as a shortcut back into the panel rather than an invitation
+   to try it. See S-13 in the bug tracker. */
+function paintAdminSidebarLink() {
+  const link = document.getElementById('admin-link');
+  if (link) link.classList.toggle('hidden', !(window.PFCloud && PFCloud.isAdmin()));
+}
+
 /* re-render the admin view whenever admin auth state flips (e.g. sign
    out) — PFCloud is exposed by the deferred firebase.js module, so wait
    for it before subscribing. No-op when Firebase isn't configured. */
 (function hookAdminAuth(tries = 0) {
   if (window.PFCloud) {
     window.PFCloud.onAdminState(() => {
+      paintAdminSidebarLink();
       const v = (location.hash || '').slice(1).split('?')[0];
       if (v === 'admin' || v === 'account') route();
     });
@@ -2043,9 +2085,9 @@ function buildMastersRoadmap(r) {
   const fees = C.mastersFeesIntlPerYear;
   const phases = [];
 
-  phases.push({ when: '9–12 months out', title: 'Choose the qualification', color: 'teal', consult: 'masters-intake', link: { href: '#courses', label: 'Open the Course Catalogue →' }, items: [
+  phases.push({ when: '9–12 months out', title: 'Choose the qualification', color: 'teal', consult: 'masters-intake', link: { href: '#courses', label: 'Open the Programme Catalogue →' }, items: [
     r ? `Shortlist 4–6 qualifications in ${r.field} from the catalogue — compare entry requirements line by line, not just the titles`
-      : 'Shortlist 4–6 qualifications from the Course Catalogue and compare their entry requirements',
+      : 'Shortlist 4–6 qualifications from the Programme Catalogue and compare their entry requirements',
     'Check whether each one is 180 points (one year) or 240 points (two) — it changes your fees and your visa funds by a full year',
     r && r.english < 3 ? 'Book IELTS Academic — target 6.5+ overall with no band below 6.0'
       : r && r.english === 4 ? 'An English-taught degree does not automatically waive IELTS — most universities also require it to be from an English-speaking country. Confirm the waiver with each admissions office before you skip the test'
@@ -3295,12 +3337,12 @@ let coursesState = { root: null, sub: null, q: '', level: '', type: '', org: '',
 
 function renderCourses(main) {
   const T = trackCfg();
-  main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: `Find ${T.article} that fits`,
+  main.innerHTML = renderHero({ kicker: 'Programme Catalogue', title: `Find ${T.article} that fits`,
     body: 'Loading the NZQA register…' });
 
   ensureCatalogue().then(cat => {
     if (!cat) {
-      main.innerHTML = renderHero({ kicker: 'Course Catalogue', title: 'Course catalogue unavailable',
+      main.innerHTML = renderHero({ kicker: 'Programme Catalogue', title: 'Programme catalogue unavailable',
         body: 'Could not load the register — check your connection and refresh.' });
       return;
     }
@@ -3320,6 +3362,29 @@ function defaultCourseRoot(cat) {
   // is the human-readable name); the PhD result carries a PF_FIELDS name.
   const root = r.subjectArea || fieldAsSubjectArea(r.field);
   return root && cat.shards[root] ? root : '';
+}
+
+/* How many quals a subject-area tab would show if the student picked it,
+   given the level/type/provider/search filters already active (but not the
+   currently selected root/sub — those reset the moment a different root is
+   picked, see the tab click handler below). The subject rail used to print
+   `cat.shards[r].count`, a total baked into the catalogue index at build
+   time that never moved regardless of any filter — a count beside a tab
+   that doesn't shrink when you add a level/provider/search filter
+   contradicts the results actually shown (B-12). */
+function courseCountForRoot(cat, root) {
+  const T = trackCfg();
+  const q = coursesState.q.trim().toLowerCase();
+  return cat.quals.reduce((n, row) => {
+    if (!T.levels.includes(row.l) && !(row.l === '8 - 9' && T.levels.includes('9'))) return n;
+    if (!catRoots(row).includes(root)) return n;
+    if (coursesState.level && row.l !== coursesState.level) return n;
+    if (coursesState.type && row.y !== coursesState.type) return n;
+    if (coursesState.org && !row.o.includes(coursesState.org)) return n;
+    if (q && !row.t.toLowerCase().includes(q) &&
+        !row.o.some(o => (catProvider(o) || {}).name?.toLowerCase().includes(q))) return n;
+    return n + 1;
+  }, 0);
 }
 
 /* The rows matching the current filters, always scoped to the active track's
@@ -3375,7 +3440,7 @@ function paintCourses(main, cat) {
     : `${cat.meta.qualCount.toLocaleString()} current NZQF level ${T.levels.join(' and ')} qualifications, searchable by subject, provider and level${rootName ? `, in ${rootName}` : ''}.`;
 
   main.innerHTML = renderHero({
-    kicker: rootName ? `Course Catalogue · ${rootName}` : 'Course Catalogue', title, body,
+    kicker: rootName ? `Programme Catalogue · ${rootName}` : 'Programme Catalogue', title, body,
     figure: savedCount, figureCaption: 'Saved',
   }) +
     `<div class="crs-bar">
@@ -3399,7 +3464,7 @@ function paintCourses(main, cat) {
     <div class="crs-rail" id="crs-rail" role="tablist" aria-label="Subject area">
       <button type="button" class="tab" role="tab" aria-selected="${!coursesState.root}" data-root="">All subjects</button>
       ${cat.roots.map(r => `<button type="button" class="tab" role="tab" aria-selected="${coursesState.root === r}"
-        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="tab-n">${cat.shards[r].count}</span></button>`).join('')}
+        data-root="${r}">${esc(cat.taxonomy[r].n)} <span class="tab-n">${courseCountForRoot(cat, r)}</span></button>`).join('')}
     </div>
     ${coursesState.root ? subAreaRail(cat) : ''}
 
@@ -3608,7 +3673,7 @@ function renderExplore(main) {
   const paint = field => {
     $('#explore-list').innerHTML =
       PF_UNIVERSITIES.filter(u => !field || u.strengths.includes(field)).map(u => uniCard(u, field)).join('') +
-      polytechCards();
+      polytechCards(field);
     $$('#explore-list .crs-head').forEach(h => h.onclick = e => {
       if (e.target.closest('.save-btn')) return;
       const id = h.parentElement.dataset.id;
@@ -3630,12 +3695,17 @@ function renderExplore(main) {
 let exploreOpen = null;
 
 /* Count of in-scope postgraduate qualifications a provider teaches, from the
-   catalogue index. 0 until the index loads — the caller hides it then. */
-function providerQualCount(orgId) {
+   catalogue index. 0 until the index loads — the caller hides it then.
+   `field` (optional) additionally scopes the count to that field's NZQA
+   subject-area root, so it agrees with the university cards' strengths
+   filter above it instead of always showing the provider's full total. */
+function providerQualCount(orgId, field) {
   const cat = window.PF_CATALOGUE;
   if (!cat) return 0;
   const levels = trackCfg().levels;
-  return cat.quals.filter(q => q.o.includes(orgId) && levels.includes(q.l)).length;
+  const root = field ? fieldAsSubjectArea(field) : null;
+  return cat.quals.filter(q => q.o.includes(orgId) && levels.includes(q.l)
+    && (!root || catRoots(q).includes(root))).length;
 }
 
 /* Resolve one of the eight curated universities to its NZQA provider id, so
@@ -3688,13 +3758,16 @@ function uniCard(u, field) {
 /* Every other provider teaching postgraduate study — polytechnics and the
    private colleges NZQA files as PTEs. No curated research detail exists for
    them, so they render as a compact expandable list rather than pretending to
-   a university card. */
-function polytechCards() {
+   a university card. `field` (optional) matches the same field filter the
+   university cards above apply via `strengths` — without it, this list used
+   to stay full regardless of the selected field while the university cards
+   narrowed, so the two halves of the same screen disagreed (B-11). */
+function polytechCards(field) {
   const cat = window.PF_CATALOGUE;
   if (!cat) return '';
   const rows = Object.entries(cat.providers)
-    .filter(([id, p]) => p.type !== 'universities' && providerQualCount(id) > 0)
-    .sort((a, b) => providerQualCount(b[0]) - providerQualCount(a[0]) || a[1].name.localeCompare(b[1].name));
+    .filter(([id, p]) => p.type !== 'universities' && providerQualCount(id, field) > 0)
+    .sort((a, b) => providerQualCount(b[0], field) - providerQualCount(a[0], field) || a[1].name.localeCompare(b[1].name));
   if (!rows.length) return '';
 
   return `<div class="sec-head" style="margin:44px 0 18px">
@@ -3704,7 +3777,7 @@ function polytechCards() {
         later application deadlines than the universities. Listed by how much postgraduate study each one teaches.</p>
     </div>` +
     rows.map(([id, p]) => {
-      const n = providerQualCount(id);
+      const n = providerQualCount(id, field);
       const open = exploreOpen === id;
       return `<div class="card crs-card" data-id="${esc(id)}">
         <div class="crs-head">
@@ -3966,6 +4039,7 @@ const FUNDS_Q_MASTERS = [
   { id: 'tuition', q: 'How much is your programme’s international tuition?',
     help: 'Master’s students pay FULL international fees — there is no domestic-fee concession like the one PhD candidates get. Most 180-point master’s land between NZ$32,000 and NZ$48,000 a year.',
     opts: [
+      { t: 'I know the exact figure', v: 'exact' },
       { t: 'Under NZ$35,000 a year', v: 'low' },
       { t: 'NZ$35,000–45,000 a year', v: 'mid' },
       { t: 'Over NZ$45,000 a year', v: 'high' },
@@ -4024,7 +4098,7 @@ function computeFunds(a) {
      rate; on the master's track it is full international tuition, chosen
      from the band the student picked. */
   const grossTuition = masters
-    ? ({ low: 33000, mid: 40000, high: 50000 }[a.tuition] || mf.mid)
+    ? (a.tuition === 'exact' && a.tuitionExact ? Number(a.tuitionExact) : { low: 33000, mid: 40000, high: 50000 }[a.tuition] || mf.mid)
     : (C.phdFeesDomesticPerYear || 8500);
 
   /* What an award actually covers differs by track, which is why the two
@@ -4119,7 +4193,7 @@ function renderFunds(main) {
       kicker: 'Funds check', title: saved.result.band,
       body: 'How the money you entered compares to the totals Immigration New Zealand and the providers publish. Not an assessment of your visa application.',
       figure: saved.result.score, figureSuffix: '%', figureCaption: 'Covered on paper',
-      primaryLabel: 'Re-check my funds', primaryId: 'fc-redo',
+      primaryLabel: 'Recheck my funds', primaryId: 'fc-redo',
       secondaryLabel: 'Detailed funds planner', secondaryHref: '#settlement',
     }) + fundsResultCard(saved.result);
     $('#fc-redo').onclick = () => { fundsState = { step: 0, answers: {}, retake: true }; route(); };
@@ -4135,6 +4209,36 @@ function renderFunds(main) {
   const q = QS[i];
   const pct = Math.round((i / (QS.length + 1)) * 100);
 
+  // "I know the exact figure" swaps the band buttons for a number field on
+  // the same step, instead of forcing a band a student who already has the
+  // real number would have to pick anyway (U-24).
+  if (fundsState.awaitingExact === q.id) {
+    main.innerHTML = renderHero({
+      kicker: `Funds check · ${i + 1} of ${QS.length + 1}`, title: q.q, body: q.help,
+    }) +
+      barHtml(pct) +
+      `<div class="fc-amount-row mt-6">
+         <input class="field" id="fc-exact" type="number" inputmode="numeric" min="0" step="1000"
+           placeholder="e.g. 38000" value="${fundsState.answers[q.id + 'Exact'] != null ? fundsState.answers[q.id + 'Exact'] : ''}">
+         <span class="faint" style="align-self:center">NZ$ / yr</span>
+       </div>
+       <div class="hero-actions mt-6">
+         <button type="button" class="btn" id="fc-exact-go">Continue <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+         <button type="button" class="btn btn-quiet" id="fc-back">← Back</button>
+       </div>`;
+    $('#fc-exact-go').onclick = () => {
+      const v = Number($('#fc-exact').value);
+      if (!v || v <= 0) return toast('Enter the tuition figure (a rough one is fine)');
+      fundsState.answers[q.id] = 'exact';
+      fundsState.answers[q.id + 'Exact'] = v;
+      fundsState.awaitingExact = null;
+      fundsState.step++;
+      route();
+    };
+    $('#fc-back').onclick = () => { fundsState.awaitingExact = null; route(); };
+    return;
+  }
+
   main.innerHTML = renderHero({
     kicker: `Funds check · ${i + 1} of ${QS.length + 1}`, title: q.q, body: q.help,
   }) +
@@ -4145,7 +4249,9 @@ function renderFunds(main) {
      ${i > 0 ? `<button type="button" class="btn btn-quiet mt-5" id="fc-back">← Back</button>` : ''}`;
 
   $$('.asm-opt', main).forEach(b => b.onclick = () => {
-    fundsState.answers[q.id] = q.opts[+b.dataset.k].v;
+    const v = q.opts[+b.dataset.k].v;
+    if (v === 'exact') { fundsState.awaitingExact = q.id; route(); return; }
+    fundsState.answers[q.id] = v;
     fundsState.step++;
     route();
   });
@@ -4350,7 +4456,7 @@ function renderFirstRun(main) {
     title: `Let’s find your ${T.label.toLowerCase()} route into New Zealand`,
     body: 'Nothing here is filled in yet — the assessment is what builds your roadmap, your course matches and your funding list. It takes about five minutes.',
     primaryLabel: 'Start the assessment', primaryIcon: 'arrow_forward', primaryHref: '#assessment',
-    secondaryLabel: isMasters() ? 'Browse the catalogue first' : 'Look around first',
+    secondaryLabel: isMasters() ? 'Browse the programmes first' : 'Look around first',
     secondaryHref: isMasters() ? '#courses' : '#explore',
   }) +
     `<div class="viewgrid mt-6">
@@ -4397,6 +4503,13 @@ function renderDashboard(main) {
   const reqs = PFStore.getMentorRequests().slice().reverse();
   const offers = apps.filter(x => ['Offer', 'Enrolled'].includes(x.status)).length;
   const saved = PFStore.getSaved();
+  // The "Saved" tile links to #courses (masters) or #explore (phd), so it
+  // must count exactly the kinds THAT view counts — not every saved kind —
+  // or the tile can read e.g. "3 saved" while the destination reads "0"
+  // because those 3 were scholarships. See B-10 / U-18.
+  const savedDestCount = isMasters()
+    ? saved.filter(s => s.kind === 'course').length
+    : saved.filter(s => s.kind === 'uni' || s.kind === 'lab' || s.kind === 'provider').length;
   const R = currentResult();
   const T = trackCfg();
 
@@ -4432,7 +4545,7 @@ function renderDashboard(main) {
     `<div class="stat-grid" style="margin:24px 0">
       <a class="stat" href="${isMasters() ? '#courses' : '#explore'}">
         <span class="material-symbols-outlined stat-icon" aria-hidden="true">bookmark</span>
-        <div class="stat-figure">${saved.length}</div>
+        <div class="stat-figure">${savedDestCount}</div>
         <div class="stat-label">Saved</div>
       </a>
       <a class="stat" href="#dashboard">
@@ -6029,16 +6142,16 @@ function roiYourDataInner(cat) {
   if (courses.length) {
     rows.push(`<div class="roi-courses">
       <div class="roi-courses-head">
-        <div class="row-title">Courses you have saved</div>
+        <div class="row-title">Programmes you have saved</div>
         <div class="row-sub">Tap one and the whole page re-costs around it — the provider, the subject area and the length all come from the register.</div>
       </div>
       ${courses.slice(0, 6).map(roiCourseRow).join('')}
       ${courses.length > 6 ? `<p class="faint" style="font-size:12px;margin:10px 0 0">${courses.length - 6} more on <a href="#courses">your shortlist</a>.</p>` : ''}
     </div>`);
   } else {
-    rows.push(row('Courses you have saved',
-      'Nothing shortlisted yet, so the plan below starts from a typical two-year master\'s. Save a few real courses in the catalogue and each one turns into a costed plan here — that is when this page starts being about you.',
-      '<a class="btn btn-quiet btn-sm" href="#courses">Browse the catalogue</a>'));
+    rows.push(row('Programmes you have saved',
+      'Nothing shortlisted yet, so the plan below starts from a typical two-year master\'s. Save a few real programmes in the catalogue and each one turns into a costed plan here — that is when this page starts being about you.',
+      '<a class="btn btn-quiet btn-sm" href="#courses">Browse the programmes</a>'));
   }
 
   // 3 · City and household, from the Funds Planner.
@@ -7087,6 +7200,17 @@ function accountStatus(main, role) {
     client:         ['account_circle', 'Client / Student', 'chip-info', 'Your roadmap, applications and mentor requests sync across every device you sign into.', 'Open Dashboard', '#dashboard'],
   }[role] || ['account_circle', 'Signed in', 'chip-neutral', '', 'Open Dashboard', '#dashboard'];
 
+  // For client/student sessions the track switch also lives in the nav's
+  // "more" menu, but a student who picked the wrong track needs it
+  // somewhere they'd actually think to look — the account page itself
+  // (see U-14: it was reachable only from that overflow menu, and the
+  // tracker's own recommendation was to surface it here too).
+  const trackSwitcher = role === 'client' ? `<div class="listcard mt-4" style="max-width:560px">
+      <h2 class="listcard-title" style="font-size:1.05rem">Study track</h2>
+      <p class="mt-2" style="font-size:13.5px">Switch anytime — your assessment answers carry over.</p>
+      <div class="track-switch mt-3" id="account-track-switch" role="group" aria-label="Study track"></div>
+    </div>` : '';
+
   main.innerHTML = renderHero({ kicker: 'Account', title: 'Your account', body: "You're signed in — manage your session below." }) +
     `<div class="listcard" style="max-width:560px">
       <span class="chip ${cfg[2]}">${cfg[1]}</span>
@@ -7096,8 +7220,16 @@ function accountStatus(main, role) {
         <a class="btn" href="${cfg[5]}">${cfg[4]}</a>
         <button type="button" class="btn btn-quiet" id="acc-out">Sign out</button>
       </div>
-    </div>`;
+    </div>` + trackSwitcher;
   $('#acc-out').onclick = () => (role === 'admin' ? PFCloud.signOutAdmin() : PFCloud.signOutUser());
+  if (role === 'client') {
+    const cur = PFStore.getTrack();
+    const box = $('#account-track-switch');
+    box.innerHTML = ['masters', 'phd'].map(t =>
+      `<button class="tsw-opt ${t === cur ? 'active' : ''}" data-track="${t}"
+         aria-pressed="${t === cur}">${PF_TRACK[t].label}</button>`).join('');
+    $$('.tsw-opt', box).forEach(b => b.onclick = () => switchTrack(b.dataset.track));
+  }
 }
 
 /* Not signed in: client sign-up / sign-in (no code) + invite-only doors
@@ -7123,6 +7255,12 @@ function accountAuth(main) {
       </div>
       <div class="aside">
         <div class="sidecard">
+          <span class="chip chip-info">Study track</span>
+          <h2 class="listcard-title mt-3" style="font-size:1.05rem">${trackCfg().label}</h2>
+          <p>Picked the wrong one? Switch anytime — your assessment answers carry over.</p>
+          <div class="track-switch mt-3" id="account-track-switch" role="group" aria-label="Study track"></div>
+        </div>
+        <div class="sidecard">
           <span class="chip chip-ok">Mentor</span> <span class="chip chip-neutral">Invite-only</span>
           <h2 class="listcard-title mt-3" style="font-size:1.05rem">Mentor access</h2>
           <p>If you've been given an invite code, continue to set up your mentor account.</p>
@@ -7137,6 +7275,17 @@ function accountAuth(main) {
         ${contactCard('Stuck signing in?', 'Message us and we’ll sort it out — no account needed to reach a person.', 'Sign-in screen')}
       </div>
     </div>`;
+
+  { // U-14: the track switch used to be reachable only from the nav's
+    // "more" menu — surface it here too, where a student browsing to
+    // Account would actually think to look.
+    const cur = PFStore.getTrack();
+    const box = $('#account-track-switch');
+    box.innerHTML = ['masters', 'phd'].map(t =>
+      `<button class="tsw-opt ${t === cur ? 'active' : ''}" data-track="${t}"
+         aria-pressed="${t === cur}">${PF_TRACK[t].label}</button>`).join('');
+    $$('.tsw-opt', box).forEach(b => b.onclick = () => switchTrack(b.dataset.track));
+  }
 
   const email = $('#ac-email'), pass = $('#ac-pass'), msg = $('#ac-msg');
   const creds = () => ({ e: email.value.trim(), p: pass.value });
@@ -7957,7 +8106,7 @@ function mentorPending(main) {
     body: 'An admin will review your profile shortly — the open request queue appears here once approved.' }) +
     `<div class="card" style="max-width:560px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        <span class="chip chip-gold">Pending approval</span>
+        <span class="chip chip-warn">Pending approval</span>
         ${(p.fields || []).map(f => `<span class="chip chip-dim">${PF_CONSULT_TOPICS[f] || f}</span>`).join('')}
       </div>
       <p style="font-size:14px;margin:0 0 4px"><strong>${esc(p.displayName || '')}</strong>${p.city ? ' · ' + esc(p.city) : ''}</p>
@@ -8747,8 +8896,8 @@ function mentorCard(m) {
         <strong style="font-size:14.5px">${esc(m.displayName || 'Mentor')}</strong>
         <span class="faint" style="font-size:12.5px"> · ${esc(m.city || '')}</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-          <span class="chip ${m.approved ? 'chip-teal' : 'chip-gold'}">${m.approved ? 'Approved' : 'Pending'}</span>
-          <span class="chip ${active ? 'chip-teal' : 'chip-dim'}">${active ? 'Active' : 'Inactive'}</span>
+          <span class="chip ${m.approved ? 'chip-ok' : 'chip-warn'}">${m.approved ? 'Approved' : 'Pending'}</span>
+          <span class="chip ${active ? 'chip-ok' : 'chip-neutral'}">${active ? 'Active' : 'Inactive'}</span>
           ${(m.fields || []).map(f => `<span class="chip chip-dim">${PF_CONSULT_TOPICS[f] || f}</span>`).join('')}
         </div>
         ${m.bio ? `<div class="muted" style="font-size:13px;margin-top:8px">${esc(m.bio)}</div>` : ''}

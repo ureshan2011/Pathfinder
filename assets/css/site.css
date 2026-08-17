@@ -196,8 +196,9 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .logo .word i { font-style: italic; color: var(--route); }
 .logo-mark { display: none; }
 .nav-links { display: flex; gap: 28px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
-.nav-links a { transition: color .2s; }
+.nav-links a { transition: color .2s; padding-bottom: 2px; border-bottom: 1.5px solid transparent; }
 .nav-links a:hover { color: var(--route); }
+.nav-links a[aria-current="page"] { color: var(--route); border-bottom-color: var(--route); }
 @media (max-width: 880px) { .nav-links { display: none; } }
 
 /* ── Reveal ── */
@@ -438,7 +439,12 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 .shell .tn-logo { display: inline-flex; align-items: baseline; font-family: var(--font-display); font-size: 17px; }
 .shell .tn-logo-path { font-weight: 600; color: var(--on-chrome); }
-.shell .tn-logo-finder { font-weight: 400; color: var(--accent); }
+/* "finder" is italic in the wordmark everywhere else (.logo .word i on the
+   marketing/legal pages) — the app's top-nav mark dropped that, so the
+   same name read as two different logos (W-31). Color stays --accent (not
+   the marketing site's --route) deliberately: it's tuned for contrast
+   against --chrome, see brand.css. */
+.shell .tn-logo-finder { font-weight: 400; font-style: italic; color: var(--accent); }
 
 .shell .topnav-links { display: flex; align-items: center; gap: 26px; list-style: none; margin: 0; padding: 0; }
 .shell .topnav-links a {
@@ -478,8 +484,13 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .shell .navpop-link:hover { background: rgba(25,27,30,.05); }
 .shell .navpop-link .material-symbols-outlined { font-size: 18px; color: var(--ink-dim); }
 .shell .navpop-sep { height: 1px; background: var(--line-soft); margin: 8px 4px; }
+.shell .navpop-sync {
+  margin: 10px 12px 0; padding: 0;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em;
+  color: var(--ink-faint);
+}
 .shell .navpop-foot {
-  display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 10px 12px 4px;
+  display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 12px 4px;
   font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
 }
 .shell .navpop-foot a { color: var(--ink-dim); }
@@ -809,6 +820,11 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   font-family: var(--font-mono); font-weight: 600;
 }
 .shell .avatar-nav { width: 30px; height: 30px; font-size: 11px; background: var(--accent); color: var(--on-accent); }
+/* A signed-in staff session must read as staff at a glance — not look
+   identical to any other signed-in visitor (U-30). */
+.shell .avatar-nav[data-role="admin"] { background: var(--alert); color: #fff; }
+.shell .avatar-nav[data-role="mentor"] { background: var(--ok); color: #fff; }
+.shell .avatar-nav[data-role="mentor_pending"] { background: var(--warn); color: #fff; }
 .shell .avatar-card { width: 36px; height: 36px; font-size: 11.5px; background: var(--accent-wash); color: var(--accent-ink); }
 
 /* ── Skeleton loading rows ── */
