@@ -2,16 +2,16 @@
 /* ════════════════════════════════════════════════════════════
    sync-govt-data.js
 
-   Builds assets/js/govt-data.js — the three New Zealand government
+   Builds assets/js/govt-data.js — the four New Zealand government
    datasets PathFinder can legally republish, reduced to the handful of
    rows this app actually shows.
 
-   ── Sources, and why only these three ──────────────────────────────
+   ── Sources, and why only these four ───────────────────────────────
    Ten government datasets were reviewed. Most are free but unreachable
    from a server: Education Counts and data.govt.nz sit behind bot
    protection that returns 403 to any datacentre IP regardless of user
    agent, so a build script cannot fetch them (a person with a browser
-   can — see README, "Government data"). These three answer to a plain
+   can — see README, "Government data"). These four answer to a plain
    HTTPS GET, which is what makes them scriptable:
 
      1. Immigration NZ — Student visa applications decided
@@ -21,7 +21,11 @@
      2. Immigration NZ — Work visa applications decided
         Same shape; carries the "Post-study - Open" criteria row, which
         is what happens to a master's graduate after they finish.
-     3. MBIE / Tenancy Services — Rental bond data by territorial
+     3. Immigration NZ — Education agent performance data
+        Student visa approval rates BY AGENT NAME, one sheet per source
+        market, published annually as .xlsx. Sri Lanka is one of only
+        nine markets covered. Read without a dependency — see unzip().
+     4. MBIE / Tenancy Services — Rental bond data by territorial
         authority. Lower quartile, median and upper quartile weekly
         rent, monthly, from bonds actually lodged.
 
@@ -82,6 +86,14 @@ const SRC = {
     attribution: 'Immigration New Zealand',
     licence: 'Crown copyright, released under NZGOAL (CC BY)',
   },
+  agents: {
+    // Per-year workbook; the year is filled in by the probe in main().
+    url: 'https://www.immigration.govt.nz/assets/inz/documents/industry/education-agent-performance-data-for-{year}.xlsx',
+    page: 'https://www.immigration.govt.nz/study/for-education-providers/data-and-processing-times-for-international-student-visas/education-agent-performance-data/',
+    name: 'Education agent performance data',
+    attribution: 'Immigration New Zealand',
+    licence: 'Crown copyright, released under NZGOAL (CC BY)',
+  },
   rent: {
     url: 'https://www.tenancy.govt.nz/assets/Uploads/Tenancy/Rental-bond-data/detailed-monthly-tla-tenancy-v3.csv',
     page: 'https://www.tenancy.govt.nz/about-tenancy-services/data-and-statistics/rental-bond-data/',
@@ -90,6 +102,10 @@ const SRC = {
     licence: 'CC BY 3.0 NZ',
   },
 };
+
+/* The agent workbook has one sheet per source market. Sri Lanka is the
+   audience, and one of only nine markets INZ publishes at all. */
+const AGENT_MARKET = 'Sri Lanka';
 
 /* What we keep. Sri Lanka is the audience; the other five are the
    comparison every Sri Lankan applicant has already heard about from an
@@ -189,6 +205,157 @@ function pdfText(buf) {
   }
   const literals = chunks.join('\n').match(/\((?:[^()\\]|\\.)*\)/g) || [];
   return literals.map(s => s.slice(1, -1)).join(' ').replace(/\s+/g, ' ');
+}
+
+/* ── xlsx → rows ────────────────────────────────────────────────────
+   The agent performance workbook is a real .xlsx, which is a ZIP of
+   XML parts. Rather than take a dependency for one file a year, this
+   reads the ZIP directly: walk the central directory, inflateRaw each
+   entry we need. Same trick as pdfText() above — zlib is already here,
+   and the format is stable enough that a library buys nothing.
+
+   Only three parts matter: workbook.xml (sheet name → rel id), the
+   rels file (rel id → part path), and sharedStrings.xml, because Excel
+   stores repeated text once and the cells hold indices into it. */
+function unzip(buf) {
+  // End-of-central-directory record, scanned backwards past any comment.
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0 && i > buf.length - 65558; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('agent workbook is not a zip (no EOCD)');
+
+  const count = buf.readUInt16LE(eocd + 10);
+  let p = buf.readUInt32LE(eocd + 16);
+  const files = {};
+
+  for (let n = 0; n < count; n++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('bad central directory entry');
+    const method = buf.readUInt16LE(p + 10);
+    const compSize = buf.readUInt32LE(p + 20);
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const cmtLen = buf.readUInt16LE(p + 32);
+    const local = buf.readUInt32LE(p + 42);
+    const name = buf.toString('utf8', p + 46, p + 46 + nameLen);
+
+    // The local header repeats the name/extra lengths, and its extra
+    // field length can differ from the central one — always trust local.
+    const lNameLen = buf.readUInt16LE(local + 26);
+    const lExtraLen = buf.readUInt16LE(local + 28);
+    const start = local + 30 + lNameLen + lExtraLen;
+    const raw = buf.subarray(start, start + compSize);
+    files[name] = method === 0 ? raw : zlib.inflateRawSync(raw);
+
+    p += 46 + nameLen + extraLen + cmtLen;
+  }
+  return files;
+}
+
+const xmlUnescape = s => s
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+  .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d))
+  .replace(/&amp;/g, '&');
+
+/* Every <si> is one shared string; its text may be split across several
+   <t> runs when Excel has applied mixed formatting, so concatenate. */
+function sharedStrings(xml) {
+  return (xml.match(/<si>[\s\S]*?<\/si>/g) || []).map(si =>
+    xmlUnescape((si.match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [])
+      .map(t => t.replace(/<[^>]+>/g, '')).join('')));
+}
+
+/* One sheet → array of row arrays of display strings. Cells carrying
+   t="s" index the shared table; t="inlineStr" carries its own <t>;
+   anything else is a literal already in <v>. Blank cells collapse —
+   this sheet is three dense columns, so position is not load-bearing. */
+function sheetRows(xml, strings) {
+  return (xml.match(/<row[^>]*>[\s\S]*?<\/row>/g) || []).map(row =>
+    (row.match(/<c[^>]*\/>|<c[^>]*>[\s\S]*?<\/c>/g) || []).map(c => {
+      const type = (c.match(/\st="([^"]+)"/) || [])[1];
+      if (type === 'inlineStr') {
+        return xmlUnescape((c.match(/<t[^>]*>([\s\S]*?)<\/t>/) || [])[1] || '').trim();
+      }
+      const v = (c.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+      if (v == null) return '';
+      return type === 's' ? (strings[+v] || '').trim() : v.trim();
+    }).filter(x => x !== ''));
+}
+
+/* Pull one country's sheet out of the workbook by its tab name. */
+function xlsxSheet(files, tabName) {
+  const wb = files['xl/workbook.xml'].toString('utf8');
+  const rels = files['xl/_rels/workbook.xml.rels'].toString('utf8');
+  const strings = files['xl/sharedStrings.xml']
+    ? sharedStrings(files['xl/sharedStrings.xml'].toString('utf8')) : [];
+
+  const tag = (wb.match(/<sheet[^>]*>/g) || [])
+    .find(t => xmlUnescape((t.match(/name="([^"]*)"/) || [])[1] || '') === tabName);
+  if (!tag) return null;
+
+  const rid = (tag.match(/r:id="([^"]+)"/) || [])[1];
+  const rel = (rels.match(/<Relationship[^>]*>/g) || [])
+    .find(r => r.includes(`Id="${rid}"`));
+  let target = (rel && (rel.match(/Target="([^"]+)"/) || [])[1]) || '';
+  target = target.replace(/^\/?xl\//, '').replace(/^\//, '');
+
+  const part = files['xl/' + target];
+  if (!part) return null;
+  return sheetRows(part.toString('utf8'), strings);
+}
+
+/* ── agent performance ──────────────────────────────────────────────
+   INZ publishes one workbook a year, one sheet per source market, and
+   Sri Lanka is one of only nine. Each sheet is a header block of
+   asterisked methodology notes, then three columns: agent name, an
+   approval-rate BAND (never a point figure), and a volume RANGE.
+
+   The banding is deliberate on INZ's part and we keep it: republishing
+   "87.5%" where the publisher wrote "85-90%" would be restating their
+   data, not reproducing it. We also carry their notes verbatim, because
+   one of them changes how the numbers read — individual agent rows
+   exclude withdrawn and lapsed applications while the market total
+   includes them, so an agent's band is NOT directly comparable to the
+   market figure. A reader who is not told that will draw the wrong
+   conclusion, and we would have handed them the means to do it. */
+function parseAgents(rows, market) {
+  // The methodology block may arrive as one cell per note or as a single
+  // cell with the notes newline-separated, depending on how the sheet was
+  // authored that year. Flatten both shapes to one note per line.
+  const notes = rows
+    .filter(r => r.length === 1 && r[0].startsWith('*'))
+    .flatMap(r => r[0].split(/\r?\n/))
+    .map(l => l.replace(/^\*\s*/, '').trim())
+    .filter(l => l && !/^Contact\s+\S+@/i.test(l));   // drop the INZ mailbox line
+  const title = (rows.find(r => r.length === 1 && !r[0].startsWith('*')) || [])[0] || '';
+
+  const head = rows.findIndex(r => r[0] === 'Agent name');
+  if (head < 0) return fail(`agents/${market}: no "Agent name" header row`), null;
+
+  let total = null;
+  const agents = [];
+  for (const r of rows.slice(head + 1)) {
+    if (r.length < 3) continue;
+    const [name, rate, volume] = r;
+    if (/^Total for/i.test(name)) {
+      // The market row carries a fraction (0.8), not a band.
+      const pct = Number(rate);
+      if (!isFinite(pct)) { fail(`agents/${market}: market total rate "${rate}" is not a number`); continue; }
+      total = { label: name, rate: Math.round(pct * 1000) / 10, volume };
+      continue;
+    }
+    if (!/^\d+-\d+%$/.test(rate)) { fail(`agents/${market}: "${name}" rate "${rate}" is not a band`); continue; }
+    agents.push({ name, band: rate, volume });
+  }
+
+  if (!total) return fail(`agents/${market}: no market total row`), null;
+  if (agents.length < 5) return fail(`agents/${market}: only ${agents.length} agent rows`), null;
+
+  // Sort by band floor descending, then by name, so the shipped order is
+  // stable across builds and does not depend on the publisher's ordering.
+  agents.sort((a, b) => (parseInt(b.band, 10) - parseInt(a.band, 10)) || a.name.localeCompare(b.name));
+  return { title, notes, total, agents };
 }
 
 /* ── table row parsing ──────────────────────────────────────────────
@@ -336,7 +503,7 @@ window.PF_GOVT = ${JSON.stringify(data, null, 2)};
 (async function main() {
   console.log('PathFinder — government data sync\n');
 
-  console.log('1/3  Immigration NZ — student visa decisions');
+  console.log('1/4  Immigration NZ — student visa decisions');
   const studentPdf = await get(SRC.student.url);
   const studentTxt = pdfText(studentPdf);
   console.log(`     ${(studentPdf.length / 1024).toFixed(0)} KB, ${studentTxt.length.toLocaleString()} chars of text`);
@@ -354,7 +521,7 @@ window.PF_GOVT = ${JSON.stringify(data, null, 2)};
   });
   console.log(`     ${Object.keys(byNationality).length} nationalities, ${studentCriteria.length} criteria`);
 
-  console.log('2/3  Immigration NZ — work visa decisions');
+  console.log('2/4  Immigration NZ — work visa decisions');
   const workPdf = await get(SRC.work.url);
   const workTxt = pdfText(workPdf);
   const workYears = docYears(workTxt);
@@ -365,7 +532,35 @@ window.PF_GOVT = ${JSON.stringify(data, null, 2)};
   });
   console.log(`     ${postStudy.length} post-study routes`);
 
-  console.log('3/3  MBIE — rental bond data');
+  /* INZ publishes this one workbook a year with the year in the filename
+     and no index to discover it from, so probe backwards from next year
+     and take the newest that exists. New editions are picked up by
+     re-running the script; nothing here needs editing in January. */
+  console.log('3/4  Immigration NZ — education agent performance');
+  const thisYear = new Date().getFullYear();
+  let agentBook = null, agentYear = null;
+  for (let y = thisYear + 1; y >= thisYear - 3; y--) {
+    try {
+      agentBook = await get(SRC.agents.url.replace('{year}', y));
+      agentYear = y;
+      break;
+    } catch (_) { /* not published yet, or no longer hosted */ }
+  }
+  let agents = null;
+  if (!agentBook) {
+    fail('agents: no workbook found for any year in range');
+  } else {
+    console.log(`     ${agentYear} edition, ${(agentBook.length / 1024).toFixed(0)} KB`);
+    const parts = unzip(agentBook);
+    const rows = xlsxSheet(parts, AGENT_MARKET);
+    if (!rows) fail(`agents: no "${AGENT_MARKET}" sheet in the ${agentYear} workbook`);
+    else {
+      agents = parseAgents(rows, AGENT_MARKET);
+      if (agents) console.log(`     ${agents.agents.length} named agents, market ${agents.total.rate}%`);
+    }
+  }
+
+  console.log('4/4  MBIE — rental bond data');
   const rentCsv = (await get(SRC.rent.url)).toString('utf8');
   const rent = parseRent(rentCsv);
   console.log(`     ${Object.keys(rent.byCity).length} cities, as at ${rent.asOf}`);
@@ -393,6 +588,17 @@ window.PF_GOVT = ${JSON.stringify(data, null, 2)};
       note: 'Post-study work visa decisions across all nationalities. The employer-assisted route closed to new applicants in 2019.',
       routes: postStudy,
     },
+    agents: agents ? {
+      ...meta(SRC.agents),
+      fileUrl: SRC.agents.url.replace('{year}', agentYear),
+      year: agentYear,
+      market: AGENT_MARKET,
+      title: agents.title,
+      publisherNotes: agents.notes,
+      total: agents.total,
+      rows: agents.agents,
+      note: 'Approval rates are published as BANDS and volumes as RANGES \u2014 INZ does not release point figures, and neither do we. A band is not a quality score: it counts offshore student visa decisions where that agent was declared on the form, over one calendar year.',
+    } : null,
     rent: {
       ...meta(SRC.rent),
       ...rent,

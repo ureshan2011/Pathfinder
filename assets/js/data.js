@@ -44,10 +44,13 @@ const PF_TRACK = {
     supervisorFirst: true,      // you find a supervisor BEFORE you apply
     intakeLabel: 'Enrol any month — admission is supervisor-led, not semester-led',
     englishBar: 'IELTS 6.5 overall, no band below 6.0',
-    // Post-study reality
-    workRights: 'unlimited hours during study; partners get an open work visa',
-    postStudy: 'a 3-year open post-study work visa',
-    dependents: 'school-age children are treated as domestic students',
+    // No workRights / postStudy / dependents here. Those three fields
+    // stated an immigration outcome per track and were rendered into a
+    // panel headed "Your visa as a PhD student" — the platform telling a
+    // person what they are entitled to, which needs a licence under the
+    // Immigration Advisers Licensing Act 2007. Immigration settings now
+    // live in PF_VISA_NOTICES, unbranched and labelled with the group INZ
+    // publishes them for. Keep this track config to academics and money.
   },
   masters: {
     id: 'masters',
@@ -73,9 +76,7 @@ const PF_TRACK = {
     supervisorFirst: false,     // you apply to a programme, not to a person
     intakeLabel: 'Two intakes a year — February and July',
     englishBar: 'IELTS 6.5 overall, no band below 6.0 (some programmes accept 6.0)',
-    workRights: 'up to 25 hours a week during semester, full-time in breaks',
-    postStudy: 'a 3-year open post-study work visa for a level-9 master\'s',
-    dependents: 'children pay domestic school fees only if you study level 9 or above',
+    // See the note on the phd track: no immigration outcomes here.
   },
 };
 
@@ -371,35 +372,56 @@ const PF_SCHOLARSHIPS = [
     fields:'All fields', eligibility:'Outstanding academic record; aligned with AUT research priority areas.', link:'aut.ac.nz/scholarships' },
 ];
 
-const PF_VISA_UPDATES = [
-  { date:'2026-05', title:'PhD students keep domestic fee status', tag:'Policy',
-    body:'International PhD candidates in NZ continue to pay domestic tuition rates — one of the few countries in the world with this policy.' },
-  { date:'2026-04', title:'Full-time work rights confirmed for doctoral students', tag:'Work Rights',
-    body:'Doctoral students may work unlimited hours during study. Partners of PhD students remain eligible for an open work visa.' },
-  { date:'2026-03', title:'Post-study work visa: 3 years after PhD', tag:'Post-Study',
-    body:'PhD graduates qualify for a 3-year open post-study work visa, a direct pathway toward the Skilled Migrant Category.' },
-  { date:'2026-02', title:'Dependent children eligible for domestic schooling', tag:'Family',
-    body:'School-age children of PhD students are treated as domestic students in NZ schools — no international fees.' },
-  { date:'2026-01', title:'eVisa processing times: student visas averaging 6–8 weeks', tag:'Processing',
-    body:'Apply at least 3 months before your intended start date. Funds evidence: NZ$20,000+/yr living costs or scholarship letter.' },
+/* ── Published immigration settings, as a noticeboard ──────────────────
+   These items are a summary of rules Immigration New Zealand publishes,
+   reproduced so a student knows what to go and read. They are deliberately
+   NOT selected by the student's track and NOT phrased as things "you get".
+
+   Why it is built this way. Under the Immigration Advisers Licensing Act
+   2007, reproducing publicly available information is not immigration
+   advice — but applying it to one person's circumstances is, and that
+   needs a licence (s.6/s.7; up to $100,000 and/or 7 years). An earlier
+   version of this file kept two lists and served whichever matched the
+   stored track, which meant a PhD-track student was told "you may work
+   unlimited hours" and "your partner remains eligible for an open work
+   visa". That is the platform selecting an immigration rule for a person
+   and asserting the outcome — the exact thing the Act reserves to
+   licensed advisers, and work-rights content sits outside the offshore
+   education-agent exemption in any case.
+
+   So: every item carries `who` (which group INZ publishes it for) and a
+   `source` the student can verify it against, and the reader decides
+   whether it describes them. Show the rule and who it is for; never
+   pick it for them. Anything that would require judging one student's
+   situation belongs with a licensed adviser — see adviserReferral(). */
+const PF_VISA_NOTICES = [
+  { date:'2026-05', title:'Doctoral candidates are charged domestic tuition rates', tag:'Fees',
+    who:'Doctoral candidates',
+    body:'INZ and NZ universities publish a domestic-rate tuition concession for international students enrolled in a doctorate. It does not extend to master’s study, where international rates apply.',
+    source:'https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/study/studying-in-new-zealand' },
+  { date:'2026-01', title:'Student visa processing has been averaging 6–8 weeks', tag:'Processing',
+    who:'All student visa applicants',
+    body:'INZ publishes current processing times by visa type and applies them to applications from offshore. Published guidance is to apply well before your intended start date rather than to a fixed number of weeks.',
+    source:'https://www.immigration.govt.nz/about-us/media-centre/statistics/visa-processing-times' },
+  { date:'2025-11', title:'In-study work conditions were changed in November 2025', tag:'Work conditions',
+    who:'Student visa holders whose visa carries a work condition',
+    body:'INZ raised the in-semester limit for eligible student visa holders from 20 to 25 hours a week from 3 November 2025. Whether any work condition applies to a particular visa, and at what limit, is stated on that visa — not decided by the type of course. Visas already issued on a 20-hour condition are not changed automatically.',
+    source:'https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/work/working-in-new-zealand/work-rights-for-students' },
+  { date:'2026-03', title:'Post-study work visas are set by qualification level', tag:'After study',
+    who:'Anyone considering what follows a qualification',
+    body:'INZ publishes eligibility for the post-study work visa against the level and length of the completed qualification, and the settings change. What any individual would be eligible for is an immigration question — take it to INZ or a licensed adviser rather than planning around a figure quoted anywhere, including here.',
+    source:'https://www.immigration.govt.nz/new-zealand-visas/visas/visa/post-study-work-visa' },
+  { date:'2026-02', title:'Most master’s programmes run February and July intakes', tag:'Intakes',
+    who:'Master’s applicants',
+    body:'Semester 1 opens in February and Semester 2 in July at most providers, with applications commonly closing two to four months ahead. This is a provider deadline, not an immigration rule — confirm the date with the university.',
+    source:'' },
 ];
 
-/* The master's equivalent. Almost every headline benefit above is doctorate-
-   only, so reusing that list on the master's track would state things that
-   are simply false for a master's applicant — most importantly the domestic
-   fee status and the unlimited work rights. */
-const PF_VISA_UPDATES_MASTERS = [
-  { date:'2026-05', title:'Master’s students pay international tuition', tag:'Fees',
-    body:'The domestic-fee concession applies to doctoral candidates only. Budget NZ$32,000–48,000 a year for a master’s, and confirm the exact figure with the provider — it varies more by programme than by university.' },
-  { date:'2025-11', title:'Work rights raised to 25 hours a week during semester', tag:'Work Rights',
-    body:'From 3 November 2025 eligible student visa holders may work up to 25 hours a week during the semester, raised from 20, and full-time over scheduled breaks. New visas carry the higher limit automatically; anyone already on a 20-hour condition must apply to vary it. Partners of level-9 students may qualify for an open work visa.' },
-  { date:'2026-03', title:'Post-study work visa: 3 years after a level-9 master’s', tag:'Post-Study',
-    body:'A completed level-9 master’s qualifies for a 3-year open post-study work visa. A level-8 postgraduate diploma on its own qualifies for less — worth weighing when you choose between the two.' },
-  { date:'2026-02', title:'Two intakes a year — February and July', tag:'Intakes',
-    body:'Most master’s programmes take students in Semester 1 (February) and Semester 2 (July), with applications closing 2–4 months before. A missed deadline costs a full semester, so work backwards from the intake you want.' },
-  { date:'2026-01', title:'eVisa processing times: student visas averaging 6–8 weeks', tag:'Processing',
-    body:'Apply at least 3 months before your intended start date. Funds evidence: tuition plus NZ$20,000/yr living costs — the tuition component is much larger for a master’s than for a PhD.' },
-];
+/* Kept as aliases so any older reference still resolves to the single
+   unbranched list rather than silently falling back to track-specific
+   copy. Do not reintroduce a per-track immigration feed. */
+const PF_VISA_UPDATES = PF_VISA_NOTICES;
+const PF_VISA_UPDATES_MASTERS = PF_VISA_NOTICES;
 
 /* ── Live news (Briefing) ────────────────────────────────────────────
    A frequently-updating feed of ONLY immigration and PhD/postgraduate
@@ -529,8 +551,9 @@ the country reads as filler.
 
 4. WHAT YOU WILL DO AFTER (1 paragraph)
 A clear, plausible plan. If you intend to return to Sri Lanka, say so and say
-to what. If you intend to seek work in NZ, say so — the post-study work visa
-exists precisely for that, and admissions offices know it.
+to what. If you intend to seek work in NZ, say so — admissions offices are used
+to hearing it. Check the current post-study settings on immigration.govt.nz
+before you describe a plan that depends on them.
 
 5. FUNDING (2 sentences)
 State how the programme will be paid for: family funds, savings, a loan, a
@@ -562,7 +585,7 @@ Do I meet it? (yes / no / ask)    |          |          |          |
 English requirement               |          |          |          |
 Thesis component?                 |          |          |          |
 Scholarship + its deadline        |          |          |          |
-3-yr post-study work visa?        |          |          |          |
+Post-study eligibility (INZ)      |          |          |          |
 Admissions contact + date emailed |          |          |          |
 
 THE THREE THAT DECIDE IT
@@ -1037,7 +1060,8 @@ SURPLUS / DEFICIT:                      NZ$ _________
 
 NOTES
   — Dunedin and Hamilton cost 20–30% less than Auckland for rent.
-  — PhD students are entitled to Working for Families tax credits if they have dependent children.
+  — Working for Families tax credits have their own residence-based eligibility rules;
+    check yours with Inland Revenue rather than assuming a student qualifies.
   — Scholarship stipends are reviewed annually; some include a cost-of-living adjustment.
   — University hardship funds exist; know yours before you need them.`},
 ];
@@ -1140,7 +1164,7 @@ const PF_QUESTIONS = [
 const PF_VISA_STAGES = [
   { id:'vs1', title:'Offer of Place', when:'Weeks 0–2', dur:'1–2 weeks', cost:'Free', color:'teal',
     icon:'verified', consult:'visa-offer',
-    summary:'Immigration NZ needs the unconditional Offer of Place from your university before you can apply. Conditional offers are not accepted.',
+    summary:'INZ publishes an unconditional Offer of Place from your provider as a requirement for a student visa application, and states that conditional offers do not meet it. Confirm the current requirement on immigration.govt.nz before you rely on it.',
     where:[
       { name:'Your university’s international admissions office', detail:'Request the unconditional offer letter (PDF). If funded, also get the scholarship letter stating exact fees + stipend amounts in NZ$.' },
     ],
@@ -1160,7 +1184,7 @@ const PF_VISA_STAGES = [
     steps:[
       { id:'vs2a', t:'Passport valid 12+ months beyond intended departure', note:'Renew first if it is close — Immigration & Emigration Dept, Battaramulla' },
       { id:'vs2b', t:'Certified copies of degree certificate + transcripts', note:'' },
-      { id:'vs2c', t:'Funds evidence: NZ$20,000+/yr living costs OR scholarship letter', note:'Scholarship letter replaces most funds evidence' },
+      { id:'vs2c', t:'Assemble funds evidence in the form INZ asks for', note:'INZ publishes the minimum living-costs figure and the evidence it accepts, including how scholarship funding is treated. Whether a particular set of documents satisfies it is an assessment only INZ or a licensed adviser can make' },
       { id:'vs2d', t:'Birth certificate (translated if needed)', note:'' },
       { id:'vs2e', t:'Passport-size photos to INZ spec', note:'White background, 900×1200 px digital' },
     ]},
@@ -1172,7 +1196,7 @@ const PF_VISA_STAGES = [
       { name:'INZ panel physician, Colombo (IOM Health Assessment Centre or approved hospitals)', detail:'eMedical + chest X-ray; book 1–2 weeks ahead; bring passport; results transmit electronically to INZ. ~LKR 45,000–60,000.' },
     ],
     steps:[
-      { id:'vs3a', t:'Apply for Police Clearance Certificate at police.lk', note:'Needed if 17+ and staying >24 months' },
+      { id:'vs3a', t:'Check whether INZ requires a police certificate for your application, then apply at police.lk', note:'INZ publishes the age and length-of-stay thresholds that trigger this. Read them there — it is slow to obtain, so check early' },
       { id:'vs3b', t:'Book eMedical with an INZ panel physician', note:'Only panel physicians count — list on immigration.govt.nz' },
       { id:'vs3c', t:'Complete medical examination + chest X-ray', note:'Results go directly to INZ — note your eMedical reference (NZER)' },
       { id:'vs3d', t:'Collect Police Clearance Certificate', note:'' },
@@ -1185,8 +1209,7 @@ const PF_VISA_STAGES = [
     ],
     steps:[
       { id:'vs4a', t:'Create RealMe / INZ online account', note:'' },
-      { id:'vs4b', t:'Complete the Fee Paying Student Visa form', note:'PhD students choose this category — domestic fees still apply',
-        masters_note:'The same category, but you are paying the international fee — the tuition receipt you upload must match it' },
+      { id:'vs4b', t:'Identify which student visa category INZ lists for your situation', note:'INZ sets out the student visa categories and who each is for — read them there and pick from their guidance, not from ours' },
       { id:'vs4c', t:'Upload all documents as clear PDF scans', note:'Photographs of documents are commonly rejected — scan properly' },
       { id:'vs4d', t:'Pay fee + levy (~NZ$430) by card', note:'An international-enabled card — call your bank to unlock online foreign payments' },
       { id:'vs4e', t:'Note your application number', note:'' },
@@ -1206,15 +1229,12 @@ const PF_VISA_STAGES = [
     icon:'task_alt', consult:'visa-evisa',
     summary:'Your eVisa arrives by email. Check every detail on it the day it arrives.',
     where:[
-      { name:'Email + INZ portal', detail:'The eVisa letter states your visa conditions: institution, course, work rights (unlimited hours for PhD), and validity dates.',
-        masters_detail:'The eVisa letter states your visa conditions: institution, course, work rights (25 hours a week in semester for a taught master’s), and validity dates.' },
+      { name:'Email + INZ portal', detail:'The eVisa letter states the conditions INZ has placed on your visa: institution, course, any work condition, and validity dates. Those conditions are whatever the letter says — read them off the letter itself rather than assuming them from your course type.' },
     ],
     steps:[
       { id:'vs6a', t:'eVisa received — check name spelling and passport number', note:'Errors must be corrected before travel' },
-      { id:'vs6b', t:'Confirm work rights show unlimited hours (PhD)', note:'',
-        masters_t:'Confirm work rights show 25 hours a week during semester',
-        masters_note:'Full-time work is allowed only in scheduled breaks — check the dates on the letter' },
-      { id:'vs6c', t:'Confirm validity covers your full first year+', note:'' },
+      { id:'vs6b', t:'Read the conditions section of the letter in full', note:'Whether a work condition applies, and what limit it carries, is stated there. If it does not match what you expected, that is a question for INZ or a licensed adviser — not something to act on either way' },
+      { id:'vs6c', t:'Check the validity dates against your enrolment', note:'' },
     ]},
   { id:'vs7', title:'Pre-Departure', when:'Final 4–6 weeks', dur:'4–6 weeks', cost:'Flights ~LKR 250,000–400,000', color:'gold',
     icon:'flight_takeoff', consult:'visa-predeparture',
@@ -1313,32 +1333,35 @@ const PF_SETTLEMENT = [
     tips:[ 'Ask the mentor to check: insulation/heating (critical in Dunedin/Christchurch), mould, water pressure, distance to campus',
            'A 20-minute video viewing has saved students from year-long mistakes',
            'Alternatively: book university halls for semester one and hunt in person' ]},
-  { id:'set11', cat:'family', icon:'work', title:'Partner’s open work visa', consult:'settle-family',
-    body:'Your partner can apply for an open work visa tied to your PhD enrolment — full-time work, any employer.',
-    masters_body:'Partners of students in level-9 master\u2019s study on the Green List or in specified fields can apply for an open work visa. It is NOT automatic for every master\u2019s — check your programme against the INZ list before you plan around two incomes.',
-    tips:[ 'Apply together with your visa or after arrival — together is usually faster',
-           'Evidence of relationship: marriage certificate + shared life evidence (photos, joint accounts)',
-           'Partner’s income changes your budget completely — see the cost calculator',
-           'Your children attend school as domestic students (free state schooling)' ],
-    masters_tips:[ 'Confirm your specific programme qualifies before assuming a partner can work — this is the most common costly assumption',
-           'Apply together with your visa or after arrival — together is usually faster',
-           'Evidence of relationship: marriage certificate + shared life evidence (photos, joint accounts)',
-           'If the partner work visa does not apply, budget for a single income from day one' ]},
+  /* Family & dependants. Everything on these three cards used to be stated
+     as an entitlement and branched by track — "your partner can apply for
+     an open work visa", "your children are treated as domestic students",
+     "you are eligible for publicly funded healthcare", each with a
+     master's variant. Partner and dependant status is immigration advice
+     wherever it is given: it falls outside the offshore education-agent
+     exemption entirely, so no amount of being based abroad makes it
+     lawful unlicensed. Rewritten to name the question and hand it over. */
+  { id:'set11', cat:'family', icon:'work', title:'If your partner wants to work here', consult:'settle-family',
+    body:'INZ operates a partner-of-a-student work visa, but eligibility is narrow, depends on the level and field of the student\u2019s study, and the settings change. This card exists to tell you the question is real and where to take it \u2014 not to answer it.',
+    tips:[ 'Read INZ\u2019s own page on partner of a student work visas before you plan around a second income',
+           'Whether your programme makes your partner eligible is an immigration assessment \u2014 INZ or a licensed adviser, not a mentor and not this page',
+           'Assuming a partner can work is the most expensive wrong assumption students make. Until it is confirmed in writing, budget on one income',
+           'Apply for anything family-related at the same time as your own application only if INZ\u2019s guidance for your situation says so' ]},
   { id:'set12', cat:'family', icon:'school', title:'Schools & early childhood for your kids', consult:'settle-family',
-    body:'School-age children of PhD students are treated as domestic students — no international fees. Enrolment is by home address ("school zone").',
-    masters_body:'Children of students in level-9 or higher study are generally treated as domestic students, but the rule is narrower than for doctoral students — confirm your programme qualifies with INZ before you budget. Enrolment is by home address ("school zone").',
-    tips:[ 'Pick the suburb by its school zone — check schoolzones.co.nz before signing a lease',
-           'School year runs Feb–Dec in 4 terms',
-           'ECE: 20 free hours/week from age 3',
-           'Enrol with the school directly; you need proof of address + child’s passport/visa' ]},
+    body:'What a student\u2019s child pays at a state school depends on the parent\u2019s visa and study, and the rule is narrower than most people assume. Confirm your children\u2019s status with INZ or the Ministry of Education before you budget \u2014 the gap between domestic and international school fees is large enough to change whether the move works.',
+    tips:[ 'Enrolment is by home address (\u201cschool zone\u201d) \u2014 pick the suburb by its zone, check schoolzones.co.nz before signing a lease',
+           'School year runs Feb\u2013Dec in 4 terms',
+           'ECE: 20 free hours a week from age 3',
+           'Enrol with the school directly; you need proof of address + the child\u2019s passport and visa',
+           'Ask the school\u2019s international office to confirm in writing which fee status they will apply to your child' ]},
   { id:'set13', cat:'family', icon:'medical_information', title:'Healthcare, pregnancy & babies', consult:'settle-family',
-    body:'PhD students on a visa of 2 years or more, and their families, are generally eligible for publicly funded healthcare.',
-    masters_body:'Eligibility for publicly funded healthcare depends on holding a visa valid for 2 years or more. A one-year master\u2019s usually does NOT qualify, so budget for the private health insurance your provider requires.',
-    tips:[ 'Enrol the whole family with a GP practice (PHO) in week one',
-           'Maternity care is free for eligible students — register with a midwife (LMC) early',
-           'Plunket supports new parents free — nurse visits, helpline, parent groups',
+    body:'Eligibility for publicly funded healthcare is set by Te Whatu Ora and turns on the visa you hold and how long it is valid for, not on your course. Check your own eligibility against their published criteria, and budget for the insurance your provider requires until you have confirmed it.',
+    tips:[ 'Te Whatu Ora publishes the eligibility criteria \u2014 read them against the visa you actually hold',
+           'Most providers require health insurance for the duration of enrolment regardless of eligibility \u2014 check your offer conditions',
+           'Enrol the whole family with a GP practice (PHO) in week one',
+           'Plunket supports new parents free \u2014 nurse visits, helpline, parent groups',
            'ACC covers accident treatment for everyone in NZ, visitor or resident',
-           'Dentists are NOT subsidised — fix your teeth in Sri Lanka before flying' ]},
+           'Dentists are NOT subsidised \u2014 fix your teeth in Sri Lanka before flying' ]},
   { id:'set14', cat:'apps', icon:'apps', title:'The apps to install in week one', consult:'settle-arrival',
     body:'The short list every student ends up with — install before you fly.',
     tips:[ 'Transit: AT Mobile (Auckland) / Metlink (Wellington) / Transit app (anywhere)',

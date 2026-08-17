@@ -10,10 +10,10 @@
    publishers require credit as a condition of reuse. The UI prints
    them. Do not remove them.
 
-   Built: 2026-08-15
+   Built: 2026-08-17
 */
 window.PF_GOVT = {
-  "built": "2026-08-15",
+  "built": "2026-08-17",
   "studentVisa": {
     "src": "Student visa applications decided",
     "srcUrl": "https://www.immigration.govt.nz/about-us/research-and-statistics/statistics/",
@@ -752,6 +752,171 @@ window.PF_GOVT = {
         ]
       }
     ]
+  },
+  "agents": {
+    "src": "Education agent performance data",
+    "srcUrl": "https://www.immigration.govt.nz/study/for-education-providers/data-and-processing-times-for-international-student-visas/education-agent-performance-data/",
+    "fileUrl": "https://www.immigration.govt.nz/assets/inz/documents/industry/education-agent-performance-data-for-2024.xlsx",
+    "attribution": "Immigration New Zealand",
+    "licence": "Crown copyright, released under NZGOAL (CC BY)",
+    "year": 2024,
+    "market": "Sri Lanka",
+    "title": "Education agent performance - Sri Lanka student market - 2024",
+    "publisherNotes": [
+      "Published by Immigration New Zealand in February 2025.",
+      "Calculated based on offshore full fee-paying, student exchange, pathway, english language studies, and scholarship student visa applications from Sri Lanka nationals completed 1 January 2024 - 31 December 2024, which had an agent declared on the application form and a declaration form provided.",
+      "Includes all agents with 5 or more Sri Lanka student visa application decisions during this time period, regardless of where the agent is located.",
+      "This includes agents added to applications as Adviser (Exempt) and Contact (other).",
+      "Individual agent data does not include applications that were withdrawn or lapsed. The 'Total for Sri Lanka market' does include these applications."
+    ],
+    "total": {
+      "label": "Total for Sri Lanka market where an agent was declared",
+      "rate": 80,
+      "volume": "1,576 student visas"
+    },
+    "rows": [
+      {
+        "name": "Aspirations Education",
+        "band": "95-100%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Estero New Zealand Ltd",
+        "band": "95-100%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "International Education Consultancy",
+        "band": "95-100%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Transpacific Immigration Services",
+        "band": "95-100%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "AJV Services Limited (AJV)",
+        "band": "90-95%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Rivil International Education Consultant P Ltd",
+        "band": "90-95%",
+        "volume": "151-200 student visas"
+      },
+      {
+        "name": "IDP Education Ltd",
+        "band": "85-90%",
+        "volume": "26-50 student visas"
+      },
+      {
+        "name": "ILTS Overseas Education Pvt Ltd",
+        "band": "85-90%",
+        "volume": "151-200 student visas"
+      },
+      {
+        "name": "International Scholar Educational Services (PVT) Ltd",
+        "band": "85-90%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "RBS Intellect",
+        "band": "85-90%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Thames International Education Consultancy (Pvt)",
+        "band": "85-90%",
+        "volume": "151-200 student visas"
+      },
+      {
+        "name": "Immigration Advisers New Zealand Limited",
+        "band": "80-85%",
+        "volume": "51-75 student visas"
+      },
+      {
+        "name": "KC Overseas Education",
+        "band": "80-85%",
+        "volume": "76-100 student visas"
+      },
+      {
+        "name": "Liu Cheng International Jinash Shrestha",
+        "band": "80-85%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Overseas Education Service",
+        "band": "80-85%",
+        "volume": "51-75 student visas"
+      },
+      {
+        "name": "Pyramid Overseas Education Consultants",
+        "band": "80-85%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "TRU Global Education And Consultants Pvt Ltd",
+        "band": "80-85%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Benchmark International Consultancy",
+        "band": "75-80%",
+        "volume": "26-50 student visas"
+      },
+      {
+        "name": "Campus Direct",
+        "band": "70-75%",
+        "volume": "26-50 student visas"
+      },
+      {
+        "name": "On Target Educational Consultancy Pvt Ltd",
+        "band": "70-75%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Study Abroad Pvt Ltd",
+        "band": "70-75%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Asian Impex International Limited",
+        "band": "65-70%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Expert Education And Visa Services",
+        "band": "65-70%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "My Career Prospects",
+        "band": "65-70%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Rohaka Private Limited",
+        "band": "65-70%",
+        "volume": "151-200 student visas"
+      },
+      {
+        "name": "Sage Consulting Services Pvt Ltd",
+        "band": "65-70%",
+        "volume": "51-75 student visas"
+      },
+      {
+        "name": "Beverley International Pvt Ltd",
+        "band": "60-65%",
+        "volume": "5-25 student visas"
+      },
+      {
+        "name": "Uniwest Educational Services",
+        "band": "30-35%",
+        "volume": "5-25 student visas"
+      }
+    ],
+    "note": "Approval rates are published as BANDS and volumes as RANGES — INZ does not release point figures, and neither do we. A band is not a quality score: it counts offshore student visa decisions where that agent was declared on the form, over one calendar year."
   },
   "rent": {
     "src": "Rental bond data by territorial authority",
