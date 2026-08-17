@@ -598,7 +598,7 @@ THE THREE THAT DECIDE IT
    degree" are completely different requirements. Email admissions and ask
    directly — they answer, usually within days, and it is free to ask.
 
-— Pull the first ten rows straight from the PathFinder Course Catalogue.
+— Pull the first ten rows straight from the PathFinder Programme Catalogue.
 — Verify tuition on the provider\u2019s own fees page: the register does not carry it.`},
 
   { id:'t1', name:'Supervisor First-Contact Email', type:'Email template', icon:'mail', category:'Emails & Correspondence', track:'phd',

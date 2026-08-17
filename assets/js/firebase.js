@@ -643,10 +643,13 @@ if (cfg && cfg.apiKey) {
     user = u;
     paintAuth();
     // The top-nav avatar (initials) is painted by app.js's updateNavChrome(),
-    // which only runs after route(). Sign-out fires this callback without a
-    // navigation, so without this call the avatar keeps showing the just
-    // signed-out user until the student happens to change views — reading
-    // as still-signed-in on a shared/borrowed device. See B-06.
+    // which only runs after route(). This callback fires without a
+    // navigation on sign-out (B-06) AND on the very first restore after a
+    // page refresh, when the initial route() already painted with no
+    // session because Firebase hadn't resolved the stored one yet (B-08:
+    // "avatar resets to empty on refresh even though still signed in").
+    // Repainting here on every auth-state change, not just sign-out,
+    // covers both.
     if (window.updateNavChrome) window.updateNavChrome();
     adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
     refreshMentorProfile();          // updates the Mentor Dashboard sidebar link

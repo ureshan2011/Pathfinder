@@ -582,7 +582,7 @@
 
     <ul class="topnav-links">
       <li><a data-view="dashboard" href="#dashboard"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">space_dashboard</span>Home</a></li>
-      <li><a data-view="courses"   href="#courses"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">school</span>Courses</a></li>
+      <li><a data-view="courses"   href="#courses"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">school</span>Programmes</a></li>
       <li><a data-view="roadmap"   href="#roadmap"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">route</span>Roadmap</a></li>
       <li><a data-view="mentors"   href="#mentors"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">support_agent</span>Mentors</a></li>
       <li><a data-view="funding"   href="#funding"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px;vertical-align:-2px;margin-right:5px">request_quote</span>Funding</a></li>
@@ -603,7 +603,7 @@
         <a class="navpop-link" role="menuitem" data-view="billing"    href="#billing"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Billing</a>
         <a class="navpop-link" role="menuitem" data-view="account"    href="#account"><span class="material-symbols-outlined" aria-hidden="true">account_circle</span>Account</a>
         <a class="navpop-link" role="menuitem" data-view="pricing"    href="#pricing"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Plans</a>
-        <a class="navpop-link" role="menuitem" data-view="admin"      href="#admin"><span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>Admin</a>
+        <a class="navpop-link hidden" role="menuitem" id="admin-link" data-view="admin" href="#admin"><span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>Admin</a>
         <a class="navpop-link hidden" role="menuitem" id="mentor-link" data-view="mentor" href="#mentor"><span class="material-symbols-outlined" aria-hidden="true">badge</span>Mentor Dashboard</a>
         <div class="navpop-sep"></div>
         <!-- The phone line, one tap from every view. href + label are filled
@@ -612,8 +612,10 @@
         <a class="navpop-link" role="menuitem" id="nav-whatsapp" href="#" target="_blank" rel="noopener" hidden><span class="material-symbols-outlined" aria-hidden="true">chat</span><span class="wa-label">WhatsApp us</span></a>
         <div class="navpop-sep"></div>
         <div id="auth-slot"></div>
+        <!-- Its own line, not folded into the legal-links row below — mixed
+             in there it read as just another tiny link (U-29). -->
+        <p class="navpop-sync" id="sync-state">Data stays on device</p>
         <div class="navpop-foot">
-          <span id="sync-state">Data stays on device</span>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
           <a href="terms.html#refunds">Refunds</a>
@@ -629,7 +631,7 @@
 
   <nav class="tabbar" aria-label="Primary">
     <a data-view="dashboard" href="#dashboard"><span class="material-symbols-outlined" aria-hidden="true">space_dashboard</span>Home</a>
-    <a data-view="courses"   href="#courses"><span class="material-symbols-outlined" aria-hidden="true">school</span>Courses</a>
+    <a data-view="courses"   href="#courses"><span class="material-symbols-outlined" aria-hidden="true">school</span>Programmes</a>
     <a data-view="roadmap"   href="#roadmap"><span class="material-symbols-outlined" aria-hidden="true">route</span>Roadmap</a>
     <a data-view="mentors"   href="#mentors"><span class="material-symbols-outlined" aria-hidden="true">support_agent</span>Mentors</a>
     <a data-view="funding"   href="#funding"><span class="material-symbols-outlined" aria-hidden="true">request_quote</span>Funding</a>

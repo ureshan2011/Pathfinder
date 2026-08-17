@@ -175,6 +175,7 @@
     .nav.on-dark .logo .mono { color: rgba(240,237,230,.35); }
     .nav.on-dark .nav-links a { color: rgba(240,237,230,.6); }
     .nav.on-dark .nav-links a:hover { color: #E8763F; }
+    .nav.on-dark .nav-links a[aria-current="page"] { color: #E8763F; border-bottom-color: #E8763F; }
     .nav.on-dark .tlink { color: rgba(240,237,230,.8); }
     .nav.on-dark .btn-primary { background: #F4F1EA; color: var(--ink); border-color: #F4F1EA; }
     .nav.on-dark .btn-primary:hover { background: var(--route); border-color: var(--route); color: #FFF4ED; }
@@ -429,13 +430,17 @@
     <a class="logo" href="index.html"><span class="word">Path<i>finder</i></span><span class="mono" style="font-size:10px">POSTGRAD · NEW ZEALAND</span></a>
     <nav class="nav-links">
       <a href="#journey">The&nbsp;journey</a>
-      <a href="#catalogue">Courses&nbsp;&amp;&nbsp;cost</a>
+      <a href="#catalogue">Programmes&nbsp;&amp;&nbsp;cost</a>
       <a href="#people">Mentors</a>
       <a href="#honest">What&nbsp;this&nbsp;is</a>
     </nav>
     <div style="display:flex;gap:10px;align-items:center">
-      <a class="tlink" href="app.html#dashboard" style="font-size:13px">Dashboard</a>
-      <a class="btn btn-primary btn-sm" href="app.html#assessment">Start free</a>
+      <!-- One entry point, not two competing ones (U-22) — always lands on
+           the dashboard overview, which already leads a first-time visitor
+           straight into the assessment itself (see renderFirstRun in
+           app.js). Label swaps to "Dashboard" for a returning visitor once
+           store.js has loaded, below. -->
+      <a class="btn btn-primary btn-sm" id="nav-cta" href="app.html#dashboard">Start free</a>
     </div>
   </div>
 </header>
@@ -963,7 +968,7 @@ navMode();
 <section class="sec" id="catalogue" style="padding-top:0">
   <div class="wrap">
     <div class="chapter" data-reveal>
-      <span class="no">02</span><span class="ttl">Courses &amp; Cost</span><span class="end">NZQA register</span>
+      <span class="no">02</span><span class="ttl">Programmes &amp; Cost</span><span class="end">NZQA register</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
       <h2 class="display" data-reveal style="font-size:clamp(1.9rem,3.6vw,2.9rem)">Not a shortlist.<br><em>The register itself.</em></h2>
@@ -1023,7 +1028,7 @@ navMode();
     </div>
 
     <div style="margin-top:30px;display:flex;gap:14px 30px;flex-wrap:wrap;align-items:center" data-reveal>
-      <a class="tlink" href="app.html#courses">Browse the catalogue <span style="color:var(--route)">→</span></a>
+      <a class="tlink" href="app.html#courses">Browse the programmes <span style="color:var(--route)">→</span></a>
       <a class="tlink" href="app.html#cost">Work out what a year actually costs <span style="color:var(--route)">→</span></a>
       <a class="tlink" href="app.html#funding">Scholarships <span style="color:var(--route)">→</span></a>
     </div>
@@ -1201,7 +1206,7 @@ navMode();
     <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:40px">
       <nav style="display:flex;gap:26px;flex-wrap:wrap" class="mono">
         <a class="tlink" style="font-size:11px" href="app.html#assessment">Assessment</a>
-        <a class="tlink" style="font-size:11px" href="app.html#courses">Courses</a>
+        <a class="tlink" style="font-size:11px" href="app.html#courses">Programmes</a>
         <a class="tlink" style="font-size:11px" href="app.html#cost">Cost</a>
         <a class="tlink" style="font-size:11px" href="app.html#funding">Funding</a>
         <a class="tlink" style="font-size:11px" href="app.html#visa">Visa</a>
@@ -1245,6 +1250,40 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ── Nav ── */
 addEventListener('scroll', () => document.getElementById('nav').classList.toggle('scrolled', scrollY > 24), { passive: true });
+
+/* One nav CTA, always pointing at the dashboard — label only changes to
+   tell a returning visitor there's something there to come back to. */
+if (typeof PFStore !== 'undefined' && (PFStore.get('track', null) !== null || PFStore.getAssessment())) {
+  const cta = document.getElementById('nav-cta');
+  if (cta) cta.textContent = 'Dashboard';
+}
+
+/* ── Nav active section (scroll-spy) ──────────────────────────
+   The nav-links never showed which section was on screen (same family as
+   B-02 in the SPA's own top nav). Whichever section's top has most
+   recently crossed a line just under the fixed header is "current" — the
+   same rule browsers use for :target, just driven by scroll position
+   instead of a click, so exactly one link lights at a time regardless of
+   how tall any one section is. */
+(() => {
+  const sections = [...document.querySelectorAll('.nav-links a[href^="#"]')]
+    .map(a => ({ a, el: document.getElementById(a.getAttribute('href').slice(1)) }))
+    .filter(s => s.el);
+  if (!sections.length) return;
+  const LINE = 120; // px below the fixed header
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    let current = sections[0].el;
+    sections.forEach(({ el }) => { if (el.getBoundingClientRect().top <= LINE) current = el; });
+    sections.forEach(({ a, el }) => {
+      if (el === current) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  update();
+})();
 
 /* ── Reveal ── */
 (() => {
