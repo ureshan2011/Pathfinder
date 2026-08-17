@@ -1,17 +1,25 @@
 /* ════════════════════════════════════════════════════════════
    PathFinder — Firebase sync layer (free Spark plan)
 
-   Cloud-first for EVERY visitor. On load, anyone without a session
-   is signed in anonymously (a persistent uid), so their data lives
-   in Firestore — not just on the device. localStorage (PFStore)
-   remains only as a synchronous read cache so the UI stays instant
-   and works offline; Firestore is the durable system of record.
+   Account required to save. Nobody is signed in on load — browsing,
+   the assessment, and the roadmap preview all work with zero
+   Firestore writes. The moment a visitor tries to save something
+   (see requireAccount() in app.js), that action is blocked behind a
+   real sign-up/sign-in first; nothing is ever written under an
+   anonymous, unnamed session. localStorage (PFStore) remains the
+   synchronous read cache so the UI stays instant and works offline;
+   Firestore is the durable system of record once an account exists.
 
-   · Every PFStore write  →  users/{uid}/kv/{key}   (debounced)
-   · On load / sign-in    →  pull remote keys, merge "newer wins"
-   · Anonymous → named     →  the anon account is LINKED in place on
-     Google / email sign-in, so a student's data is upgraded, never
-     orphaned, when they decide to sign in across devices.
+   · Every PFStore write  →  users/{uid}/kv/{key}   (debounced) — only
+     ever fires for a real, named user; the admin session is excluded
+     so it never mirrors device data.
+   · On sign-in            →  pull remote keys, merge "newer wins"
+   · One narrow exception: the landing page's low-friction "leave your
+     email" lead capture (addLead) still lazily mints an anonymous
+     session on submit — a marketing signal, not product data, and
+     asking for an account there would defeat the point of it being
+     the quiet, no-commitment option. Everything else goes through
+     requireAccount().
    · Leads & consultation requests additionally go to create-only
      inbox collections (inbox_leads / inbox_consultations) so the
      platform owner receives them in the Firebase console.
@@ -181,10 +189,12 @@ if (cfg && cfg.apiKey) {
 
   function setSyncState() {
     if (!stateEl) return;
-    if (isAdminUser(user))           stateEl.textContent = 'Admin session';
+    if (isAdminUser(user))              stateEl.textContent = 'Admin session';
     else if (user && !user.isAnonymous) stateEl.textContent = 'Synced to cloud';
-    else if (user)                   stateEl.textContent = 'Saved to cloud';
-    else                             stateEl.textContent = 'Connecting…';
+    // A live anonymous session only exists here for the lead-capture form
+    // (see the header comment) — everything else requires a real account.
+    else if (user)                      stateEl.textContent = 'Saved to cloud';
+    else                                stateEl.textContent = 'Sign in to save your work';
   }
 
   /* Sign in with Google, upgrading the current anonymous account in place
@@ -638,7 +648,6 @@ if (cfg && cfg.apiKey) {
     },
   };
 
-  let authInitialised = false;
   onAuthStateChanged(auth, u => {
     user = u;
     paintAuth();
@@ -653,15 +662,11 @@ if (cfg && cfg.apiKey) {
     if (window.updateNavChrome) window.updateNavChrome();
     adminListeners.forEach(fn => { try { fn(isAdminUser(u)); } catch {} });
     refreshMentorProfile();          // updates the Mentor Dashboard sidebar link
-    if (u && !isAdminUser(u)) pullAndMerge();   // students (incl. anonymous) sync
-    // First callback after init carries the RESTORED session (or null). Only
-    // when there's genuinely no session do we mint a persistent anonymous one
-    // — checking here (not eagerly) avoids creating a duplicate account on
-    // every reload before Firebase has rehydrated the stored uid.
-    if (!authInitialised) {
-      authInitialised = true;
-      if (!u) signInAnonymously(auth).catch(e => console.warn('PathFinder: anon sign-in failed', e));
-    }
+    if (u && !isAdminUser(u)) pullAndMerge();   // real account signed in — pull their data
+    // No eager anonymous sign-in here on purpose: `u` staying null is the
+    // normal, expected state for a visitor who hasn't saved anything yet.
+    // The only path that ever mints an anonymous session is the lead-capture
+    // form's own ensureAuth() call, on demand, at submit time.
   });
 
   paintAuth();

@@ -356,10 +356,13 @@ window.PFFunds = (() => {
 
     $a('#fp-save').onclick = () => {
       const name = $a('#fp-name').value.trim() || `${PF_CITY_COSTS.find(c => c.id === cityId).city} · ${status}`;
-      PFStore.saveFundsPlan({ name, cityId, status, overrides: readInputs(), weekly, partner: { ...partner } });
-      $a('#fp-name').value = '';
-      toast('Plan saved — compare it below');
-      renderPlans();
+      const overrides = readInputs();
+      requireAccount('Create a free account to save this plan.', { action: () => {
+        PFStore.saveFundsPlan({ name, cityId, status, overrides, weekly, partner: { ...partner } });
+        $a('#fp-name').value = '';
+        toast('Plan saved — compare it below');
+        renderPlans();
+      } });
     };
     $a('#fp-plans').addEventListener('click', e => {
       const load = e.target.closest('.fp-load'), del = e.target.closest('.fp-del');
