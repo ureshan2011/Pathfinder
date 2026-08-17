@@ -1276,3 +1276,105 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
   margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
 }
 .shell .crs-more .faint { font-size: 12.5px; }
+
+/* ── Mentor profiles ══════════════════════════════════════════════════
+   Browse profiles (#mentors → grid of mn-card) and the full profile
+   page (mnp-*) it links into. Built from the same tokens as the rest of
+   the shell (--card, --r-card, --shadow-card, the chip system) so a
+   "modern" feel comes from proportion, whitespace and the avatar
+   treatment — not a second visual language bolted onto this one. */
+
+/* Avatar — no photo-upload pipeline in this build, so a colour-coded
+   initials mark stands in (see mentorAvatarHtml in app.js). The ring is
+   a soft halo in the same colour as the fill, not a hard border. */
+.shell .mn-avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 52px; height: 52px; border-radius: var(--r-pill);
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; letter-spacing: -.01em;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.6), 0 4px 14px rgba(25,27,30,.10);
+}
+.shell .mn-avatar-lg {
+  width: 88px; height: 88px; font-size: 1.9rem;
+  box-shadow: 0 0 0 6px rgba(255,255,255,.7), 0 10px 28px rgba(25,27,30,.14);
+}
+
+/* Locked teaser — shown in place of the grid/profile when signed out. */
+.shell .mn-locked { text-align: center; padding: 48px 32px; max-width: 480px; margin: 0 auto; }
+.shell .mn-locked-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: var(--r-pill); background: var(--accent-wash); color: var(--accent-ink);
+  font-size: 24px;
+}
+.shell .mn-locked p { max-width: 40ch; margin-left: auto; margin-right: auto; }
+
+/* Search + grid */
+.shell .mn-search { max-width: 420px; }
+.shell .mn-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+}
+.shell .mn-card {
+  display: block; color: inherit;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card);
+  padding: 22px; box-shadow: var(--shadow-card);
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.shell .mn-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: var(--shadow-hero); }
+.shell .mn-card-top { display: flex; align-items: center; gap: 14px; }
+.shell .mn-card-id { min-width: 0; }
+.shell .mn-card-name { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; letter-spacing: -.01em; }
+.shell .mn-card-quals { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+.shell .mn-card-bio { font-size: 13px; color: var(--ink-dim); line-height: 1.55; margin-top: 14px; }
+.shell .mn-card-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.shell .mn-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-soft);
+  font-size: 12px; color: var(--ink-dim);
+}
+.shell .mn-card-city { display: inline-flex; align-items: center; gap: 4px; }
+.shell .mn-card-city .material-symbols-outlined { font-size: 14px; }
+.shell .mn-card-link { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); font-weight: 600; }
+.shell .mn-card-link .material-symbols-outlined { font-size: 15px; transition: transform var(--t-fast); }
+.shell .mn-card:hover .mn-card-link .material-symbols-outlined { transform: translateX(2px); }
+
+/* A "topic I help with" tag — its own tint, distinct from the chip-*
+   status colours (this isn't a state, it's a category). */
+.shell .chip-topic { color: var(--accent-ink); background: var(--accent-wash); }
+
+/* Full profile page */
+.shell .mnp-back {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--ink-dim); font-size: 13px; font-weight: 500;
+  margin-bottom: 18px;
+}
+.shell .mnp-back .material-symbols-outlined { font-size: 16px; }
+.shell .mnp-back:hover { color: var(--ink); }
+.shell .mnp-hero {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-hero);
+  padding: 32px 34px; box-shadow: var(--shadow-card);
+}
+.shell .mnp-name { font-family: var(--font-display); font-size: 1.7rem; font-weight: 600; letter-spacing: -.015em; }
+.shell .mnp-quals { font-size: 14.5px; color: var(--ink-dim); margin-top: 3px; }
+.shell .mnp-hero-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--ink-dim); }
+.shell .mnp-hero-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.shell .mnp-hero-meta .material-symbols-outlined { font-size: 16px; }
+.shell .mnp-skills { display: flex; flex-wrap: wrap; gap: 8px; }
+.shell .mnp-packages { display: flex; flex-direction: column; gap: 2px; }
+.shell .mnp-pkg {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
+}
+.shell .mnp-pkg:last-child { border-bottom: 0; }
+.shell .mnp-pkg-name { font-weight: 500; }
+.shell .mnp-pkg-price { font-family: var(--font-mono); font-size: 12px; color: var(--ink-dim); white-space: nowrap; }
+.shell .mnp-fact { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; }
+.shell .mnp-fact + .mnp-fact { border-top: 1px solid var(--line-soft); }
+.shell .mnp-fact .material-symbols-outlined { font-size: 17px; color: var(--accent-ink); margin-top: 1px; }
+.shell .mnp-fact-label { display: block; font-family: var(--font-mono); font-size: 9.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+.shell .mnp-fact-value { display: block; font-size: 13px; margin-top: 2px; }
+#mnp-ask .consult-hook { border: 0; padding: 0; margin-top: 10px; }
+#mnp-ask .consult-hook-toggle { padding: 0; }
+
+@media (max-width: 720px) {
+  .shell .mnp-hero { padding: 24px; }
+  .shell .mn-avatar-lg { width: 68px; height: 68px; font-size: 1.5rem; }
+}

@@ -358,72 +358,66 @@ function toast(msg) {
    signed in — e.g. 'mentors?topic=visa-medical' so a student who got gated
    asking about their visa documents lands right back on that pre-filled
    form, not on the generic dashboard. Defaults to the current hash. */
+/* opts.action, when given, gates inline instead of navigating away: a
+   modal opens right where the student is, and `action` runs the moment
+   sign-up/sign-in succeeds — so a single click (save this course, tick
+   this box) still completes in one gesture instead of losing whatever
+   they were doing to a trip to #account and back. Callers with no natural
+   single action (a whole screen behind a wall, e.g. #cost) keep passing
+   only `opts.next` for the redirect behaviour. */
 function requireAccount(reason, opts = {}) {
-  if (window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn()) return true;
+  if (window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn()) { if (opts.action) opts.action(); return true; }
+  // No accounts layer at all — this deployment runs 100% locally by
+  // design (README → "or runs 100% locally when Firebase is left
+  // unconfigured"); there is nothing to gate against.
+  if (!cloudOn() || !(window.PFCloud && PFCloud.signInGoogle)) { if (opts.action) opts.action(); return true; }
+  if (opts.action) { accountGateModal(reason, opts.action); return false; }
   toast(reason || 'Create a free account to continue.');
   location.hash = accountHref(opts.next || location.hash.slice(1));
   return false;
 }
 
-/* ── The soft account prompt ─────────────────────────────────────────
-   requireAccount() above is the hard gate: it stops an action until there
-   is a real account behind it. This is its opposite — it never stops
-   anything. It appears the moment a student has just MADE something worth
-   keeping (a roadmap, a shortlist, a tracked application, a proposal
-   draft) and offers to keep it on every device. Declining works, is
-   remembered, and leaves the work exactly where it was.
-
-   Why the ask lives here and not at the front door: every visitor is
-   already signed in anonymously and already syncing to Firestore
-   (firebase.js), and signing up later LINKS that anonymous account in
-   place rather than orphaning it — so a wall at the landing page would
-   protect nothing a student can feel, while costing the assessment funnel
-   the whole product runs on. What an account actually buys them is the
-   second device, and that is only worth explaining once they own
-   something that would be stranded on the first one.
-
-   Each moment fires at most once, ever. The record lives in `__softGate`
-   — a `__`-prefixed key the sync layer skips (firebase.js:162) — so
-   remembering a dismissal costs no Firestore write. */
-function softAccountPrompt(opts) {
-  const o = opts || {};
-  if (!cloudOn() || !o.key) return;
-  // PFCloud arrives as a deferred module; with no accounts layer loaded
-  // there is nothing to offer and no way to tell who is already signed in.
-  if (!(window.PFCloud && PFCloud.isSignedIn && PFCloud.signInGoogle)) return;
-  if (PFCloud.isSignedIn()) return;
-  const seen = PFStore.get('__softGate', {}) || {};
-  if (seen[o.key]) return;
-  seen[o.key] = Date.now();
-  PFStore.set('__softGate', seen);
-
-  const m = modal(o.title || 'Keep this on every device', `
-    <p style="font-size:14.5px;margin:0">${esc(o.body || '')}</p>
-    <p class="muted" style="font-size:12.5px;margin:10px 0 0">Free, one tap, and nothing you've done so far is lost either way — it's already saved on this device.</p>
+/* The inline half of requireAccount() above. Same account-creation form
+   as accountAuth() (#account, not signed in), in a modal instead of a
+   full view, so the student never leaves the screen they were on. Closing
+   without signing in just closes it — the gated action never runs, and
+   nothing they'd already typed elsewhere on the page is lost. */
+function accountGateModal(reason, action) {
+  const m = modal('Create a free account to save this', `
+    <p style="font-size:14.5px;margin:0">${esc(reason || 'An account is what makes this yours — nothing is saved anywhere until you have one.')}</p>
     <div class="hero-actions mt-5" style="flex-wrap:wrap">
-      <button type="button" class="btn sg-google">
+      <button type="button" class="btn ag-google">
         <span class="material-symbols-outlined" aria-hidden="true">login</span> Continue with Google</button>
-      <button type="button" class="btn btn-quiet sg-email">Use an email instead</button>
     </div>
-    <p style="margin:16px 0 0">
-      <button type="button" class="sg-skip" style="background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--ink-faint);text-decoration:underline;cursor:pointer">Not now — keep working without an account</button>
-    </p>
-    <p class="faint sg-msg" style="font-size:12.5px;min-height:16px;margin:6px 0 0"></p>`);
+    <p class="muted" style="font-size:12.5px;margin:14px 0 6px">Or with email</p>
+    <input class="field" id="ag-email" type="email" autocomplete="email" placeholder="you@example.com">
+    <input class="field mt-3" id="ag-pass" type="password" autocomplete="new-password" placeholder="Password (6+ characters)">
+    <p class="faint ag-msg" style="font-size:12.5px;min-height:16px;margin:8px 0 0"></p>
+    <div class="hero-actions mt-3" style="flex-wrap:wrap">
+      <button type="button" class="btn btn-quiet ag-signup">Create account</button>
+      <button type="button" class="btn btn-quiet ag-signin">I already have one</button>
+    </div>`);
 
-  m.el.querySelector('.sg-skip').onclick = () => m.close();
-  m.el.querySelector('.sg-email').onclick = () => {
-    m.close();
-    location.hash = accountHref(o.next || location.hash.slice(1));
-  };
-  m.el.querySelector('.sg-google').onclick = async () => {
-    const msg = m.el.querySelector('.sg-msg');
+  const msg = $('.ag-msg', m.el);
+  const finish = () => { m.close(); action(); };
+  $('.ag-google', m.el).onclick = async () => {
     msg.textContent = 'Opening Google…';
-    try {
-      await PFCloud.signInGoogle();
-      m.close();
-      toast('Signed in — your work now follows you to any device');
-      route();
-    } catch (err) { msg.textContent = humanAuthError(err); }
+    try { await PFCloud.signInGoogle(); toast('Signed in'); finish(); }
+    catch (err) { msg.textContent = humanAuthError(err); }
+  };
+  $('.ag-signup', m.el).onclick = async () => {
+    const email = $('#ag-email', m.el).value.trim(), pass = $('#ag-pass', m.el).value;
+    if (!email || pass.length < 6) { msg.textContent = 'Enter an email and a 6+ character password.'; return; }
+    msg.textContent = 'Creating account…';
+    try { await PFCloud.signUpEmail(email, pass); toast('Account created'); finish(); }
+    catch (err) { msg.textContent = humanAuthError(err); }
+  };
+  $('.ag-signin', m.el).onclick = async () => {
+    const email = $('#ag-email', m.el).value.trim(), pass = $('#ag-pass', m.el).value;
+    if (!email || !pass) { msg.textContent = 'Enter your email and password.'; return; }
+    msg.textContent = 'Signing in…';
+    try { await PFCloud.signInEmail(email, pass); toast('Signed in'); finish(); }
+    catch (err) { msg.textContent = humanAuthError(err); }
   };
 }
 
@@ -511,8 +505,15 @@ function resumeAfterAuth() {
 
 /* Lightweight modal — the only one in the app. Returns { el, close } so
    callers can wire forms/buttons inside `el`. Closes on overlay click, the
-   ✕ button, or Esc. Used by the payment flows (assets/js/pay.js). */
+   ✕ button, or Esc. Used by the payment flows (assets/js/pay.js).
+
+   At most one at a time: a caller that opens one while another is already
+   showing (e.g. requireAccount() re-firing from a render path that runs
+   more than once while its gate is still pending) closes the old one
+   first, rather than stacking overlays no click could ever get out of. */
+let _openModal = null;
 function modal(title, bodyHTML) {
+  if (_openModal) _openModal.close();
   const root = document.createElement('div');
   root.className = 'modal';
   root.innerHTML = `<div class="modal-overlay"></div>
@@ -529,13 +530,15 @@ function modal(title, bodyHTML) {
     root.remove();
     document.body.style.overflow = '';
     document.removeEventListener('keydown', onKey);
+    if (_openModal && _openModal.close === close) _openModal = null;
   };
   const onKey = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
   root.querySelector('.modal-overlay').onclick = close;
   root.querySelector('.modal-close').onclick = close;
   requestAnimationFrame(() => root.classList.add('show'));
-  return { el: root, close };
+  _openModal = { el: root, close };
+  return _openModal;
 }
 
 /* ── Entitlements (one-time premium plans) ───────────────────────────────
@@ -641,6 +644,7 @@ const ROUTES = {
   settlement: renderSettlement,
   mentors:    renderMentors,
   mentor:     renderMentor,
+  'mentor-profile': renderMentorProfile,
   pricing:    renderPricing,
   billing:    renderBilling,
   account:    renderAccount,
@@ -660,6 +664,7 @@ const NAV_PARENT = {
   assessment: 'dashboard', funds: 'dashboard', cost: 'dashboard', news: 'dashboard',
   explore: 'courses', research: 'courses',
   kit: 'roadmap',
+  'mentor-profile': 'mentors',
 };
 
 function route() {
@@ -1579,16 +1584,12 @@ function payStatusChip(payment) {
   return `<span class="chip ${cls[ps] || 'chip-neutral'}">${lbl[ps] || ps}${amt}</span>`;
 }
 
-/* inline "Ask a mentor" hook — expand + submit, no navigation. Gated
-   visitors are sent to sign up with their topic carried along, so signing
-   up lands them back on a pre-filled "Ask a mentor" request instead of the
-   dashboard, with no memory of what they were stuck on. */
+/* inline "Ask a mentor" hook — expand + submit, no navigation. Opening and
+   typing into the form is free; the gate sits at submit (see requireAccount
+   above), inline so nothing typed here is lost to a redirect. */
 document.addEventListener('click', e => {
   const tgl = e.target.closest('.consult-hook-toggle');
   if (!tgl) return;
-  const topic = tgl.parentElement.querySelector('.consult-hook-form').dataset.topic;
-  if (!requireAccount('Create a free account to connect with a mentor.',
-    { next: 'mentors' + (topic ? '?topic=' + topic : '') })) return;
   const form = tgl.parentElement.querySelector('.consult-hook-form');
   form.classList.toggle('hidden');
   if (!form.classList.contains('hidden')) form.querySelector('.ch-name').focus();
@@ -1605,16 +1606,16 @@ document.addEventListener('submit', e => {
     form.classList.add('hidden');
     return toast('Immigration questions go to INZ or a licensed adviser — see the links on this step.');
   }
-  if (!requireAccount('Create a free account to connect with a mentor.',
-    { next: 'mentors' + (topic ? '?topic=' + topic : '') })) return;
   const name = form.querySelector('.ch-name').value.trim();
   const contact = form.querySelector('.ch-contact').value.trim();
   const note = form.querySelector('.ch-note').value.trim();
   if (!name || !contact) return toast('Add your name and a way to reach you');
-  PFStore.addMentorRequest({ topic: form.dataset.topic || '', note, name, contact });
-  form.reset();
-  form.classList.add('hidden');
-  toast('Request sent — a mentor will pick this up. Track it in Mentors → My requests.');
+  requireAccount('Create a free account to connect with a mentor.', { action: () => {
+    PFStore.addMentorRequest({ topic: topic || '', note, name, contact });
+    form.reset();
+    form.classList.add('hidden');
+    toast('Request sent — a mentor will pick this up. Track it in Mentors → My requests.');
+  } });
 });
 
 /* clearly-labelled affiliate placement */
@@ -1702,19 +1703,13 @@ function saveBtn(kind, id, label, sub) {
 document.addEventListener('click', e => {
   const b = e.target.closest('.save-btn');
   if (!b) return;
-  const nowSaved = PFStore.toggleSaved(b.dataset.kind, b.dataset.id, b.dataset.label, b.dataset.sub);
-  b.classList.toggle('saved', nowSaved);
-  b.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
-  toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
-  // A shortlist is the first thing a student builds that is genuinely
-  // theirs — and the first thing they'd lose moving from a phone to a
-  // borrowed laptop. Offer once, at the third save, when it's a shortlist
-  // rather than a stray tap.
-  if (nowSaved && PFStore.getSaved().length >= 3) softAccountPrompt({
-    key: 'saved',
-    title: 'Keep your shortlist',
-    body: `You've saved ${PFStore.getSaved().length} things worth coming back to. An account keeps them when you switch to a laptop, or lose this phone.`,
-  });
+  const { kind, id, label, sub } = b.dataset;
+  requireAccount('Create a free account to save this.', { action: () => {
+    const nowSaved = PFStore.toggleSaved(kind, id, label, sub);
+    b.classList.toggle('saved', nowSaved);
+    b.innerHTML = `<span class="material-symbols-outlined" aria-hidden="true">${nowSaved ? 'bookmark_added' : 'bookmark_add'}</span> ${nowSaved ? 'Saved' : 'Save'}`;
+    toast(nowSaved ? 'Saved to your dashboard' : 'Removed from dashboard');
+  } });
 });
 
 /* ── 1 · Assessment ─────────────────────────────────────── */
@@ -1901,7 +1896,18 @@ function renderAssessment(main) {
 
   const qs = asmQuestions();
   const i = asmState.step;
-  if (i >= qs.length) return finishAssessment(main);
+  if (i >= qs.length) {
+    // Answering the questions is free; the result is what gets saved, so
+    // that's the gate — not the assessment itself (still works for anyone
+    // browsing). Signed-in fast path renders straight through.
+    if (window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn()) return finishAssessment(main);
+    main.innerHTML = renderHero({
+      kicker: 'Almost there', title: 'Create a free account to see your result',
+      body: 'Your answers are ready — an account is what saves your pathway, readiness score and roadmap so they’re still here next time.',
+    });
+    requireAccount('Create a free account to see and save your result.', { action: () => finishAssessment(main) });
+    return;
+  }
   const q = qs[i];
   const pct = Math.round((i / qs.length) * 100);
 
@@ -2230,17 +2236,6 @@ function renderRoadmap(main) {
         : `<div class="phase-body" data-body="${pi}">${body}</div>`}
       </div>`;
     }).join('');
-
-  // The strongest moment to ask: they finished the assessment, and this
-  // screen is the thing it produced — a plan with their field, their
-  // pathway and their timeline in it. Deliberately NOT on the result
-  // screen itself, where a modal would cover the result they just earned
-  // before they had a chance to read it.
-  if (r) softAccountPrompt({
-    key: 'roadmap',
-    title: 'Keep your roadmap',
-    body: `This plan is built from your answers — ${esc(r.pathway)}, ${esc(r.field)}. An account keeps it, and every box you tick on it, on any device you sign into.`,
-  });
 }
 
 /* Delegated on document (not on #view) so the handler is registered once,
@@ -2249,8 +2244,12 @@ function renderRoadmap(main) {
 document.addEventListener('change', e => {
   const cb = e.target.closest('[data-roadmap-id]');
   if (!cb) return;
-  PFStore.setChecklistItem('roadmap-' + PFStore.getTrack(), cb.dataset.roadmapId, cb.checked);
-  route();
+  const checked = cb.checked;
+  cb.checked = !checked; // revert the native toggle; requireAccount's action re-applies it via route()
+  requireAccount('Create a free account to save your progress.', { action: () => {
+    PFStore.setChecklistItem('roadmap-' + PFStore.getTrack(), cb.dataset.roadmapId, checked);
+    route();
+  } });
 });
 document.addEventListener('click', e => {
   const t = e.target.closest('.phase-collapse-toggle');
@@ -3233,12 +3232,14 @@ function renderResearchDiscover(main) {
   $('#rs-back', main).onclick = () => { researchState.stage = 'intake'; route(); };
   $$('.rs-expand', main).forEach(b => b.onclick = () => {
     const cand = rs.candidates.find(c => c.id === b.dataset.id);
-    researchState.selected = cand;
-    researchState.proposal = buildProposal(rs.intake, cand, rs.results);
-    researchState.stage = 'proposal';
-    persistResearch();
-    toast('Proposal drafted and saved');
-    route();
+    requireAccount('Create a free account to save your proposal.', { action: () => {
+      researchState.selected = cand;
+      researchState.proposal = buildProposal(rs.intake, cand, rs.results);
+      researchState.stage = 'proposal';
+      persistResearch();
+      toast('Proposal drafted and saved');
+      route();
+    } });
   });
 }
 
@@ -3295,14 +3296,6 @@ document.addEventListener('click', e => {
   a.click();
   URL.revokeObjectURL(a.href);
   toast('Proposal downloaded (.' + fmt + ')');
-  // The single biggest thing the app produces for a student. It is already
-  // auto-saved to their account — which is only worth saying to someone
-  // whose account is an anonymous device session.
-  softAccountPrompt({
-    key: 'proposal',
-    title: 'Keep your proposal draft',
-    body: 'Your draft is saved, but only to this browser. An account keeps it — and lets you send it to a mentor for review from anywhere.',
-  });
 });
 
 /* ── 2c · Courses (the NZQA postgraduate catalogue) ──────────
@@ -4292,12 +4285,14 @@ function renderFundsAmount(main) {
   $('#fc-finish').onclick = () => {
     const v = Number($('#fc-amount').value);
     if (!v || v <= 0) return toast('Enter the funds you can show (a rough figure is fine)');
-    fundsState.answers.fundsAmount = v;
-    fundsState.answers.fundsCurrency = cur;
-    const result = computeFunds(fundsState.answers);
-    PFStore.set('fundsCheck', { answers: fundsState.answers, result, completedAt: Date.now() });
-    fundsState = { step: 0, answers: {}, retake: false };
-    route();
+    requireAccount('Create a free account to see and save your funds check.', { action: () => {
+      fundsState.answers.fundsAmount = v;
+      fundsState.answers.fundsCurrency = cur;
+      const result = computeFunds(fundsState.answers);
+      PFStore.set('fundsCheck', { answers: fundsState.answers, result, completedAt: Date.now() });
+      fundsState = { step: 0, answers: {}, retake: false };
+      route();
+    } });
   };
 }
 
@@ -4619,18 +4614,12 @@ function renderDashboard(main) {
   $('#app-add').onclick = () => {
     const uni = $('#app-uni').value.trim();
     if (!uni) return toast('Enter a university or program name');
-    PFStore.upsertApp({ uni, supervisor: $('#app-sup').value.trim(), status: $('#app-status').value });
-    toast('Application added');
-    route();
-    // After the re-render, so the prompt sits over the updated list rather
-    // than the form they just submitted. A real application, with a real
-    // deadline behind it, is the point at which losing this device stops
-    // being an inconvenience.
-    softAccountPrompt({
-      key: 'application',
-      title: 'Don’t track this on one device',
-      body: 'You’re tracking a live application now. An account means it — and its status — survives a lost phone, a reinstalled browser, or a switch to a laptop.',
-    });
+    const supervisor = $('#app-sup').value.trim(), status = $('#app-status').value;
+    requireAccount('Create a free account to track this application.', { action: () => {
+      PFStore.upsertApp({ uni, supervisor, status });
+      toast('Application added');
+      route();
+    } });
   };
   $('#app-list').addEventListener('change', e => {
     const sel = e.target.closest('.app-status-sel');
@@ -5071,25 +5060,30 @@ function renderVisa(main) {
 document.addEventListener('change', e => {
   const ck = e.target.closest('[data-ck]');
   if (!ck) return;
-  PFStore.setChecklistItem(ck.dataset.ck, ck.dataset.id, ck.checked);
-  ck.closest('.ck-item').classList.toggle('done', ck.checked);
-  const stage = ck.closest('.vh-stage');
-  if (stage) {
-    const s = PF_VISA_STAGES.find(x => x.id === stage.dataset.stage);
-    const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
-    stage.querySelector('.vh-count').textContent = `${sDone}/${s.steps.length}`;
-    stage.classList.toggle('done', sDone === s.steps.length);
-    // Update the hero's own figure in place — same reason as the stage
-    // count above: a full route() re-render would collapse the open stage.
-    // renderHero() renders the figure twice (desktop .hero-right and the
-    // <900px .hero-figure-mobile copy) so both need the update.
-    const { done, total } = visaProgress();
-    const hero = document.querySelector('.hero');
-    if (hero) {
-      $$('.hero-figure', hero).forEach(fig => { fig.firstChild.textContent = String(total ? Math.round(done / total * 100) : 0); });
-      $$('.hero-caption', hero).forEach(cap => { cap.textContent = `${done}/${total} steps done`; });
+  const checked = ck.checked;
+  ck.checked = !checked; // revert the native toggle; requireAccount's action re-applies it
+  requireAccount('Create a free account to save your progress.', { action: () => {
+    PFStore.setChecklistItem(ck.dataset.ck, ck.dataset.id, checked);
+    ck.checked = checked;
+    ck.closest('.ck-item').classList.toggle('done', checked);
+    const stage = ck.closest('.vh-stage');
+    if (stage) {
+      const s = PF_VISA_STAGES.find(x => x.id === stage.dataset.stage);
+      const sDone = s.steps.filter(st => PFStore.isChecked('visa', st.id)).length;
+      stage.querySelector('.vh-count').textContent = `${sDone}/${s.steps.length}`;
+      stage.classList.toggle('done', sDone === s.steps.length);
+      // Update the hero's own figure in place — same reason as the stage
+      // count above: a full route() re-render would collapse the open stage.
+      // renderHero() renders the figure twice (desktop .hero-right and the
+      // <900px .hero-figure-mobile copy) so both need the update.
+      const { done, total } = visaProgress();
+      const hero = document.querySelector('.hero');
+      if (hero) {
+        $$('.hero-figure', hero).forEach(fig => { fig.firstChild.textContent = String(total ? Math.round(done / total * 100) : 0); });
+        $$('.hero-caption', hero).forEach(cap => { cap.textContent = `${done}/${total} steps done`; });
+      }
     }
-  }
+  } });
 });
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-vh-toggle]');
@@ -5272,7 +5266,88 @@ function mentorStats() {
   return { count: PF_MENTORS.length, fields: Object.entries(fields).sort((a, b) => b[1] - a[1]) };
 }
 
-let mentorsTab = 'ask';   // 'ask' | 'mine'
+/* ── Mentor profiles ───────────────────────────────────────────────────
+   Two sources feed one profile page: the 6 curated seed mentors
+   (PF_MENTORS — richer: a named university, priced session packages)
+   and real signed-up, admin-approved mentor accounts (Firestore
+   `mentors/{uid}` — lighter: no university or pricing yet, just what
+   they filled in applying). normalizeMentor() maps either into one
+   shape so the rest of this file never has to branch on where a mentor
+   came from. Skills draw from the same PF_CONSULT_TOPICS vocabulary
+   either way — curated mentors call the field `tags`, live accounts
+   call it `fields`, both hold topic slugs. */
+function normalizeMentor(m, src) {
+  const topicSlugs = (src === 'curated' ? m.tags : m.fields) || [];
+  const skills = topicSlugs.map(slug => ({ slug, label: PF_CONSULT_TOPICS[slug] || slug }))
+    .filter(s => !isImmigrationTopic(s.slug));
+  const uni = src === 'curated' ? uniById(m.uni) : null;
+  // Say only what's verifiably true from the data — not every mentor is
+  // still mid-PhD (one curated bio is a postdoc), so this names their
+  // field and campus rather than asserting a study stage.
+  const quals = uni ? `${m.field} · ${uni.name}` : (skills[0] ? skills[0].label : 'PathFinder Mentor');
+  return {
+    id: src === 'curated' ? m.id : m.uid,
+    src,
+    name: src === 'curated' ? m.name : (m.displayName || 'Mentor'),
+    city: m.city || '',
+    uniName: uni ? uni.name : '',
+    quals,
+    skills,
+    bio: m.bio || '',
+    langs: m.langs || '',
+    availability: m.availability || '',
+    packages: src === 'curated' ? (m.packages || []) : null,
+  };
+}
+
+/* Deterministic "profile picture" — a large initials avatar, colour-coded
+   per mentor from the app's own contrast-verified state palette
+   (--ok/--warn/--alert/--info/--accent, all defined in brand.css). No
+   photo-upload pipeline exists in this zero-backend-cost build, and
+   picking a stable colour per person from tokens already on the page
+   reads as deliberate design rather than a missing feature. */
+const MN_AVATAR_PALETTE = [
+  ['var(--ok)', 'var(--ok-bg)'], ['var(--info)', 'var(--info-bg)'],
+  ['var(--warn)', 'var(--warn-bg)'], ['var(--alert)', 'var(--alert-bg)'],
+  ['var(--accent-ink)', 'var(--accent-wash)'],
+];
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : (parts[0] ? parts[0][1] || '' : ''))).toUpperCase();
+}
+function mentorAvatarHtml(mn, big) {
+  const [ink, wash] = MN_AVATAR_PALETTE[hashStr(mn.id || mn.name || '') % MN_AVATAR_PALETTE.length];
+  return `<span class="mn-avatar${big ? ' mn-avatar-lg' : ''}" style="color:${ink};background:${wash}">${esc(initialsOf(mn.name))}</span>`;
+}
+
+/* One card in the Browse profiles grid — links straight into the full
+   profile (#mentor-profile), already gated by virtue of this grid only
+   rendering for a signed-in visitor. */
+function mentorCardHtml(mn) {
+  return `<a class="mn-card" href="#mentor-profile?id=${encodeURIComponent(mn.id)}&src=${mn.src}">
+    <div class="mn-card-top">
+      ${mentorAvatarHtml(mn)}
+      <div class="mn-card-id">
+        <div class="mn-card-name">${esc(mn.name)}</div>
+        <div class="mn-card-quals">${esc(mn.quals)}</div>
+      </div>
+    </div>
+    ${mn.bio ? `<p class="mn-card-bio">${esc(truncate(mn.bio, 120))}</p>` : ''}
+    <div class="mn-card-skills">${mn.skills.slice(0, 3).map(s => `<span class="chip chip-neutral">${esc(s.label)}</span>`).join('')}
+      ${mn.skills.length > 3 ? `<span class="chip chip-neutral">+${mn.skills.length - 3}</span>` : ''}</div>
+    <div class="mn-card-foot">
+      <span class="mn-card-city">${mn.city ? `<span class="material-symbols-outlined" aria-hidden="true">place</span>${esc(mn.city)}` : ''}</span>
+      <span class="mn-card-link">View profile <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+    </div>
+  </a>`;
+}
+
+let mentorsTab = 'ask';   // 'ask' | 'mine' | 'browse'
 
 /* status → what to tell the student in their own hero, mentor-voice */
 const MENTOR_REQ_STATUS_LINE = {
@@ -5290,6 +5365,7 @@ function renderMentors(main) {
   const rawTopic = hashQuery().topic || '';
   const topic = isImmigrationTopic(rawTopic) ? '' : rawTopic;
   if (hashQuery().tab === 'mine') mentorsTab = 'mine';
+  if (hashQuery().tab === 'browse') mentorsTab = 'browse';
   const topicLabel = PF_CONSULT_TOPICS[topic] || '';
   const st = mentorStats();
   const active = PFStore.getMentorRequests()
@@ -5308,6 +5384,7 @@ function renderMentors(main) {
   }) +
     `<div class="tab-row" id="mtr-tabs" role="tablist" aria-label="Mentors">
       <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'ask'}" data-mtab="ask">Ask a mentor</button>
+      <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'browse'}" data-mtab="browse">Browse profiles</button>
       <button type="button" class="tab" role="tab" aria-selected="${mentorsTab === 'mine'}" data-mtab="mine">My requests</button>
     </div>
     <div id="mtr-body"></div>`;
@@ -5449,30 +5526,79 @@ function renderMentors(main) {
     const askForm = $('#ask-form');
     if (askForm) askForm.addEventListener('submit', e => {
       e.preventDefault();
-      if (!requireAccount('Create a free account to connect with a mentor.')) return;
       const name = $('#ask-name').value.trim();
       const contact = $('#ask-contact').value.trim();
       if (!name || !contact) return toast('Add your name and a way to reach you');
+      const topic = $('#ask-topic').value, note = $('#ask-note').value.trim();
       const redeemEl = $('#ask-redeem');
       const redeem = redeemEl ? redeemEl.value : '';
-      // Re-read the balance at submit time rather than trusting the closure
-      // this form painted with — entitlements resolve asynchronously, and a
-      // credit may have been spent in another tab since then.
-      const live = entitlements();
-      const affordable = redeem === 'session' ? live.sessions > 0
-                       : redeem === 'audit' ? live.audits > 0 : true;
-      if (!affordable) { loadEntitlements(() => route()); return toast('That credit is already used — refreshing your plan.'); }
-      PFStore.addMentorRequest({
-        topic: $('#ask-topic').value, note: $('#ask-note').value.trim(), name, contact,
-        redeem: redeem || null, priority: !!live.priority,
-      });
-      toast(redeem
-        ? 'Request sent, and your included ' + (redeem === 'audit' ? 'audit' : 'session') + ' is booked against it.'
-        : 'Request sent — a mentor will pick this up. Track it under “My requests”.');
-      // The spend is derived from the requests, so the balance only moves
-      // once the new request is in the list — recompute before repainting.
-      loadEntitlements(() => { mentorsTab = 'mine'; route(); });
+      requireAccount('Create a free account to connect with a mentor.', { action: () => {
+        // Re-read the balance at submit time rather than trusting the closure
+        // this form painted with — entitlements resolve asynchronously, and a
+        // credit may have been spent in another tab since then.
+        const live = entitlements();
+        const affordable = redeem === 'session' ? live.sessions > 0
+                         : redeem === 'audit' ? live.audits > 0 : true;
+        if (!affordable) { loadEntitlements(() => route()); return toast('That credit is already used — refreshing your plan.'); }
+        PFStore.addMentorRequest({ topic, note, name, contact, redeem: redeem || null, priority: !!live.priority });
+        toast(redeem
+          ? 'Request sent, and your included ' + (redeem === 'audit' ? 'audit' : 'session') + ' is booked against it.'
+          : 'Request sent — a mentor will pick this up. Track it under “My requests”.');
+        // The spend is derived from the requests, so the balance only moves
+        // once the new request is in the list — recompute before repainting.
+        loadEntitlements(() => { mentorsTab = 'mine'; route(); });
+      } });
     });
+  }
+
+  /* ── Browse profiles ────────────────────────────────────────────────
+     Full mentor profiles — university, every topic they cover, session
+     packages — are login-gated (the marketing site's promise is no
+     PUBLIC directory; this is a private one, for signed-in students
+     only). The queue-based "Ask a mentor" flow above stays open to
+     everyone; this is a second, complementary way in: browse first,
+     then ask with a specific person in mind. */
+  let mnQuery = '';
+  let liveMentors = null;   // null = not fetched yet this view
+  function paintBrowse() {
+    const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+    if (!signedIn) {
+      body.innerHTML = `<div class="listcard mn-locked">
+        <span class="material-symbols-outlined mn-locked-icon" aria-hidden="true">lock</span>
+        <h2 class="listcard-title mt-3">Mentor profiles are for signed-in students</h2>
+        <p class="mt-2">See who's mentoring — their background, what they help with, and their session options — with a free account.</p>
+        <button type="button" class="btn mt-4" id="mn-unlock">Sign in to browse profiles</button>
+      </div>`;
+      $('#mn-unlock').onclick = () => requireAccount('Create a free account to browse mentor profiles.', { action: () => { mentorsTab = 'browse'; route(); } });
+      return;
+    }
+
+    // The search input is created once per tab-open, not once per
+    // keystroke — renderGrid() below only touches #mn-grid, so typing
+    // doesn't blow away the input's focus/caret the way a full repaint
+    // on every 'input' event would.
+    body.innerHTML = `
+      <input class="field mn-search" id="mn-q" type="search" placeholder="Search by name, city or topic…" value="${esc(mnQuery)}" aria-label="Search mentors">
+      <div class="mn-grid mt-4" id="mn-grid"></div>`;
+
+    const renderGrid = () => {
+      const curated = PF_MENTORS.map(m => normalizeMentor(m, 'curated'));
+      const live = (liveMentors || []).map(m => normalizeMentor(m, 'live'));
+      const all = [...curated, ...live];
+      const q = mnQuery.trim().toLowerCase();
+      const shown = q ? all.filter(mn =>
+        mn.name.toLowerCase().includes(q) || mn.city.toLowerCase().includes(q) ||
+        mn.quals.toLowerCase().includes(q) || mn.skills.some(s => s.label.toLowerCase().includes(q))
+      ) : all;
+      $('#mn-grid').innerHTML = shown.map(mentorCardHtml).join('') ||
+        `<p class="muted">No mentors match “${esc(mnQuery)}” — try a different name, city or topic.</p>`;
+    };
+    renderGrid();
+    $('#mn-q').oninput = e => { mnQuery = e.target.value; renderGrid(); };
+
+    if (liveMentors === null && cloudOn()) {
+      PFCloud.fetchApprovedMentors().then(list => { liveMentors = list; renderGrid(); }).catch(() => { liveMentors = []; });
+    }
   }
 
   function paintMine() {
@@ -5496,7 +5622,9 @@ function renderMentors(main) {
     }
   }
 
-  function paint() { (mentorsTab === 'mine' ? paintMine : paintAsk)(); }
+  function paint() {
+    ({ mine: paintMine, browse: paintBrowse, ask: paintAsk })[mentorsTab]();
+  }
 
   $$('#mtr-tabs .tab').forEach(b => b.onclick = () => {
     mentorsTab = b.dataset.mtab;
@@ -5511,6 +5639,115 @@ function renderMentors(main) {
   if (cloudOn() && !entState.loaded) loadEntitlements(() => {
     if (location.hash.slice(1).split('?')[0] === 'mentors') paint();
   });
+}
+
+/* ── One mentor's full profile ───────────────────────────────────────
+   #mentor-profile?id=<id>&src=curated|live. Gated the same way as
+   Browse profiles above (a real, private-not-public directory) —
+   checked again here, not just at the link that leads to it, so a
+   bookmarked or shared profile URL can't skip the gate. */
+let mnLiveCache = null;   // fetched-approved-mentors cache, this page load only
+function renderMentorProfile(main) {
+  const { id, src } = hashQuery();
+  const signedIn = !!(window.PFCloud && PFCloud.isSignedIn && PFCloud.isSignedIn());
+  if (!signedIn) {
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Sign in to view this profile',
+      body: 'Mentor profiles — background, topics, session options — are for signed-in students. Your first 15 minutes with a mentor are free either way.' }) +
+      `<div class="listcard mn-locked">
+        <span class="material-symbols-outlined mn-locked-icon" aria-hidden="true">lock</span>
+        <button type="button" class="btn mt-3" id="mnp-unlock">Sign in to continue</button>
+      </div>`;
+    $('#mnp-unlock').onclick = () => requireAccount('Create a free account to view mentor profiles.', { action: route });
+    return;
+  }
+
+  const notFound = () => {
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Mentor not found',
+      body: 'This profile may have moved, or the mentor is no longer active.' }) +
+      `<a class="btn mt-2" href="#mentors?tab=browse">← Back to Browse profiles</a>`;
+  };
+
+  if (src === 'curated') {
+    const raw = PF_MENTORS.find(m => m.id === id);
+    if (!raw) return notFound();
+    return paintMentorProfile(main, normalizeMentor(raw, 'curated'));
+  }
+
+  if (src === 'live') {
+    const paintFromCache = () => {
+      const raw = (mnLiveCache || []).find(m => m.uid === id);
+      if (!raw) return notFound();
+      paintMentorProfile(main, normalizeMentor(raw, 'live'));
+    };
+    if (mnLiveCache !== null) return paintFromCache();
+    main.innerHTML = renderHero({ kicker: 'Mentor profile', title: 'Loading…', body: '' });
+    PFCloud.fetchApprovedMentors().then(list => {
+      mnLiveCache = list;
+      if (location.hash.slice(1).split('?')[0] === 'mentor-profile') paintFromCache();
+    }).catch(notFound);
+    return;
+  }
+
+  notFound();
+}
+
+function paintMentorProfile(main, mn) {
+  const factRow = (icon, label, value) => value ? `<div class="mnp-fact">
+    <span class="material-symbols-outlined" aria-hidden="true">${icon}</span>
+    <div><span class="mnp-fact-label">${label}</span><span class="mnp-fact-value">${esc(value)}</span></div>
+  </div>` : '';
+
+  main.innerHTML = `
+    <a class="mnp-back" href="#mentors?tab=browse"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Browse profiles</a>
+    <div class="mnp-hero">
+      ${mentorAvatarHtml(mn, true)}
+      <div class="mnp-hero-id">
+        <h1 class="mnp-name">${esc(mn.name)}</h1>
+        <p class="mnp-quals">${esc(mn.quals)}</p>
+        <div class="mnp-hero-meta">
+          ${mn.city ? `<span><span class="material-symbols-outlined" aria-hidden="true">place</span>${esc(mn.city)}</span>` : ''}
+          ${mn.src === 'live' ? `<span class="chip chip-ok">Approved mentor</span>` : `<span class="chip chip-neutral">Founding mentor</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="viewgrid mt-5">
+      <div>
+        ${mn.bio ? `<div class="listcard">
+          <div class="listcard-head"><h2 class="listcard-title">Mentoring experience</h2></div>
+          <p style="font-size:14.5px;line-height:1.7">${esc(mn.bio)}</p>
+        </div>` : ''}
+
+        ${mn.skills.length ? `<div class="listcard mt-4">
+          <div class="listcard-head"><h2 class="listcard-title">Topics ${esc(mn.name.split(' ')[0])} helps with</h2></div>
+          <div class="mnp-skills">${mn.skills.map(s => `<span class="chip chip-topic">${esc(s.label)}</span>`).join('')}</div>
+        </div>` : ''}
+
+        ${mn.packages && mn.packages.length ? `<div class="listcard mt-4">
+          <div class="listcard-head"><h2 class="listcard-title">Session options</h2></div>
+          <div class="mnp-packages">${mn.packages.map(p => `
+            <div class="mnp-pkg">
+              <span class="mnp-pkg-name">${esc(p.name)}</span>
+              <span class="mnp-pkg-price">${esc(p.price)}</span>
+            </div>`).join('')}</div>
+          <p class="faint mt-3" style="font-size:12px">Requests go through PathFinder's shared mentor queue — the fastest available mentor for your topic claims it, so mention ${esc(mn.name.split(' ')[0])} by name below and we'll do our best to match you.</p>
+        </div>` : ''}
+      </div>
+
+      <div class="aside">
+        <div class="sidecard">
+          <span class="sidecard-kicker">Quick facts</span>
+          ${factRow('translate', 'Languages', mn.langs)}
+          ${factRow('schedule', 'Availability', mn.availability)}
+          ${factRow('school', 'Focus area', mn.uniName ? mn.quals : (mn.skills[0] && mn.skills[0].label))}
+        </div>
+        <div class="sidecard mt-3" id="mnp-ask">
+          <span class="sidecard-kicker">Ask a mentor</span>
+          <p style="font-size:13px">Your first ${PF_CONFIG.freeIntroMinutes} minutes are free. Mention ${esc(mn.name.split(' ')[0])} in your note.</p>
+          ${consultCTA((mn.skills[0] && mn.skills[0].slug) || '')}
+        </div>
+      </div>
+    </div>`;
 }
 
 /* a student-facing request card: status + payment + (when due) a Pay button */
