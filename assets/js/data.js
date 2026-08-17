@@ -114,7 +114,7 @@ const PF_UNIVERSITIES = [
     strengths:['Social Sciences & Education','Computer Science & AI','Physics & Mathematics'],
     note:'Research-intensive, and being in the capital gives it unusually direct government and policy links.' },
   { id:'uc',  name:'University of Canterbury', city:'Christchurch', rank:'#261 QS World', phdFee:'~NZ$7,600/yr',
-    strengths:['Engineering','Physics & Mathematics','Environmental Science'],
+    strengths:['Engineering','Computer Science & AI','Physics & Mathematics','Environmental Science'],
     note:'Engineering-heavy, with a lot of industry partnerships. The UC Doctoral Scholarship is worth checking early.' },
   { id:'massey', name:'Massey University', city:'Palmerston North / Auckland', rank:'#239 QS World', phdFee:'~NZ$7,400/yr',
     strengths:['Agriculture & Food','Business & Economics','Engineering'],
@@ -1114,7 +1114,7 @@ const PF_QUESTIONS_MASTERS = [
     { v:1, t:'Preparing for IELTS / TOEFL' },
     { v:2, t:'Scored — below requirements (IELTS < 6.5)' },
     { v:3, t:'Scored — meets master’s requirements (IELTS 6.5+, no band < 6.0)' },
-    { v:4, t:'My whole degree was taught in English' } ] },
+    { v:4, t:'My whole degree was taught in English, at a university in an English-speaking country' } ] },
   { id:'funding', q:'How will you fund your master’s?', opts:[
     { v:'scholarship', t:'I need a full scholarship' },
     { v:'partial', t:'Family support / savings + a scholarship' },
