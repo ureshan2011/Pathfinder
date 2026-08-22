@@ -83,9 +83,17 @@ service cloud.firestore {
              (request.resource.data.status == 'open'
               && request.resource.data.mentorId == null)
           || (isAdmin() && request.resource.data.status == 'claimed')
+          // A mentor-authored request may only name a real studentUid when
+          // mentor_students already has a verified link for that pair —
+          // otherwise a mentor could mint a brand-new request claiming any
+          // account, then use it (via namedStudentIsOwn() below) to plant a
+          // session on a stranger's billing history. Ordinary phone/walk-in
+          // intake is unaffected: it always writes studentUid == ''.
           || (isApprovedMentor()
               && request.resource.data.status == 'claimed'
-              && request.resource.data.mentorId == request.auth.uid)
+              && request.resource.data.mentorId == request.auth.uid
+              && (request.resource.data.studentUid == ''
+                  || exists(/databases/$(database)/documents/mentor_students/$(request.auth.uid + '_' + request.resource.data.studentUid))))
            )
         && request.resource.data.name is string
         && request.resource.data.name.size() < 200
@@ -100,8 +108,15 @@ service cloud.firestore {
 
       // Claim (open → claimed, taking mentorId atomically) OR a mentor
       // updating a request they already own (status transitions, intro,
-      // payment fields). Admin may update anything. The first-claim race is
-      // closed by requiring the prior state to still be `open`/unclaimed.
+      // payment fields, redeeming a plan credit against it). Admin may
+      // update anything. The first-claim race is closed by requiring the
+      // prior state to still be `open`/unclaimed.
+      //
+      // studentUid is pinned unchanged in both mentor branches — mirrors
+      // the same pin on mentor_sessions.update below. Without it a mentor
+      // could rewrite whose account a request (and, via namedStudentIsOwn(),
+      // a session logged against it) is attached to, planting a record in a
+      // stranger's billing list or a stranger's plan balance.
       allow update: if isAdmin()
         || (isApprovedMentor() && (
               (resource.data.status == 'open'
@@ -110,7 +125,8 @@ service cloud.firestore {
                && request.resource.data.mentorId == request.auth.uid)
            || (resource.data.mentorId == request.auth.uid
                && request.resource.data.mentorId == request.auth.uid)
-           ))
+           )
+           && request.resource.data.studentUid == resource.data.studentUid)
         // A student may cancel their own request before it is paid.
         || (request.auth != null
             && resource.data.studentUid == request.auth.uid
@@ -128,6 +144,35 @@ service cloud.firestore {
             && request.resource.data.payment.paymentStatus == 'reported');
 
       allow delete: if false;
+    }
+
+    // ── Mentor↔student links ────────────────────────────────────────────
+    // A tiny, create-only marker: "this mentor has a real, evidenced
+    // relationship with this student." It exists purely so a handful of
+    // other rules can check "does mentor X actually work with student Y"
+    // via exists() on a deterministic path — Firestore rules cannot run a
+    // query, only look up an exact document, so this is the mechanism that
+    // makes a scoped grant (reading one student's orders; naming a
+    // studentUid on a fresh request) possible without opening either up to
+    // every mentor. Doc id is `${mentorId}_${uid}`.
+    //
+    // A mentor may create their own marker only by pointing at a
+    // mentor_requests doc that already proves the pair (same technique as
+    // namedStudentIsOwn() above) — so this can only ever confirm a link
+    // that another rule already verified once, never manufacture a new one.
+    // The admin may create/remove any marker directly (e.g. after using the
+    // People tab's "Link to account" on an off-platform contact's history).
+    match /mentor_students/{key} {
+      allow read: if request.auth != null;
+      allow create: if isAdmin()
+        || (isApprovedMentor()
+            && key == request.auth.uid + '_' + request.resource.data.uid
+            && request.resource.data.uid is string
+            && request.resource.data.evidenceRequestId is string
+            && get(/databases/$(database)/documents/mentor_requests/$(request.resource.data.evidenceRequestId)).data.mentorId == request.auth.uid
+            && get(/databases/$(database)/documents/mentor_requests/$(request.resource.data.evidenceRequestId)).data.studentUid == request.resource.data.uid);
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // ── Mentoring session records ──────────────────────────────────────
@@ -202,8 +247,14 @@ service cloud.firestore {
         && request.resource.data.item.size() < 60
         && request.resource.data.amountLKR is number;
 
+      // The owner and the admin always could. A mentor may additionally see
+      // one student's orders — never the collection at large — once
+      // mentor_students records a verified link, so they can tell in the
+      // moment whether an off-platform session is covered by a paid plan.
       allow read: if isAdmin()
-        || (request.auth != null && resource.data.uid == request.auth.uid);
+        || (request.auth != null && resource.data.uid == request.auth.uid)
+        || (isApprovedMentor()
+            && exists(/databases/$(database)/documents/mentor_students/$(request.auth.uid + '_' + resource.data.uid)));
 
       allow update: if isAdmin()
         || (request.auth != null

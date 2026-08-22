@@ -526,18 +526,87 @@ if (cfg && cfg.apiKey) {
       const ref = await addDoc(collection(db, 'mentor_requests'), { ...data, ts: serverTimestamp() });
       return { id: ref.id, ...data };
     },
+    /* Mint the request-shaped record that lets an off-platform (WhatsApp/
+       phone) session draw down a paid plan the same way a request raised
+       through "Ask a mentor" does — same `redeem` field, same ledger
+       everything else already reads.
+
+       Unlike createIntakeRequest(), this names a REAL studentUid on
+       create — the case firestore.rules only allows for the admin, or for
+       a mentor with a verified mentor_students link to that uid (see the
+       rule comment on mentor_requests.create). A mentor without that link
+       gets a permission error, which is exactly right: they only ever see
+       a balance to redeem against once fetchOrdersFor()/the balance strip
+       proved the link exists. */
+    async redeemPlanCredit({ studentUid, mentorId, name, contact }) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Not signed in');
+      const admin = isAdminUser(u);
+      const mentor = !!(mentorProfile && mentorProfile.approved);
+      if (!admin && !mentor) throw new Error('Only a mentor or the admin can do this');
+      const cap = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+      const data = {
+        name: cap(name, 199), contact: cap(contact, 199),
+        topic: '', note: 'Plan credit redeemed against an off-platform session.',
+        studentUid: cap(studentUid, 199),
+        source: 'call',
+        callback: '',
+        takenBy: u.uid,
+        takenByName: admin ? 'Admin' : (mentorProfile && mentorProfile.displayName) || '',
+        status: 'claimed',
+        mentorId: admin ? (cap(mentorId, 120) || null) : u.uid,
+        redeem: 'session',
+        introDoneAt: null,
+        payment: null,
+        at: new Date().toISOString(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      if (!data.studentUid) throw new Error('No linked account to redeem against');
+      const ref = await addDoc(collection(db, 'mentor_requests'), { ...data, ts: serverTimestamp() });
+      return { id: ref.id, ...data };
+    },
+    // Record that this mentor has a verified relationship with a student,
+    // so future visits can read that student's plan balance and redeem
+    // credits for them (see the mentor_students rule). A mentor proves it
+    // with `evidenceRequestId` — a request they own that already names
+    // this studentUid (typically one raised by the student themselves and
+    // then claimed). The admin may link any pair directly, with no
+    // evidence needed — used after "Link to account" in the People tab, so
+    // mentors who already served that person get visibility immediately.
+    async linkMentorToStudent({ mentorId, uid, evidenceRequestId }) {
+      const u = auth.currentUser;
+      if (!u) throw new Error('Not signed in');
+      const admin = isAdminUser(u);
+      const targetMentor = admin ? (mentorId || u.uid) : u.uid;
+      if (!uid) throw new Error('No account to link');
+      await setDoc(doc(db, 'mentor_students', targetMentor + '_' + uid),
+        { uid, evidenceRequestId: evidenceRequestId || '', linkedAt: Date.now() });
+    },
     // Atomic claim — only succeeds while the request is still open/unclaimed,
     // so two mentors can never claim the same request (first-come wins).
     async claimRequest(id) {
       const u = auth.currentUser; if (!u) throw new Error('Not signed in');
       const ref = doc(db, 'mentor_requests', id);
+      let studentUid = '';
       await runTransaction(db, async tx => {
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error('Request no longer exists');
         const d = snap.data();
         if (d.status !== 'open' || d.mentorId) throw new Error('Already claimed');
+        studentUid = d.studentUid || '';
         tx.update(ref, { status: 'claimed', mentorId: u.uid, updatedAt: Date.now() });
       });
+      // A real signed-in student's own request — the moment it's claimed,
+      // this mentor↔student pair is evidenced (mentorId and studentUid now
+      // both sit on the same doc), so record it: from here the mentor can
+      // see this student's plan balance and, later, redeem a credit for an
+      // off-platform session with them too. Off-platform intake never has
+      // a studentUid, so this is a no-op for that case.
+      if (studentUid) {
+        setDoc(doc(db, 'mentor_students', u.uid + '_' + studentUid),
+          { uid: studentUid, evidenceRequestId: id, linkedAt: Date.now() }).catch(() => {});
+      }
     },
     // Mentor updates a request they own (status, intro, payment fields).
     async updateRequest(id, patch) {
@@ -549,6 +618,18 @@ if (cfg && cfg.apiKey) {
       const snap = await getDocs(query(collection(db, 'mentor_requests'), where('studentUid', '==', u.uid)));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+    },
+    // A mentor's (or the admin's) look-up of one OTHER student's requests —
+    // used only to work out that student's plan balance while logging an
+    // off-platform session (see the known-caller balance strip). Rules
+    // already let any approved mentor read the whole mentor_requests
+    // collection (it's the shared claim queue), so this needs no new grant.
+    // Called on demand, only when a name/contact match resolves to a uid —
+    // never on page load.
+    async fetchRequestsFor(uid) {
+      if (!uid) return [];
+      const snap = await getDocs(query(collection(db, 'mentor_requests'), where('studentUid', '==', uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
 
     /* ── Mentoring session records ───────────────────────────────────── */
@@ -579,6 +660,17 @@ if (cfg && cfg.apiKey) {
       const clean = { ...patch };
       delete clean.mentorId; delete clean.createdBy; delete clean.createdAt; delete clean.id;
       await updateDoc(doc(db, 'mentor_sessions', id), { ...clean, updatedAt: Date.now() });
+    },
+    // Admin only: attach a real account to sessions that were logged before
+    // the link was known — a WhatsApp/phone caller who has since signed up
+    // under the same phone number. firestore.rules pins studentUid on a
+    // mentor's own writes to a session (see namedStudentIsOwn()), so this is
+    // the one sanctioned way an existing session's studentUid ever changes.
+    async linkSessionsToAccount(sessionIds, uid) {
+      requireAdmin();
+      for (const id of sessionIds || []) {
+        await updateDoc(doc(db, 'mentor_sessions', id), { studentUid: uid, updatedAt: Date.now() });
+      }
     },
     // The signed-in mentor's own log.
     async fetchMySessions() {
@@ -659,6 +751,16 @@ if (cfg && cfg.apiKey) {
       const snap = await getDocs(query(collection(db, 'orders'), where('uid', '==', u.uid)));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    },
+    // The mentor/admin counterpart of fetchMyOrders(), for one other
+    // student. Only readable once mentor_students has a verified link for
+    // this mentor↔student pair (firestore.rules) — a plain permission
+    // error here just means no link exists yet, so callers should treat a
+    // rejection as "no plan" rather than surfacing it as a failure.
+    async fetchOrdersFor(uid) {
+      if (!uid) return [];
+      const snap = await getDocs(query(collection(db, 'orders'), where('uid', '==', uid)));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
     async fetchAllOrders() {
       requireAdmin();
