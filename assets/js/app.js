@@ -370,7 +370,19 @@ function requireAccount(reason, opts = {}) {
   // No accounts layer at all — this deployment runs 100% locally by
   // design (README → "or runs 100% locally when Firebase is left
   // unconfigured"); there is nothing to gate against.
-  if (!cloudOn() || !(window.PFCloud && PFCloud.signInGoogle)) { if (opts.action) opts.action(); return true; }
+  if (!cloudOn()) { if (opts.action) opts.action(); return true; }
+  // The accounts layer (firebase.js, a deferred module) exists but hasn't
+  // finished checking for a persisted session yet — isSignedIn() above can
+  // only see that once it has. Gating on "not signed in" here would show a
+  // signed-in visitor a "create an account" prompt for an action they're
+  // already entitled to, right after a refresh. Wait briefly and re-check,
+  // capped so a broken/offline Firebase load still falls through instead of
+  // retrying forever.
+  if (window.PFCloud && !PFCloud.authResolved() && (opts.__waited || 0) < 15) {
+    setTimeout(() => requireAccount(reason, { ...opts, __waited: (opts.__waited || 0) + 1 }), 150);
+    return false;
+  }
+  if (!(window.PFCloud && PFCloud.signInGoogle)) { if (opts.action) opts.action(); return true; }
   if (opts.action) { accountGateModal(reason, opts.action); return false; }
   toast(reason || 'Create a free account to continue.');
   location.hash = accountHref(opts.next || location.hash.slice(1));
@@ -7416,9 +7428,13 @@ function renderAccount(main) {
       body: 'Sign-in and cross-device sync run on Firebase — the app still works fully on this device without it.' });
     return;
   }
-  if (!window.PFCloud) {
+  // Wait for the accounts layer to both load AND finish checking for a
+  // persisted session — window.PFCloud exists well before that check
+  // resolves, and rendering the signed-out view on that gap is what made a
+  // real session look logged-out right after a refresh.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Account', title: 'Connecting…', body: 'Loading the accounts layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 200);
     return;
   }
   const role = PFCloud.role();
@@ -8218,9 +8234,12 @@ function renderMentor(main) {
       body: 'The mentor marketplace runs on Firebase — configure firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
-  if (!window.PFCloud) {
+  // See renderAccount's comment: wait for the persisted-session check too,
+  // not just for the module to load, or a signed-in mentor can briefly
+  // read as signed-out right after a refresh.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Connecting…', body: 'Loading the Firebase layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 200);
     return;
   }
 
@@ -8769,10 +8788,12 @@ function renderAdmin(main) {
       body: 'Firebase is not configured — set up firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
-  // Sync layer still loading (deferred module) → wait, then re-render.
-  if (!window.PFCloud) {
+  // Sync layer still loading (deferred module), or loaded but still
+  // checking for a persisted session (see renderAccount's comment) → wait,
+  // then re-render.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Admin', title: 'Connecting…', body: 'Loading the Firebase admin layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 200);
     return;
   }
 

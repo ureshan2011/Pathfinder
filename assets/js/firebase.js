@@ -65,6 +65,14 @@ if (cfg && cfg.apiKey) {
   const isAdminUser = (u) => !!u && u.email === ADMIN_EMAIL;
 
   let user = null;
+  // Flips true the first time onAuthStateChanged fires — i.e. once Firebase
+  // has actually finished checking IndexedDB for a persisted session, not
+  // merely once this module has loaded. window.PFCloud exists the instant
+  // the SDK imports resolve, well before that persisted-session check
+  // completes, so callers that only waited for `window.PFCloud` (see
+  // renderAccount/mentor/admin dashboards in app.js) could read a signed-in
+  // user as 'anon' on a refresh — the exact "session not saved" report.
+  let authResolved = false;
   let mentorProfile = null;         // mentors/{uid} doc data, or null
   const mentorListeners = [];
   const dirty = new Map();          // key → value, awaiting flush
@@ -329,6 +337,12 @@ if (cfg && cfg.apiKey) {
 
   window.PFCloud = {
     ready: true,
+    // True once the first persisted-session check has completed — see the
+    // authResolved comment above. Callers that gate a view on "has the
+    // accounts layer loaded" should wait on this, not just on PFCloud
+    // existing, or they can render 'anon' for a session that is about to
+    // restore.
+    authResolved: () => authResolved,
     adminEmail: ADMIN_EMAIL,
     isAdmin: () => isAdminUser(auth.currentUser),
     onAdminState: (fn) => { adminListeners.push(fn); fn(isAdminUser(auth.currentUser)); },
@@ -660,6 +674,7 @@ if (cfg && cfg.apiKey) {
 
   onAuthStateChanged(auth, u => {
     user = u;
+    authResolved = true;
     paintAuth();
     // The top-nav avatar (initials) is painted by app.js's updateNavChrome(),
     // which only runs after route(). This callback fires without a
