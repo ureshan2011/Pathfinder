@@ -6316,14 +6316,22 @@ function roiIntroCard() {
     ['Read the big number', 'That is everything the degree costs from the day you leave to the day you graduate, over the whole programme — not per year, and not tuition on its own. It is shown in rupees first, because that is the currency the decision gets made in.'],
     ['Then look at how long it takes to come back', 'Graduate pay in your field, minus tax and minus living here, against the three-year work visa a master\'s earns you. That is the part an agent will not tell you.'],
   ];
-  return `<div class="listcard roi-intro">
-    <div class="listcard-head"><h2 class="listcard-title">How to read this page</h2>
-      <span class="listcard-summary">Takes two minutes</span></div>
+  // A details/summary, like the Plan and Sources cards below it — closed by
+  // default. Three paragraphs of "how to read this" ahead of a returning
+  // visitor's own numbers is exactly the "too much text" this screen used
+  // to lead with; the explanation is still one tap away, it just no longer
+  // has to be scrolled past on every visit.
+  return `<details class="listcard roi-intro">
+    <summary class="roi-plan-summary">
+      <span class="roi-plan-text"><strong>How to read this page</strong>
+        <span class="faint">Takes two minutes — worth it once</span></span>
+      <span class="roi-plan-edit">Open</span>
+    </summary>
     <ol class="roi-steps">
       ${steps.map(([t, b]) => `<li><strong>${t}</strong><span>${b}</span></li>`).join('')}
     </ol>
     <p class="roi-intro-foot">Every figure here is published by a provider, a government department or a regulator, and each one is named at the bottom of the page. Where we are working from a range rather than a real quote, the screen says so instead of pretending to be precise. PathFinder takes no commission from any provider named here.</p>
-  </div>`;
+  </details>`;
 }
 
 /* ── 0b · Built from their own answers ───────────────────────────────
