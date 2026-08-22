@@ -370,7 +370,19 @@ function requireAccount(reason, opts = {}) {
   // No accounts layer at all — this deployment runs 100% locally by
   // design (README → "or runs 100% locally when Firebase is left
   // unconfigured"); there is nothing to gate against.
-  if (!cloudOn() || !(window.PFCloud && PFCloud.signInGoogle)) { if (opts.action) opts.action(); return true; }
+  if (!cloudOn()) { if (opts.action) opts.action(); return true; }
+  // The accounts layer (firebase.js, a deferred module) exists but hasn't
+  // finished checking for a persisted session yet — isSignedIn() above can
+  // only see that once it has. Gating on "not signed in" here would show a
+  // signed-in visitor a "create an account" prompt for an action they're
+  // already entitled to, right after a refresh. Wait briefly and re-check,
+  // capped so a broken/offline Firebase load still falls through instead of
+  // retrying forever.
+  if (window.PFCloud && !PFCloud.authResolved() && (opts.__waited || 0) < 15) {
+    setTimeout(() => requireAccount(reason, { ...opts, __waited: (opts.__waited || 0) + 1 }), 150);
+    return false;
+  }
+  if (!(window.PFCloud && PFCloud.signInGoogle)) { if (opts.action) opts.action(); return true; }
   if (opts.action) { accountGateModal(reason, opts.action); return false; }
   toast(reason || 'Create a free account to continue.');
   location.hash = accountHref(opts.next || location.hash.slice(1));
@@ -610,9 +622,18 @@ function loadEntitlements(cb) {
     if (cb) Promise.resolve().then(cb);
     return;
   }
-  PFCloud.fetchMyOrders().then(orders => {
+  // Both reads are scoped to the signed-in uid and only ever run once per
+  // session (every caller above guards on !entState.loaded) — so a second
+  // query here stays inside the same "one pull per session" budget as the
+  // kv pull, and it buys something PFStore.getMentorRequests() cannot: a
+  // request's redeem/status can change server-side (a mentor countersigns
+  // an off-platform session against this plan, an admin corrects a
+  // cancellation) on a device other than the one that created it, and the
+  // local-only cache never saw any of that, so "sessions remaining" was
+  // silently able to drift from what was actually true.
+  Promise.all([PFCloud.fetchMyOrders(), PFCloud.fetchMyRequests()]).then(([orders, requests]) => {
     const g = grantsFrom(orders);
-    const used = creditsUsed(PFStore.getMentorRequests());
+    const used = creditsUsed(requests);
     entState = { loaded: true, items: {
       plans: g.plans,
       toolkit: g.toolkit, priority: g.priority,
@@ -6304,14 +6325,22 @@ function roiIntroCard() {
     ['Read the big number', 'That is everything the degree costs from the day you leave to the day you graduate, over the whole programme — not per year, and not tuition on its own. It is shown in rupees first, because that is the currency the decision gets made in.'],
     ['Then look at how long it takes to come back', 'Graduate pay in your field, minus tax and minus living here, against the three-year work visa a master\'s earns you. That is the part an agent will not tell you.'],
   ];
-  return `<div class="listcard roi-intro">
-    <div class="listcard-head"><h2 class="listcard-title">How to read this page</h2>
-      <span class="listcard-summary">Takes two minutes</span></div>
+  // A details/summary, like the Plan and Sources cards below it — closed by
+  // default. Three paragraphs of "how to read this" ahead of a returning
+  // visitor's own numbers is exactly the "too much text" this screen used
+  // to lead with; the explanation is still one tap away, it just no longer
+  // has to be scrolled past on every visit.
+  return `<details class="listcard roi-intro">
+    <summary class="roi-plan-summary">
+      <span class="roi-plan-text"><strong>How to read this page</strong>
+        <span class="faint">Takes two minutes — worth it once</span></span>
+      <span class="roi-plan-edit">Open</span>
+    </summary>
     <ol class="roi-steps">
       ${steps.map(([t, b]) => `<li><strong>${t}</strong><span>${b}</span></li>`).join('')}
     </ol>
     <p class="roi-intro-foot">Every figure here is published by a provider, a government department or a regulator, and each one is named at the bottom of the page. Where we are working from a range rather than a real quote, the screen says so instead of pretending to be precise. PathFinder takes no commission from any provider named here.</p>
-  </div>`;
+  </details>`;
 }
 
 /* ── 0b · Built from their own answers ───────────────────────────────
@@ -7416,9 +7445,13 @@ function renderAccount(main) {
       body: 'Sign-in and cross-device sync run on Firebase — the app still works fully on this device without it.' });
     return;
   }
-  if (!window.PFCloud) {
+  // Wait for the accounts layer to both load AND finish checking for a
+  // persisted session — window.PFCloud exists well before that check
+  // resolves, and rendering the signed-out view on that gap is what made a
+  // real session look logged-out right after a refresh.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Account', title: 'Connecting…', body: 'Loading the accounts layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'account') route(); }, 200);
     return;
   }
   const role = PFCloud.role();
@@ -7636,6 +7669,11 @@ function buildPeople({ sessions = [], requests = [] } = {}) {
   return [...map.values()].map(p => {
     p.sessions.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     p.requests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    // Sessions folded into this person by phone/email/name but never
+    // written with this uid — the WhatsApp/phone half of someone who has
+    // since signed up. Computed after every record is folded in, not
+    // during it, since which session supplied p.uid depends on list order.
+    p.unlinkedSessions = p.uid ? p.sessions.filter(s => !s.studentUid) : [];
     return p;
   }).sort((a, b) => b.lastAt - a.lastAt);
 }
@@ -7696,13 +7734,21 @@ function personCard(p, opts = {}) {
   const mail = contactEmailOf(p.contact);
   const phone = contactPhoneOf(p.contact);
   const openReq = p.requests.filter(r => !['completed', 'cancelled'].includes(r.status)).length;
+  const b = p.balance;
   const chips = [
     p.sessions.length ? `<span class="chip chip-dim">${p.sessions.length} session${p.sessions.length === 1 ? '' : 's'}</span>` : '',
     openReq ? `<span class="chip chip-gold">${openReq} open request${openReq === 1 ? '' : 's'}</span>` : '',
     p.due ? `<span class="chip chip-gold">LKR ${p.due.toLocaleString()} due</span>` : '',
     p.paid ? `<span class="chip chip-teal">LKR ${p.paid.toLocaleString()} paid</span>` : '',
     p.uid ? `<span class="chip chip-dim">Has an account</span>` : `<span class="chip chip-dim">No account</span>`,
+    b && b.sessionsGranted ? `<span class="chip ${b.sessions ? 'chip-ok' : 'chip-neutral'}">${b.sessions} of ${b.sessionsGranted} plan session${b.sessionsGranted === 1 ? '' : 's'} left</span>` : '',
+    b && b.auditsGranted ? `<span class="chip ${b.audits ? 'chip-ok' : 'chip-neutral'}">${b.audits} of ${b.auditsGranted} audit${b.auditsGranted === 1 ? '' : 's'} left</span>` : '',
   ].filter(Boolean).join('');
+
+  // Only admin can actually attach studentUid to a session (firestore.rules
+  // pins it on a mentor's own writes) — opts.canLink gates this to the
+  // admin People tab, never the mentor's own view of the same card.
+  const unlinked = opts.canLink && p.uid && p.unlinkedSessions && p.unlinkedSessions.length;
 
   return `<div class="card" style="margin-bottom:12px" data-person="${esc(p.key)}">
     <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
@@ -7713,6 +7759,10 @@ function personCard(p, opts = {}) {
           ${p.lastAt ? 'Last contact ' + esc(dayLabel(p.lastAt)) : 'No date on record'}${p.minutes ? ' · ' + (p.minutes / 60).toFixed(1) + ' h together' : ''}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${chips}</div>
+        ${unlinked ? `<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="faint" style="font-size:12px">${p.unlinkedSessions.length} session${p.unlinkedSessions.length === 1 ? '' : 's'} logged before this contact was known to have an account.</span>
+          <button type="button" class="btn btn-quiet btn-sm px-link" data-person="${esc(p.key)}">Link to the account</button>
+        </div>` : ''}
       </div>
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -7727,7 +7777,7 @@ function personCard(p, opts = {}) {
   </div>`;
 }
 
-/* Delegated actions for person cards. `ctx = { people, canLog, onLog }`.
+/* Delegated actions for person cards. `ctx = { people, canLog, onLog, onLink }`.
    Returns true when the click belonged to a person card. */
 function personCardAction(e, ctx) {
   const btn = e.target.closest('button[data-person]');
@@ -7747,6 +7797,7 @@ function personCardAction(e, ctx) {
     return true;
   }
   if (btn.classList.contains('px-log') && ctx.onLog) { ctx.onLog(p); return true; }
+  if (btn.classList.contains('px-link') && ctx.onLink) { ctx.onLink(p, btn); return true; }
   return true;
 }
 
@@ -8005,12 +8056,38 @@ function openSessionForm(o = {}) {
     if (!data.mentorId && s.mentorId) data.mentorId = s.mentorId;
     if (data.paymentStatus === 'paid' && !s.paidAt) data.paidAt = Date.now();
     if (!data.studentName.trim()) { msg.textContent = 'Write down their name.'; return; }
+    // Not a mentor_sessions field — it only decides whether to redeem a
+    // plan credit below, so it never reaches PFCloud.createSession/updateSession.
+    const redeem = data.redeemPlanSession === 'on';
+    delete data.redeemPlanSession;
 
     const btns = [...form.querySelectorAll('button')];
     btns.forEach(b => b.disabled = true);
     msg.textContent = 'Saving…';
     try {
       const saved = await o.onSave(data);
+      // Off-platform work still draws down a paid plan the same way an
+      // "Ask a mentor" redemption does — same field, same ledger, so
+      // #billing's balance reflects it without any new calculation. See
+      // paintKnown() below for where `matched`/the checkbox come from.
+      if (redeem && matched && matched.uid) {
+        try {
+          if (data.requestId) await PFCloud.updateRequest(data.requestId, { redeem: 'session' });
+          // No request behind this session at all (pure WhatsApp/phone,
+          // never claimed from the queue) — mint one that names the
+          // account, purely to carry the redeem flag. Firestore only lets
+          // this through for the admin, or for a mentor with a verified
+          // mentor_students link to matched.uid (the same link that made
+          // the balance above visible in the first place) — anyone else's
+          // attempt fails closed, caught below.
+          else if (window.PFCloud && ((PFCloud.isAdmin && PFCloud.isAdmin()) || (PFCloud.isMentor && PFCloud.isMentor()))) {
+            await PFCloud.redeemPlanCredit({
+              studentUid: matched.uid, mentorId: data.mentorId,
+              name: data.studentName, contact: data.studentContact,
+            });
+          }
+        } catch { toast('Session saved, but the plan credit could not be applied — check it in Billing.'); }
+      }
       m.close();
       toast(editing ? 'Session updated' : 'Session saved');
       if (alsoInvoice) {
@@ -8031,13 +8108,61 @@ function openSessionForm(o = {}) {
   const known = m.el.querySelector('#sx-known');
   const nameIn = form.querySelector('[name=studentName]');
   const contactIn = form.querySelector('[name=studentContact]');
+  // The person the current name/contact resolves to, kept in step with
+  // paintKnown() so submit() can tell whether there is a real, matched
+  // account to redeem a plan credit against.
+  let matched = null;
+  // uid → balance ({sessions, sessionsGranted, ...}) | null ('checked, no
+  // plan or no visibility yet') | undefined (not looked up yet). Scoped to
+  // this one modal so re-typing the same name/contact doesn't re-fetch.
+  const balanceCache = new Map();
+
+  // On the admin People tools, attachBalances() already computed p.balance
+  // for every uid with zero extra reads. A mentor's own tools don't have
+  // that — mentorPeople() never sees orders — so for them this resolves it
+  // on demand, exactly once per uid per modal, and only once a match
+  // actually has an account (never on every keystroke, never speculatively
+  // for someone with no account at all). A permission error just means
+  // this mentor has no verified link to that student yet (see the
+  // mentor_students rule) — that reads as "no plan visible", not a failure.
+  function resolveBalance(uid) {
+    if (!uid || balanceCache.has(uid)) return;
+    balanceCache.set(uid, undefined);
+    Promise.all([PFCloud.fetchOrdersFor(uid), PFCloud.fetchRequestsFor(uid)])
+      .then(([orders, requests]) => {
+        const g = grantsFrom(orders);
+        const used = creditsUsed(requests.filter(r => r.studentUid === uid));
+        balanceCache.set(uid, g.plans.length ? {
+          plans: g.plans,
+          sessions: Math.max(0, g.sessions - used.sessions), sessionsGranted: g.sessions,
+          audits: Math.max(0, g.audits - used.audits), auditsGranted: g.audits,
+        } : null);
+      })
+      .catch(() => balanceCache.set(uid, null))
+      .then(paintKnown);
+  }
 
   function paintKnown() {
     const p = peopleFind(o.people, contactIn.value, nameIn.value);
     // Editing an existing record: its own row is the match, not a history.
     const past = p ? { ...p, sessions: p.sessions.filter(x => x.id !== (o.session && o.session.id)) } : null;
+    matched = past;
     if (!past || (!past.sessions.length && !past.requests.length)) { known.classList.add('hidden'); return; }
     const last = past.sessions[0];
+    // past.balance is set when the caller already resolved it (admin's
+    // People/session tools — see attachBalances()); otherwise resolve it
+    // ourselves for a mentor's own tools, where the account exists but no
+    // one has fetched their orders yet.
+    if (past.uid && past.balance === undefined) resolveBalance(past.uid);
+    const bal = past.uid ? (past.balance !== undefined ? past.balance : balanceCache.get(past.uid)) : null;
+    // null while still loading or when nothing was found — off-platform
+    // work otherwise never touches a plan's session count at all, which is
+    // the gap this whole feature closes.
+    const redeemRow = bal && bal.sessions > 0 ? `
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
+        <input type="checkbox" name="redeemPlanSession">
+        Count this against their plan — ${bal.sessions} of ${bal.sessionsGranted} session${bal.sessionsGranted === 1 ? '' : 's'} left
+      </label>` : '';
     known.className = 'card';
     known.style.cssText = 'padding:12px 14px;background:var(--surface)';
     known.innerHTML = `
@@ -8050,6 +8175,7 @@ function openSessionForm(o = {}) {
         </p>
         <button class="btn btn-quiet btn-sm" type="button" id="sx-known-more">Show</button>
       </div>
+      ${redeemRow}
       <div id="sx-known-body" class="hidden" style="margin-top:4px"></div>`;
     const more = known.querySelector('#sx-known-more');
     const bodyEl = known.querySelector('#sx-known-body');
@@ -8218,9 +8344,12 @@ function renderMentor(main) {
       body: 'The mentor marketplace runs on Firebase — configure firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
-  if (!window.PFCloud) {
+  // See renderAccount's comment: wait for the persisted-session check too,
+  // not just for the module to load, or a signed-in mentor can briefly
+  // read as signed-out right after a refresh.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Mentor Dashboard', title: 'Connecting…', body: 'Loading the Firebase layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'mentor') route(); }, 200);
     return;
   }
 
@@ -8769,10 +8898,12 @@ function renderAdmin(main) {
       body: 'Firebase is not configured — set up firebase-config.js and deploy firestore.rules to enable it.' });
     return;
   }
-  // Sync layer still loading (deferred module) → wait, then re-render.
-  if (!window.PFCloud) {
+  // Sync layer still loading (deferred module), or loaded but still
+  // checking for a persisted session (see renderAccount's comment) → wait,
+  // then re-render.
+  if (!window.PFCloud || !PFCloud.authResolved()) {
     main.innerHTML = renderHero({ kicker: 'Admin', title: 'Connecting…', body: 'Loading the Firebase admin layer.' });
-    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 400);
+    setTimeout(() => { if (location.hash.slice(1).split('?')[0] === 'admin') route(); }, 200);
     return;
   }
 
@@ -8924,9 +9055,29 @@ function adminDashboard(main) {
       repaint: paint,
     })) return;
 
-    // person cards (history / log a session on a mentor's behalf)
-    if (personCardAction(e, { people, showMentor: true, onLog: x => admLogSession(paint, people, {
-      studentName: x.name, studentContact: x.contact }) })) return;
+    // person cards (history / log a session on a mentor's behalf / link an
+    // off-platform contact's past sessions to the account that matches it)
+    if (personCardAction(e, {
+      people, showMentor: true,
+      onLog: x => admLogSession(paint, people, { studentName: x.name, studentContact: x.contact }),
+      onLink: async (p, btn) => {
+        btn.disabled = true;
+        try {
+          const ids = p.unlinkedSessions.map(s => s.id);
+          await PFCloud.linkSessionsToAccount(ids, p.uid);
+          (adminState.sessions || []).forEach(s => { if (ids.includes(s.id)) s.studentUid = p.uid; });
+          // Every mentor who has a session with this person should see
+          // their plan balance from now on too, not just get their old
+          // sessions relabelled — back-fill the marker for each of them
+          // (admin bypasses the evidence requirement other mentors need).
+          const mentorIds = [...new Set(p.unlinkedSessions.map(s => s.mentorId).filter(Boolean))];
+          await Promise.all(mentorIds.map(mentorId =>
+            PFCloud.linkMentorToStudent({ mentorId, uid: p.uid }).catch(() => {})));
+          toast(`Linked ${ids.length} session${ids.length === 1 ? '' : 's'} to their account`);
+          paint();
+        } catch { btn.disabled = false; toast('Linking failed'); }
+      },
+    })) return;
 
     const mb = e.target.closest('button[data-muid]');
     if (mb) {
@@ -9336,7 +9487,37 @@ function admLogSession(repaint, people, prefill = {}) {
    collection. This is where a phone caller with no account becomes a
    person with a history rather than a row in a queue. */
 function adminPeople() {
-  return buildPeople({ sessions: adminState.sessions || [], requests: adminState.requests || [] });
+  const people = buildPeople({ sessions: adminState.sessions || [], requests: adminState.requests || [] });
+  attachBalances(people, adminState.orders || []);
+  return people;
+}
+
+/* What each linked person's paid plan still has left in it — the same
+   grantsFrom()/creditsUsed() math #billing runs for the signed-in student,
+   just pointed at one uid at a time. adminLoad() already fetched every
+   order and every request once, so this is zero extra reads: filter what
+   is already in memory rather than querying per person. Off-platform
+   records (no studentUid) never touch this — only requests actually
+   raised under the account count as "used", same as everywhere else. */
+function attachBalances(people, orders) {
+  const byUid = new Map();
+  (orders || []).forEach(o => {
+    if (!o.uid) return;
+    if (!byUid.has(o.uid)) byUid.set(o.uid, []);
+    byUid.get(o.uid).push(o);
+  });
+  people.forEach(p => {
+    if (!p.uid) { p.balance = null; return; }
+    const g = grantsFrom(byUid.get(p.uid) || []);
+    if (!g.plans.length) { p.balance = null; return; }
+    const used = creditsUsed(p.requests.filter(r => r.studentUid === p.uid));
+    p.balance = {
+      plans: g.plans,
+      sessions: Math.max(0, g.sessions - used.sessions), sessionsGranted: g.sessions,
+      audits: Math.max(0, g.audits - used.audits), auditsGranted: g.audits,
+    };
+  });
+  return people;
 }
 
 function admPeople(body) {
@@ -9360,7 +9541,7 @@ function admPeople(body) {
       <input class="field" id="adm-px-q" placeholder="Search by name or number" value="${esc(admPeopleQuery)}" style="width:auto;min-width:220px;flex:1;max-width:340px">
       ${list.length ? `<button class="btn btn-quiet btn-sm" id="adm-dl-px"><span class="material-symbols-outlined" style="font-size:15px">download</span> Export CSV</button>` : ''}
     </div>
-    ${list.length ? list.map(p => personCard(p, { canLog: true })).join('')
+    ${list.length ? list.map(p => personCard(p, { canLog: true, canLink: true })).join('')
       : `<div class="card"><p class="muted" style="font-size:14px">${people.length ? 'Nobody matches that search.' : 'No one on record yet. Requests from the site and calls you write down both land here.'}</p></div>`}`;
 
   const search = $('#adm-px-q', body);
@@ -9372,7 +9553,7 @@ function admPeople(body) {
     const term = admPeopleQuery.trim().toLowerCase();
     const next = term ? people.filter(p => (p.name || '').toLowerCase().includes(term)
       || (p.contact || '').toLowerCase().includes(term)) : people;
-    body.insertAdjacentHTML('beforeend', next.length ? next.map(p => personCard(p, { canLog: true })).join('')
+    body.insertAdjacentHTML('beforeend', next.length ? next.map(p => personCard(p, { canLog: true, canLink: true })).join('')
       : `<div class="card" data-person="none"><p class="muted" style="font-size:14px">Nobody matches that search.</p></div>`);
   };
 

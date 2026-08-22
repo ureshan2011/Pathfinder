@@ -1096,13 +1096,25 @@ select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 }
 .shell .roi-route-foot .faint { font-size: 11.5px; }
 
-.shell .roi-src { list-style: none; padding: 0 20px 4px; margin: 0; }
+/* .roi-src and .roi-warn sit inside a plain (non-.roi-plan) .listcard, which
+   already provides the card's 24px/26px inset — the 20px this pair used to
+   add on top of that pushed the source list and the closing note visibly
+   further right than the "Where these numbers come from" heading above
+   them, in the same card. That is the "narrow margins" bug: not narrow
+   overall, just narrower than every sibling block on the same screen. */
+.shell .roi-src { list-style: none; padding: 0 0 4px; margin: 0; }
 .shell .roi-src li {
   font-size: 12px; color: var(--ink-soft); line-height: 1.5;
   padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere;
 }
 .shell .roi-src li:last-child { border-bottom: 0; }
-.shell .roi-warn { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; padding: 0 20px 20px; margin: 0; }
+.shell .roi-warn { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; padding: 10px 0 0; margin: 0; }
+/* .roi-plan-summary is shared with the Plan card's <details>, which zeroes
+   the listcard padding itself (.roi-plan below) and relies on this rule's
+   own 18px horizontal inset instead. The Sources card never resets that
+   padding, so without this override its heading row would also gain a
+   phantom extra inset the rest of the card does not have. */
+.shell .listcard:not(.roi-plan) > .roi-plan-summary { padding: 16px 0; }
 
 /* Wider screens: two money columns side by side, fields in a grid. */
 @media (min-width: 620px) {
